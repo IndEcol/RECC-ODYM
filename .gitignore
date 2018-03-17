@@ -1,3 +1,6 @@
+# Local path file
+RECC_Paths.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
