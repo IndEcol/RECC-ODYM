@@ -34,41 +34,16 @@ import getpass
 from copy import deepcopy
 from tqdm import tqdm
 
-def config_string_cutout(String, Code, leftstart, rightstart): # Returns substring between Code and EoL for given identifier in config file
-# example: if Config_File_Line is "Data_Path_Network_1=K:\Research_Data" the function call
-# config_string_cutout(Config_File_Line,'Data_Path_Network_1','=','\n') will return 'K:\Research_Data'
-    Codeindex = String.find(Code,0,len(String))
-    if Codeindex == -1:
-        return 'None'
-    else:
-        Startindex = String.find(leftstart,Codeindex,len(String)) 
-        Endindex   = String.find(rightstart,Codeindex,len(String))
-        return String[Startindex +1:Endindex]
+import RECC_Paths # Import path file
+
 
 #import re
 __version__ = str('0.1')
 ##################################
 #    Section 1)  Initialize      #
 ##################################
-# Read paths from path file, if present:
-# NOTE: Hidden variable __file__ must be know to script for the directory structure to work.
-# Therefore: When first using the model, run the entire script with F5 so that the __file__ variable can be created.
-try: # Pars paths from RECC_Paths file
-    PathFile = open('RECC_Paths.txt', 'r') 
-    PathText = PathFile.read()
-    #Extract path names from main file
-    odym_path     = config_string_cutout(PathText,'odym_path','=','\n').strip() # Looking for 'odym_path' substring, then cutting out string between next '=' and line end, then stripping of blanks.
-    data_path     = config_string_cutout(PathText,'data_path','=','\n').strip()
-    results_path  = config_string_cutout(PathText,'results_path','=','\n').strip()
-
-except: # use relativepaths in neighboring folders as default setting
-    odym_path    = os.path.abspath(os.path.join(os.path.join(os.path.dirname(__file__), '..'),'ODYM_Model'))
-    data_path    = os.path.abspath(os.path.join(os.path.join(os.path.dirname(__file__), '..'),'RECC_Database'))
-    results_path = os.path.abspath(os.path.join(os.path.join(os.path.dirname(__file__), '..'),'RECC_Results'))
-    
 # add ODYM module directory to system path
-sys.path.insert(0, os.path.join(os.path.join(odym_path,'odym'),'modules'))
-
+sys.path.insert(0, os.path.join(os.path.join(RECC_Paths.odym_path,'odym'),'modules'))
 ### 1.1.) Read main script parameters
 # Mylog.info('### 1.1 - Read main script parameters')
 ProjectSpecs_Name_ConFile = 'RECC_Config.xlsx'
@@ -99,7 +74,7 @@ UUID_Scenario            = str(uuid.uuid4())
 StartTime                = datetime.datetime.now()
 TimeString               = str(StartTime.year) + '_' + str(StartTime.month) + '_' + str(StartTime.day) + '__' + str(StartTime.hour) + '_' + str(StartTime.minute) + '_' + str(StartTime.second)
 DateString               = str(StartTime.year) + '_' + str(StartTime.month) + '_' + str(StartTime.day)
-ProjectSpecs_Path_Result = os.path.join(results_path, Name_Scenario + '_' + TimeString )
+ProjectSpecs_Path_Result = os.path.join(RECC_Paths.results_path, Name_Scenario + '_' + TimeString )
 
 if not os.path.exists(ProjectSpecs_Path_Result): # Create model run results directory.
     os.makedirs(ProjectSpecs_Path_Result)
@@ -142,7 +117,6 @@ Mylog.info('Model script version: ' + __version__)
 Mylog.info('Model functions version: ' + msf.__version__())
 Mylog.info('Model classes version: ' + msc.__version__())
 Mylog.info('Current User: ' + ProjectSpecs_User_Name)
-Mylog.info('Current Path: ' + __file__)
 Mylog.info('Current Scenario: ' + Name_Scenario)
 Mylog.info(ScriptConfig['Description'])
 Mylog.debug('----\n')
@@ -350,7 +324,7 @@ Mylog.info('Read model data and parameters.')
 ParameterDict = {}
 for mo in range(0,len(PL_Names)):
     #ParPath = os.path.join(os.path.abspath(os.path.join(ProjectSpecs_Path_Main, '.')), 'ODYM_RECC_Database', PL_Version[mo])
-    ParPath = os.path.join(data_path, PL_Version[mo])
+    ParPath = os.path.join(RECC_Paths.data_path, PL_Version[mo])
     Mylog.info('Reading parameter ' + PL_Names[mo])
     #MetaData, Values = msf.ReadParameter(ParPath = ParPath,ThisPar = PL_Names[mo], ThisParIx = PL_IndexStructure[mo], IndexMatch = PL_IndexMatch[mo], ThisParLayerSel = PL_IndexLayer[mo], MasterClassification,IndexTable,IndexTable_ClassificationNames,ScriptConfig,Mylog) # Do not change order of parameters handed over to function!
     # Do not change order of parameters handed over to function!
@@ -511,11 +485,10 @@ ax1.pie(sizes, explode=explode, labels=labels, autopct='%1.1f%%',
 ax1.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
 plt.show()
 fig_name = 'TestFig.png'
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500)
 # include figure in logfile:
-fig_filename = os.path.join(os.path.relpath(ProjectSpecs_Path_Result), fig_name)
-fig_name = 'Figure ' + str(Figurecounter) + ': ' + fig_name
-Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_filename))
+fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500)
+Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
 Figurecounter += 1
 #
 
