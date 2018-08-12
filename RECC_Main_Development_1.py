@@ -29,7 +29,7 @@ import pandas as pd
 import shutil   
 import uuid
 import matplotlib.pyplot as plt   
-import imp
+import importlib
 import getpass
 from copy import deepcopy
 from tqdm import tqdm
@@ -56,11 +56,11 @@ ProjectSpecs_User_Name     = getpass.getuser()
 
 # import packages whose location is now on the system path:    
 import ODYM_Classes as msc # import the ODYM class file
-imp.reload(msc)
+importlib.reload(msc)
 import ODYM_Functions as msf  # import the ODYM function file
-imp.reload(msf)
+importlib.reload(msf)
 import dynamic_stock_model as dsm # import the dynamic stock model library
-imp.reload(dsm)
+importlib.reload(dsm)
 
 Name_Script        = Model_Configsheet.cell_value(5,3)
 if Name_Script != 'RECC_Main_Development_1':  # Name of this script must equal the specified name in the Excel config file
