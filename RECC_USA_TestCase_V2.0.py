@@ -6,7 +6,7 @@ Created on July 22, 2018
 """
 
 """
-File RECC_USA_TestCase_V1.0
+File RECC_USA_TestCase_V2.0
 
 Contains the model instructions for the resource efficiency climate change project developed using ODYM: ODYM-RECC
 
@@ -342,6 +342,7 @@ Nt = len(IndexTable.Classification[IndexTable.index.get_loc('Time')].Items)
 Ne = len(IndexTable.Classification[IndexTable.index.get_loc('Element')].Items)
 Nc = len(IndexTable.Classification[IndexTable.index.get_loc('Cohort')].Items)
 Nr = len(IndexTable.Classification[IndexTable.index.get_loc('Region')].Items)
+NG = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('G')].Items)
 Ng = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items)
 NS = len(IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items)
 NR = len(IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -367,8 +368,9 @@ for mo in range(0,len(PL_Names)):
                                                 Unit=MetaData['Dataset_Unit'])
 
 # Interpolate missing parameter values:
-    
+
 # 1) Material composition of vehicles:
+# Values are given every 5 years, we need all values in between.
 index = PL_Names.index('3_MC_RECC_FinalProducts_Vehicles_USA')
 MC_Veh_New = np.zeros(ParameterDict[PL_Names[index]].Values.shape)
 Idx_Time = [1980,1985,1990,1995,2000,2005,2010,2015,2020,2025,2030,2035,2040,2045,2050,2055,2060]
@@ -383,6 +385,7 @@ for m in range(0,Nk):
 ParameterDict[PL_Names[index]].Values = MC_Veh_New.copy()
 
 # 2) Material composition of buildings:
+# Values are given every 5 years, we need all values in between.
 index = PL_Names.index('3_MC_RECC_FinalProducts_Buildings_USA')
 MC_Bld_New = np.zeros(ParameterDict[PL_Names[index]].Values.shape)
 Idx_Time = [1900,1910,1920,1930,1940,1950,1960,1970,1980,1985,1990,1995,2000,2005,2010,2015,2020,2025,2030,2035,2040,2045,2050,2055,2060]
@@ -397,18 +400,21 @@ for m in range(0,Nk):
 ParameterDict[PL_Names[index]].Values = MC_Bld_New.copy()
 
 # 3) Energy intensity of historic products:
-index = PL_Names.index('3_EI_Products_UsePhase_USA')
-ParameterDict[PL_Names[index]].Values[0:115,:,:,:,:] = np.tile(ParameterDict[PL_Names[index]].Values[115,:,:,:,:],(115,1,1,1,1))
+#index = PL_Names.index('3_EI_Products_UsePhase_USA')
+#ParameterDict[PL_Names[index]].Values[0:115,:,:,:,:] = np.tile(ParameterDict[PL_Names[index]].Values[115,:,:,:,:],(115,1,1,1,1))
 
 # 4) GHG intensity of energy supply:
+# Extrapolate 2050-2060 as 2050 values
 index = PL_Names.index('4_PE_GHGIntensityEnergySupply')
-ParameterDict[PL_Names[index]].Values[:,:,:,36::] = np.tile(ParameterDict[PL_Names[index]].Values[:,:,:,34:36],(1,1,1,5))
+ParameterDict[PL_Names[index]].Values[:,:,:,36::] = np.einsum('XnS,t->XnSt',ParameterDict[PL_Names[index]].Values[:,:,:,35],np.ones(10))
 
 # 5) Fabrication yield:
+# Extrapolate 2050-2060 as 2050 values
 index = PL_Names.index('4_PY_Manufacturing_USA')
 ParameterDict[PL_Names[index]].Values[:,:,:,:,1::,:] = np.einsum('t,mwgFr->mwgFtr',np.ones(45),ParameterDict[PL_Names[index]].Values[:,:,:,:,0,:])
 
 # 6 
+
 ##########################################################
 #    Section 3) Initialize dynamic MFA model for RECC    #
 ##########################################################
@@ -514,7 +520,7 @@ Mylog.info('Calculate inflows and outflows for use phase.')
 # THIS IS WHERE WE LEAVE THE FORMAL MODEL STRUCTURE AND DO WHATEVER IS NECESSARY TO SOLVE THE MODEL EQUATIONS.
 
 # 1) Determine total stock from regression model, and apply stock-driven model
-TotalStockCurves_UsePhase   = np.zeros((Nt,Nr,Ng,NS))    # Stock   by year, region, scenario, and product
+#TotalStockCurves_UsePhase   = np.zeros((Nt,Nr,NG,NS))    # Stock   by year, region, scenario, and product
 #TotalStockCurves_C    = np.zeros((Nt,Nc,Nr,NG,NS)) # Stock   by year, age-cohort, region, scenario, and product
 #TotalInflowCurves     = np.zeros((Nt,Nr,NG,NS))    # Inflow  by year, region, scenario, and product
 #TotalOutflowCurves    = np.zeros((Nt,Nc,Nr,NG,NS)) # Outflow by year, age-cohort, region, scenario, and product
@@ -528,13 +534,15 @@ SwitchTime=Nc - Model_Duration +1 # Year when future modelling horizon starts: 1
 TotalStock_UsePhase_Hist_cgr = RECC_System.ParameterDict['2_S_RECC_FinalProducts_2015_USA'].Values[0,:,:,:].copy() 
 
 # Determine total future stock, product level. Units: Vehicles: million, Buildings: million m2.
-TotalStockCurves_UsePhase = np.einsum('Stgr,MtrS->trgS',RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_USA'].Values,RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values)
+TotalStockCurves_UsePhase = np.einsum('StGr,MtrS->trGS',RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_USA'].Values,RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values)
 
 # 2) Include (or not) the RE strategies for the use phase:
 
 # Include_REStrategy_MoreIntenseUse:
 if ScriptConfig['Include_REStrategy_MoreIntenseUse'] == 'True':
     TotalStockCurves_UsePhase = np.einsum('RtrgS,trgS->RtrgS', (1 - np.einsum('RtrS,grS->RtrgS',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_SSP_32R'].Values*0.01,RECC_System.ParameterDict['6_PR_MoreIntenseUse_USA'].Values)),TotalStockCurves_UsePhase)    
+else:
+    TotalStockCurves_UsePhase = np.einsum('R,trgS->RtrgS', np.ones(NR),TotalStockCurves_UsePhase)    
 
 # Include_REStrategy_LifeTimeExtension: Product lifetime extension.
 # First, replicate lifetimes for the 5 scenarios and all age-cohorts
@@ -548,48 +556,34 @@ if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True':
 # Build pdf array from lifetime distribution: Probability of survival.
 for g in tqdm(range(0, Ng), unit=' commodity groups'):
     for r in range(0, Nr):
-        for S in range(0, NS):
+        for S in tqdm(range(0,NS), unit='SSP scenarios'):
             for R in range(0,NR):
                 LifeTimes = Par_RECC_ProductLifetime[R, g, r, :, S]
                 lt = {'Type'  : 'Normal',
                       'Mean'  : LifeTimes,
                       'StdDev': 0.3 * LifeTimes}
                 SF_Array[:, :, g, r, S, R] = dsm.DynamicStockModel(t=np.arange(0, Nc, 1), lt=lt).compute_sf().copy()
-                np.fill_diagonal(SF_Array[:, :, g, r, S, R],1) # no outflows from current year, this would break the mass balance in the calculation routine below.
+                # np.fill_diagonal(SF_Array[:, :, g, r, S, R],1) # no outflows from current year, this would break the mass balance in the calculation routine below.
 
-# Compute evolution of in-use stocks: initial stock evolution separately from future stock demand and stock-driven model
-for g in tqdm(range(0, Ng), unit=' commodity groups'):
+# Compute evolution of 2015 in-use stocks: initial stock evolution separately from future stock demand and stock-driven model
+for G in tqdm(range(0, NG), unit=' commodity groups'):
     for r in range(0,Nr):
-        for S in range(0,NS):
-            for R in range(0,NR):         
-                LifeTimes = Par_RECC_ProductLifetime[R, g, r, :, S]
-                lt = {'Type': 'Normal',
-                      'Mean': LifeTimes,
-                      'StdDev': 0.3 * LifeTimes}
+        for S in tqdm(range(0,NS), unit='SSP scenarios'):
+            for R in range(0,NR):    
+                FutureStock     = TotalStockCurves_UsePhase[R,1::, r, G, S]# Future total stock
+                InitialStock    = TotalStock_UsePhase_Hist_cgr[:,:,r]
+                if G == 0: # quick fix for vehicles and buildings only !!!
+                    InitialStock[:,6::] = 0  # set not relevant initial stock to 0
+                if G == 1:
+                    InitialStock[:,0:6] = 0  # set not relevant initial stock to 0
+                SFArrayCombined = SF_Array[:,:,:,r,S,R]
+                TypeSplit       = RECC_System.ParameterDict['3_SHA_TypeSplit_NewProducts_USA'].Values[G,:,1::,r,S].transpose()
+  
+                Var_S, Var_O, Var_I = msf.compute_stock_driven_model_initialstock_typesplit(FutureStock,InitialStock,SFArrayCombined,TypeSplit, NegativeInflowCorrect = False)
                 
-                IS = dsm.DynamicStockModel(t=np.arange(0, Nc, 1),lt=lt,sf=SF_Array[:, :, g, r, S, R])
-                
-                S_c_hist = IS.compute_evolution_initialstock(InitialStock=TotalStock_UsePhase_Hist_cgr[0:SwitchTime,g,r],SwitchTime=SwitchTime)
-                O_c_hist = IS.compute_o_c_from_s_c()
-                
-                S_fut    = TotalStockCurves_UsePhase[R,1::, r, g, S] - S_c_hist[SwitchTime::,:].sum(axis=1)
-
-                # Apply stock-driven model for future remaining stock
-                LifeTimes = Par_RECC_ProductLifetime[R, g, r, SwitchTime::, S]
-                lt = {'Type': 'Normal',
-                      'Mean': LifeTimes,
-                      'StdDev': 0.3 * LifeTimes}                
-                DSM = dsm.DynamicStockModel(t=np.arange(0, Nt-1, 1),
-                                                          s=S_fut,
-                                                          lt=lt,
-                                                          sf=SF_Array[SwitchTime::, SwitchTime::, g, r, S, R])
-                Var_S, Var_O, Var_I =                     DSM.compute_stock_driven_model(NegativeInflowCorrect=True)   
-                
-                Stock_Detail_UsePhase[:,0:SwitchTime,g,r,S,R]     = S_c_hist[SwitchTime-1::,0:SwitchTime].copy()                    
-                Stock_Detail_UsePhase[1::,SwitchTime::,g,r,S,R]   = Var_S.copy()
-                Outflow_Detail_UsePhase[:,0:SwitchTime,g,r,S,R]   = O_c_hist[SwitchTime-1::,0:SwitchTime].copy()                    
-                Outflow_Detail_UsePhase[1::,SwitchTime::,g,r,S,R] = Var_O.copy()
-                Inflow_Detail_UsePhase[1::,g,r,S,R]               = Var_I.copy()
+                Stock_Detail_UsePhase[1::,:,:,r,S,R]   += Var_S.copy()
+                Outflow_Detail_UsePhase[1::,:,:,r,S,R] += Var_O.copy()
+                Inflow_Detail_UsePhase[1::,:,r,S,R]    += Var_I[SwitchTime::,:].copy()
 # Here so far: Units: Vehicles: million, Buildings: million m2. for stocks, X/yr for flows.
                 
 # Clean up
@@ -630,9 +624,16 @@ if ScriptConfig['Include_REStrategy_FabYieldImprovement'] == 'True':
     Par_FabYieldImprovement = np.einsum('w,RtmgrS->mwgtrSR',np.ones((Nw)),np.einsum('RtrS,mgrS->RtmgrS',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_SSP_32R'].Values*0.01,RECC_System.ParameterDict['6_PR_FabricationYieldImprovement_USA'].Values))
 else:
     Par_FabYieldImprovement = 0
-    Par_FabYield_Raster = Par_FabYield > 0    
-    Par_FabYield = Par_FabYield - Par_FabYield_Raster * Par_FabYieldImprovement
-Par_FabYield_total = np.einsum('mwgtrSR->mgtrSR',Par_FabYield)
+Par_FabYield_Raster = Par_FabYield > 0    
+Par_FabYield        = Par_FabYield - Par_FabYield_Raster * Par_FabYieldImprovement
+Par_FabYield_total  = np.einsum('mwgtrSR->mgtrSR',Par_FabYield)
+
+# Consider EoL recovery rate improvement:
+if ScriptConfig['Include_REStrategy_EoL_RR_Improvement'] == 'True':
+    Par_RECC_EoL_RR_USA_SR =  np.einsum('RtS,grmw->RtrmgSw',np.ones((NR,Nt,NS)),RECC_System.ParameterDict['4_PY_EoL_RR_USA'].Values *0.01) \
+    + np.einsum('RtrS,grmw->RtrmgSw',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_SSP_32R'].Values*0.01,RECC_System.ParameterDict['6_PR_EoL_RR_Improvement_USA'].Values*0.01)
+else:    
+    Par_RECC_EoL_RR_USA_SR =  np.einsum('RtS,grmw->RtrmgSw',np.ones((NR,Nt,NS)),RECC_System.ParameterDict['4_PY_EoL_RR_USA'].Values *0.01)
 
 # Continue to develop system year by year to transfer total material flows to element level
 for t in tqdm(range(1, Nt), unit=' years'): # 1: 2016
@@ -647,11 +648,6 @@ for t in tqdm(range(1, Nt), unit=' years'): # 1: 2016
         RECC_System.FlowDict['F_8_6'].Values[t,:,:,:,:,:,:] =  np.einsum('RrgS,crgSRme->rgSRme',np.einsum('RrS,grS->RrgS',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_SSP_32R'].Values[:,t,:,:]*0.01,RECC_System.ParameterDict['6_PR_ReUse_USA'].Values),RECC_System.FlowDict['F_7_8'].Values[t,0:Nc-Nt+t,:,:,:,:,:,:])
         
     RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:,:,:]     = np.einsum('crgSRme->rgSRme',RECC_System.FlowDict['F_7_8'].Values[t,:,:,:,:,:,:]) - RECC_System.FlowDict['F_8_6'].Values[t,:,:,:,:,:,:]
-    
-    # Consider EoL recovery rate improvement:
-    if ScriptConfig['Include_REStrategy_EoL_RR_Improvement'] == 'True':
-        Par_RECC_EoL_RR_USA_SR =  np.einsum('RtS,grmw->RtrmgSw',np.ones((NR,Nt,NS)),RECC_System.ParameterDict['4_PY_EoL_RR_USA'].Values *0.01) \
-        + np.einsum('RtrS,grmw->RtrmgSw',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_SSP_32R'].Values*0.01,RECC_System.ParameterDict['6_PR_EoL_RR_Improvement_USA'].Values*0.01)
     
     # Calculate postconsumper scrap, in Mt/yr
     RECC_System.FlowDict['F_9_10'].Values[t,:,:,:,:,:]      = np.einsum('RrmgSw,rgSRme->rSRwe',Par_RECC_EoL_RR_USA_SR[:,t,:,:,:,:,:],RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:,:,:])    
@@ -721,6 +717,7 @@ SysVar_TotalPrimaryMaterialGHGFootprint = np.einsum('mXr,trSRme->XtrSR',RECC_Sys
 # Unit: Mt/yr.  Here, we have a one to one correspondence between materials and productions processes, hence, P = m.
 
 SysVar_TotalGHGFootprint                = SysVar_TotelEnergyGHGFootprint + SysVar_DirectGHGEms_UsePhase + SysVar_TotalPrimaryMaterialGHGFootprint
+# Dimensions: extension x time x region x SSP x RCP
 # Unit: Mt/yr.
 
 SysVar_TotalGHGCosts     = np.einsum('RtrS,XtrSR->trSR',RECC_System.ParameterDict['3_PR_RECC_CO2Price_SSP_32R'].Values,SysVar_TotalGHGFootprint)
@@ -801,22 +798,33 @@ Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
 Figurecounter += 1
 #
 
-### 5.2) Export in Sankey format for Sankey app [http://www.visualisation.industrialecology.uni-freiburg.de/]. Not working yet! Will be implemented once model code is stable.
-# MyMFA.SankeyExport(Year = 2017,Path = Path_Result, Element = 0) # Export in Sankey format for D3.js Circular Sankey, 
-#Mylog.info('### 5.2 - Export Sankey')
-#Mylog.info('not implemented yet')
+### 5.2) Export to Excel
+Mylog.info('### 5.2 - Export to Excel')
+myfont = xlwt.Font()
+myfont.bold = True
+mystyle = xlwt.XFStyle()
+mystyle.font = myfont
+Result_workbook = xlwt.Workbook(encoding = 'ascii') # Export element stock by region
 
-### 5.3) Export to Excel
-#Mylog.info('### 5.3 - Export to Excel')
-#myfont = xlwt.Font()
-#myfont.bold = True
-#mystyle = xlwt.XFStyle()
-#mystyle.font = myfont
-#Result_workbook = xlwt.Workbook(encoding = 'ascii') # Export element stock by region
-#msf.ExcelSheetFill(Result_workbook, 'ElementComposition', np.einsum('tcrge->re',RECC_System.StockDict['S_4'].Values[:,:,:,:,0,:]), topcornerlabel = 'Total in-use stock of elements, by region, in ' + RECC_System.Unit, rowlabels = RECC_System.IndexTable.set_index('IndexLetter').loc['r'].Classification.Items, collabels = RECC_System.IndexTable.set_index('IndexLetter').loc['e'].Classification.Items, Style = mystyle, rowselect = None, colselect = None)
-#Result_workbook.save(os.path.join(ProjectSpecs_Path_Result,'ElementCompositionExample.xls'))
+Sheet = Result_workbook.add_sheet('Cover')
+Sheet.write(2,1,label = 'ScriptConfig', style = mystyle)
+m = 3
+for x in sorted(ScriptConfig.keys()):
+    Sheet.write(m,1,label = x)
+    Sheet.write(m,2,label = ScriptConfig[x])
+    m +=1
 
-### 5.4) Export as .mat file
+MyLabels= []
+for S in range(0,NS):
+    for R in range(0,NR):
+        MyLabels.append(RECC_System.IndexTable.set_index('IndexLetter').loc['S'].Classification.Items[S] + ', ' + RECC_System.IndexTable.set_index('IndexLetter').loc['R'].Classification.Items[R])
+    
+ResultArray = SysVar_TotalGHGFootprint[0,:,0,:,:].reshape(Nt,NS * NR)    
+msf.ExcelSheetFill(Result_workbook, 'TotalGHGFootprint', ResultArray, topcornerlabel = 'System-wide GHG emissions, Mt/yr', rowlabels = RECC_System.IndexTable.set_index('IndexLetter').loc['t'].Classification.Items, collabels = MyLabels, Style = mystyle, rowselect = None, colselect = None)
+
+Result_workbook.save(os.path.join(ProjectSpecs_Path_Result,'SysVar_TotalGHGFootprint.xls'))
+
+### 5.3) Export as .mat file
 #Mylog.info('### 5.4 - Export to Matlab')
 #Mylog.info('Saving stock data to Matlab.')
 #Filestring_Matlab_out = os.path.join(ProjectSpecs_Path_Result, 'StockData.mat')
