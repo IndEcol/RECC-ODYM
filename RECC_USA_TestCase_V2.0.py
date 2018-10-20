@@ -34,6 +34,7 @@ import getpass
 from copy import deepcopy
 from tqdm import tqdm
 from scipy.interpolate import interp1d
+import pylab
 
 import RECC_Paths # Import path file
 
@@ -413,8 +414,14 @@ ParameterDict[PL_Names[index]].Values[:,:,:,36::] = np.einsum('XnS,t->XnSt',Para
 index = PL_Names.index('4_PY_Manufacturing_USA')
 ParameterDict[PL_Names[index]].Values[:,:,:,:,1::,:] = np.einsum('t,mwgFr->mwgFtr',np.ones(45),ParameterDict[PL_Names[index]].Values[:,:,:,:,0,:])
 
-# 6 
-
+# 6 Model flow control: Include or exclude certain sectors
+if ScriptConfig['SectorSelect'] == 'passenger vehicles':
+    ParameterDict['2_S_RECC_FinalProducts_2015_USA'].Values[:,:,6::,:] = 0
+    ParameterDict['2_S_RECC_FinalProducts_Future_USA'].Values[:,:,1,:] = 0
+if ScriptConfig['SectorSelect'] == 'residential buildings':
+    ParameterDict['2_S_RECC_FinalProducts_2015_USA'].Values[:,:,0:6,:] = 0
+    ParameterDict['2_S_RECC_FinalProducts_Future_USA'].Values[:,:,0,:] = 0
+ 
 ##########################################################
 #    Section 3) Initialize dynamic MFA model for RECC    #
 ##########################################################
@@ -531,7 +538,7 @@ Inflow_Detail_UsePhase      = np.zeros((Nt,Ng,Nr,NS,NR)) # index structure: tgrS
 SwitchTime=Nc - Model_Duration +1 # Year when future modelling horizon starts: 1.1.2016
 
 #Get historic stock in 2015 by age-cohort, and covert unit to Vehicles: million, Buildings: million m2.
-TotalStock_UsePhase_Hist_cgr = RECC_System.ParameterDict['2_S_RECC_FinalProducts_2015_USA'].Values[0,:,:,:].copy() 
+TotalStock_UsePhase_Hist_cgr = RECC_System.ParameterDict['2_S_RECC_FinalProducts_2015_USA'].Values[0,:,:,:]
 
 # Determine total future stock, product level. Units: Vehicles: million, Buildings: million m2.
 TotalStockCurves_UsePhase = np.einsum('StGr,MtrS->trGS',RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_USA'].Values,RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values)
@@ -571,7 +578,7 @@ for G in tqdm(range(0, NG), unit=' commodity groups'):
         for S in tqdm(range(0,NS), unit='SSP scenarios'):
             for R in range(0,NR):    
                 FutureStock     = TotalStockCurves_UsePhase[R,1::, r, G, S]# Future total stock
-                InitialStock    = TotalStock_UsePhase_Hist_cgr[:,:,r]
+                InitialStock    = TotalStock_UsePhase_Hist_cgr[:,:,r].copy()
                 if G == 0: # quick fix for vehicles and buildings only !!!
                     InitialStock[:,6::] = 0  # set not relevant initial stock to 0
                 if G == 1:
@@ -584,11 +591,12 @@ for G in tqdm(range(0, NG), unit=' commodity groups'):
                 Stock_Detail_UsePhase[1::,:,:,r,S,R]   += Var_S.copy()
                 Outflow_Detail_UsePhase[1::,:,:,r,S,R] += Var_O.copy()
                 Inflow_Detail_UsePhase[1::,:,r,S,R]    += Var_I[SwitchTime::,:].copy()
+
 # Here so far: Units: Vehicles: million, Buildings: million m2. for stocks, X/yr for flows.
-                
+
 # Clean up
-del TotalStockCurves_UsePhase
-del SF_Array
+#del TotalStockCurves_UsePhase
+#del SF_Array
 
 # include light-weighting:
 Par_RECC_MC_SR = np.einsum('cmgr,SR->cmgrSR',RECC_System.ParameterDict['3_MC_RECC_FinalProducts_Buildings_USA'].Values[:,1,:,:,:] + RECC_System.ParameterDict['3_MC_RECC_FinalProducts_Vehicles_USA'].Values[:,0,:,:,:],np.ones((NS,NR)))
@@ -635,6 +643,7 @@ if ScriptConfig['Include_REStrategy_EoL_RR_Improvement'] == 'True':
 else:    
     Par_RECC_EoL_RR_USA_SR =  np.einsum('RtS,grmw->RtrmgSw',np.ones((NR,Nt,NS)),RECC_System.ParameterDict['4_PY_EoL_RR_USA'].Values *0.01)
 
+Mylog.info('Translate total flows into individual chemical elements.')
 # Continue to develop system year by year to transfer total material flows to element level
 for t in tqdm(range(1, Nt), unit=' years'): # 1: 2016
     CohortOffset = t +Nc -Nt    
@@ -657,8 +666,8 @@ for t in tqdm(range(1, Nt), unit=' years'): # 1: 2016
     
     # remelting. 
     # Add old scrap with manufacturing scrap from last year. In year 2016, no fabrication scrap exists yet.
-    RECC_System.FlowDict['F_10_11'].Values[t,:,:,:,:,:] = RECC_System.FlowDict['F_9_10'].Values[t,:,:,:,:,:] + RECC_System.FlowDict['F_5_10'].Values[t-1,:,:,:,:,:]
-    RECC_System.FlowDict['F_11_12'].Values[t,:,:,:,:,:] = np.einsum('rSRwe,wmePr->rSRme',RECC_System.FlowDict['F_10_11'].Values[t,:,:,:,:,:],RECC_System.ParameterDict['4_PY_MaterialProductionRemelting'].Values[:,:,:,:,t,:])
+    RECC_System.FlowDict['F_10_11'].Values[t,:,:,:,:,:] = RECC_System.FlowDict['F_9_10'].Values[t,:,:,:,:,:] #+ RECC_System.FlowDict['F_5_10'].Values[t-1,:,:,:,:,:]
+    RECC_System.FlowDict['F_11_12'].Values[t,:,:,:,:,:] = np.einsum('rSRwe,wmePr->rSRme',RECC_System.FlowDict['F_10_11'].Values[t,:,:,:,:,:],RECC_System.ParameterDict['4_PY_MaterialProductionRemelting'].Values[:,:,:,:,0,:])
     RECC_System.FlowDict['F_11_0'].Values[t,:,:,:,:]    = np.einsum('rSRwe->rSRe',RECC_System.FlowDict['F_10_11'].Values[t,:,:,:,:,:]) - np.einsum('rSRwe->rSRe',RECC_System.FlowDict['F_11_12'].Values[t,:,:,:,:,:])
     
     RECC_System.FlowDict['F_12_5'].Values[t,:,:,:,:,:]  = RECC_System.FlowDict['F_11_12'].Values[t,:,:,:,:,:]
@@ -700,23 +709,29 @@ SysVar_ServiceSupply_UsePhase = np.einsum('tgrS,tcgrSR->tcgrSR',RECC_System.Para
 SysVar_EnergyDemand_UsePhase  = np.einsum('cgnrS,tcgrSR->trnSR',RECC_System.ParameterDict['3_EI_Products_UsePhase_USA'].Values, SysVar_ServiceSupply_UsePhase)
 # Unit: TJ/yr for both vehicles and buildings.
 
+# Translate 'all' energy carriers to specific ones
+SysVar_EnergyDemand_UsePhase_Buildings_ByEnergyCarrier = np.einsum('trnS,trSR->trnSR',RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings_USA'].Values[:,1,:,:,:],SysVar_EnergyDemand_UsePhase[:,:,-1,:,:].copy())
+SysVar_EnergyDemand_UsePhase[:,:,-1,:,:] = 0 # drop 'all' energy carrier as it was split
+SysVar_EnergyDemand_UsePhase += SysVar_EnergyDemand_UsePhase_Buildings_ByEnergyCarrier
+
 SysVar_EnergyDemand_MaterialRemelting = 1000 * np.einsum('Pnr,trSRme->trnSR',RECC_System.ParameterDict['4_EI_ProcessEnergyIntensity_USA'].Values[0:7,:,110,:],RECC_System.FlowDict['F_11_12'].Values)
 # Unit: TJ/yr.
 
 SysVar_TotalEnergyDemand = SysVar_EnergyDemand_UsePhase + SysVar_EnergyDemand_MaterialRemelting
 # Unit: TJ/yr.
 
-SysVar_DirectGHGEms_UsePhase            = 0.001 * np.einsum('Xn,trnSR->XtrSR',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_TotalEnergyDemand)
+SysVar_DirectGHGEms_UsePhase            = 0.001 * np.einsum('Xn,trnSR->XtrSR',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase)
+SysVar_DirectGHGEms_MaterialRemelting   = 0.001 * np.einsum('Xn,trnSR->XtrSR',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_MaterialRemelting)
+#SysVar_DirectGHGEms_UsePhase_Buildings  = 0.001 * np.einsum('Xn,trnSR->XtrSR',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_Buildings_ByEnergyCarrier)
 # Unit: Mt/yr.
 
-SysVar_TotelEnergyGHGFootprint          = 0.001 * np.einsum('XnSt,trnSR->XtrSR',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values,SysVar_TotalEnergyDemand)
+SysVar_IndirectGHGEms_EnergySupply      = 0.001 * np.einsum('XnSt,trnSR->XtrSR',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values,SysVar_TotalEnergyDemand)
 # Unit: Mt/yr.
 
-#SysVar_TotalPrimaryMaterialGHGFootprint = np.einsum('mXr,trSRm->XtrSR',RECC_System.ParameterDict['4_PE_ProcessExtensions_USA'].Values[7::,:,110,:],SysVar_PrimaryProd[:,:,:,:,:,0])
 SysVar_TotalPrimaryMaterialGHGFootprint = np.einsum('mXr,trSRme->XtrSR',RECC_System.ParameterDict['4_PE_ProcessExtensions_USA'].Values[7::,:,110,:],RECC_System.FlowDict['F_3_4'].Values)
 # Unit: Mt/yr.  Here, we have a one to one correspondence between materials and productions processes, hence, P = m.
 
-SysVar_TotalGHGFootprint                = SysVar_TotelEnergyGHGFootprint + SysVar_DirectGHGEms_UsePhase + SysVar_TotalPrimaryMaterialGHGFootprint
+SysVar_TotalGHGFootprint                = SysVar_DirectGHGEms_UsePhase + SysVar_TotalPrimaryMaterialGHGFootprint + SysVar_DirectGHGEms_MaterialRemelting + SysVar_IndirectGHGEms_EnergySupply
 # Dimensions: extension x time x region x SSP x RCP
 # Unit: Mt/yr.
 
@@ -736,41 +751,58 @@ Mylog.info('## 5 - Evaluate results, save, and close')
 ### 5.1.) CREATE PLOTS and include them in log file
 Mylog.info('### 5.1 - Create plots and include into logfiles')
 Mylog.info('Plot results')
+MyColorCycle = pylab.cm.Paired(np.arange(0,1,0.2))
+linewidth = [1.2,2.4,1.2,1.2,1.2]
+
 Figurecounter = 1
 LegendItems_SSP = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items
-# 1) Emissions by scenerio
+# 1) Emissions by scenario
 
 fig1, ax1 = plt.subplots()
-ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),SysVar_TotalGHGFootprint[0,:,0,:,5])
-plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9},loc='upper left')
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
+for m in range(0,5):
+    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),SysVar_TotalGHGFootprint[0,:,0,m,5], linewidth = linewidth[m])
+    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
 plt.ylabel('GHG emissions of system, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('SSP baseline (unconstrained by RCP)', fontsize = 12) 
+plt.axis([2016, 2050, 0, 1500])
 plt.show()
 fig_name = 'CO2_Ems_Baseline.png'
 # include figure in logfile:
 fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500)
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
 Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
 Figurecounter += 1
 
 fig1, ax1 = plt.subplots()
-ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),SysVar_TotalGHGFootprint[0,:,0,:,0])
-plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9},loc='upper left')
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
+for m in range(0,5):
+    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),SysVar_TotalGHGFootprint[0,:,0,m,0], linewidth = linewidth[m])
+    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
 plt.ylabel('GHG emissions of system, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('RCP 2.6', fontsize = 12) 
+plt.axis([2016, 2050, 0, 1500])
 plt.show()
 fig_name = 'CO2_Ems_RCP2.6.png'
 # include figure in logfile:
 fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500)
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
 Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
 Figurecounter += 1
 
 fig1, ax1 = plt.subplots()
-ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),SysVar_TotalGHGFootprint[0,:,0,:,1])
-plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9},loc='upper left')
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
+for m in range(0,5):
+    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),SysVar_TotalGHGFootprint[0,:,0,m,1], linewidth = linewidth[m])
+    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
 plt.ylabel('GHG emissions of system, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('RCP 3.4', fontsize = 12) 
@@ -778,25 +810,193 @@ plt.show()
 fig_name = 'CO2_Ems_RCP3.4.png'
 # include figure in logfile:
 fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500)
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
 Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
 Figurecounter += 1
 
 fig1, ax1 = plt.subplots()
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
 ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),SysVar_TotalGHGCosts[:,0,:,0]/1000)
-plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9},loc='upper left')
+plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
 plt.ylabel('GHG costs of system, bn USD$2005.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
-plt.text(2026, 1050, '(SSP3 has carbon price of 0.)')
+plt.text(2026, (SysVar_TotalGHGCosts[:,0,:,0]/1000).max() * 0.93, '(SSP3 has carbon price of 0.)')
 plt.title('RCP 2.6', fontsize = 12) 
 plt.show()
 fig_name = 'CO2_Ems_Costs_RCP2.6.png'
 # include figure in logfile:
 fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500)
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
 Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
 Figurecounter += 1
 #
+
+# Primary material production
+
+fig1, ax1 = plt.subplots()
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
+ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),RECC_System.FlowDict['F_3_4'].Values[:,0,:,5,0,:].sum(axis =2))
+plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+plt.ylabel('Primary production of construction steel, Mt/yr.', fontsize = 12) 
+plt.xlabel('year', fontsize = 12) 
+plt.title('SSP baseline (unconstrained by RCP)', fontsize = 12) 
+plt.show()
+fig_name = 'ConstrSteel_Baseline.png'
+# include figure in logfile:
+fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+Figurecounter += 1
+
+fig1, ax1 = plt.subplots()
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
+for m in range(0,5):
+    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),RECC_System.FlowDict['F_3_4'].Values[:,0,m,5,1,:].sum(axis =1) * 0.15, linewidth = linewidth[m]) # adjusted for cement content
+    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+plt.ylabel('Primary production of automotive steel, Mt/yr.', fontsize = 12) 
+plt.xlabel('year', fontsize = 12) 
+plt.title('SSP baseline (unconstrained by RCP)', fontsize = 12) 
+plt.axis([2016, 2050, 0, 4])
+plt.show()
+fig_name = 'AutoSteel_Baseline.png'
+# include figure in logfile:
+fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+Figurecounter += 1
+
+fig1, ax1 = plt.subplots()
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
+for m in range(0,5):
+    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),RECC_System.FlowDict['F_3_4'].Values[:,0,m,5,12,:].sum(axis =1) * 0.15, linewidth = linewidth[m]) # adjusted for cement content
+    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+plt.ylabel('Production of cement, Mt/yr.', fontsize = 12) 
+plt.xlabel('year', fontsize = 12) 
+plt.title('SSP baseline (unconstrained by RCP)', fontsize = 12) 
+plt.axis([2016, 2050, 0, 100])
+plt.show()
+fig_name = 'Cement_Baseline.png'
+# include figure in logfile:
+fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+Figurecounter += 1
+
+fig1, ax1 = plt.subplots()
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
+ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),RECC_System.FlowDict['F_3_4'].Values[:,0,:,0,0,:].sum(axis =2))
+plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+plt.ylabel('Primary production of construction steel, Mt/yr.', fontsize = 12) 
+plt.xlabel('year', fontsize = 12) 
+plt.title('SSP baseline (RCP 2.6)', fontsize = 12) 
+plt.show()
+fig_name = 'ConstrSteel_RCP2.6.png'
+# include figure in logfile:
+fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+Figurecounter += 1
+
+fig1, ax1 = plt.subplots()
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
+ProxyHandlesList = []
+for m in range(0,5):
+    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),RECC_System.FlowDict['F_3_4'].Values[:,0,m,0,1,:].sum(axis =1) * 0.15, linewidth = linewidth[m]) # adjusted for cement content
+    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+plt.ylabel('Primary production of automotive steel, Mt/yr.', fontsize = 12) 
+plt.xlabel('year', fontsize = 12) 
+plt.title('SSP baseline (RCP 2.6)', fontsize = 12) 
+plt.axis([2016, 2050, 0, 4])
+plt.show()
+fig_name = 'AutoSteel_RCP2.6.png'
+# include figure in logfile:
+fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+Figurecounter += 1
+
+fig1, ax1 = plt.subplots()
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
+for m in range(0,5):
+    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),RECC_System.FlowDict['F_3_4'].Values[:,0,m,0,12,:].sum(axis =1) * 0.15, linewidth = linewidth[m]) # adjusted for cement content
+    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+plt.ylabel('Production of cement, Mt/yr.', fontsize = 12) 
+plt.xlabel('year', fontsize = 12) 
+plt.title('SSP baseline (RCP 2.6)', fontsize = 12) 
+plt.axis([2016, 2050, 0, 100])
+plt.show()
+fig_name = 'Cement_RCP2.6.png'
+# include figure in logfile:
+fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+Figurecounter += 1
+
+fig1, ax1 = plt.subplots()
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
+ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),RECC_System.FlowDict['F_3_4'].Values[:,0,:,1,0,:].sum(axis =2))
+plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+plt.ylabel('Primary production of construction steel, Mt/yr.', fontsize = 12) 
+plt.xlabel('year', fontsize = 12) 
+plt.title('SSP baseline (RCP 3.4)', fontsize = 12) 
+plt.show()
+fig_name = 'ConstrSteel_RCP3.4.png'
+# include figure in logfile:
+fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+Figurecounter += 1
+
+fig1, ax1 = plt.subplots()
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
+ProxyHandlesList = []
+for m in range(0,5):
+    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),RECC_System.FlowDict['F_3_4'].Values[:,0,m,1,1,:].sum(axis =1) * 0.15, linewidth = linewidth[m]) # adjusted for cement content
+    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+plt.ylabel('Primary production of automotive steel, Mt/yr.', fontsize = 12) 
+plt.xlabel('year', fontsize = 12) 
+plt.title('SSP baseline (RCP 3.4)', fontsize = 12) 
+plt.axis([2016, 2050, 0, 4])
+plt.show()
+fig_name = 'AutoSteel_RCP3.4.png'
+# include figure in logfile:
+fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+Figurecounter += 1
+
+fig1, ax1 = plt.subplots()
+ax1.set_color_cycle(MyColorCycle)
+ProxyHandlesList = []
+for m in range(0,5):
+    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),RECC_System.FlowDict['F_3_4'].Values[:,0,m,1,12,:].sum(axis =1) * 0.15, linewidth = linewidth[m]) # adjusted for cement content
+    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+plt.ylabel('Production of cement, Mt/yr.', fontsize = 12) 
+plt.xlabel('year', fontsize = 12) 
+plt.title('SSP baseline (RCP 3.4)', fontsize = 12) 
+plt.axis([2016, 2050, 0, 100])
+plt.show()
+fig_name = 'Cement_RCP3.4.png'
+# include figure in logfile:
+fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
+fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+Figurecounter += 1
 
 ### 5.2) Export to Excel
 Mylog.info('### 5.2 - Export to Excel')
