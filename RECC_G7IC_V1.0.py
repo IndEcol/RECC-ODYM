@@ -374,6 +374,7 @@ for mo in range(mo_start,len(PL_Names)):
                                                 Unit=MetaData['Dataset_Unit'])
 
 # Interpolate missing parameter values:
+mr = 5 # reference region for strategies, GHG prices and intensities (5: USA)
 
 # 1) Material composition of vehicles:
 # Values are given every 5 years, we need all values in between.
@@ -432,6 +433,13 @@ ParameterDict['4_PY_EoL_RR_USA'].Values = np.einsum('gmwW,r->grmwW',ParameterDic
 # 7) Energy carrier split of buildings and vehicles
 ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles_G7IC'].Values = np.einsum('gn,crVS->cgrVnS',ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles_G7IC'].Values[115,:,5,3,:,0].copy(),np.ones((Nc,Nr,NV,NS)))
 
+# 8) RE strategy potentials for countries other than the US:
+ParameterDict['6_PR_MoreIntenseUse_USA'].Values              = np.einsum('GS,r->GrS',ParameterDict['6_PR_MoreIntenseUse_USA'].Values[:,5,:],np.ones(Nr))
+ParameterDict['6_PR_LightWeighting_USA'].Values              = np.einsum('gS,r->grS',ParameterDict['6_PR_LightWeighting_USA'].Values[:,5,:],np.ones(Nr))
+ParameterDict['6_PR_ReUse_USA'].Values                       = np.einsum('gS,r->grS',ParameterDict['6_PR_ReUse_USA'].Values[:,5,:],np.ones(Nr))
+ParameterDict['6_PR_LifeTimeExtension_USA'].Values           = np.einsum('gS,r->grS',ParameterDict['6_PR_LifeTimeExtension_USA'].Values[:,5,:],np.ones(Nr))
+ParameterDict['6_PR_FabricationYieldImprovement_USA'].Values = np.einsum('mgS,r->mgrS',ParameterDict['6_PR_FabricationYieldImprovement_USA'].Values[:,:,5,:],np.ones(Nr))
+ParameterDict['6_PR_EoL_RR_Improvement_USA'].Values          = np.einsum('gmwW,r->grmwW',ParameterDict['6_PR_EoL_RR_Improvement_USA'].Values[:,5,:,:,:],np.ones(Nr))
 
 # X) Model flow control: Include or exclude certain sectors
 if ScriptConfig['SectorSelect'] == 'passenger vehicles':
@@ -457,7 +465,6 @@ Scrap_Outflow    = np.zeros((Nt,Nw,NS,NR))
 #  Examples for testing
 #mS = 1
 #mR = 1
-mr = 5 # region for GHG prices and intensities (5: USA)
 
 # Select and loop over scenarios
 for mS in range(0,NS):
@@ -543,6 +550,10 @@ for mS in range(0,NS):
                                                  Color = None, ID = None, UUID = None)
         
         RECC_System.FlowDict['F_12_5'] = msc.Flow(Name='secondary material consumption' , P_Start = 12, P_End = 5, 
+                                                 Indices = 't,r,m,e', Values=None, Uncert=None, 
+                                                 Color = None, ID = None, UUID = None)
+        
+        RECC_System.FlowDict['F_12_0'] = msc.Flow(Name='excess secondary material' , P_Start = 12, P_End = 0, 
                                                  Indices = 't,r,m,e', Values=None, Uncert=None, 
                                                  Color = None, ID = None, UUID = None)
         
@@ -722,8 +733,14 @@ for mS in range(0,NS):
             RECC_System.FlowDict['F_10_9'].Values[t,:,:,:]      = np.einsum('rwe->rwe',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:] + RECC_System.StockDict['S_10'].Values[t-1,:,:,:].copy())
             RECC_System.StockDict['S_10'].Values[t-1,:,:,:]     = 0 # Fabriation scrap buffer is cleared
             RECC_System.FlowDict['F_9_12'].Values[t,:,:,:]      = np.einsum('rwe,wmePr->rme',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:],RECC_System.ParameterDict['4_PY_MaterialProductionRemelting'].Values[:,:,:,:,0,:])
+            RECC_System.FlowDict['F_9_12'].Values[t,:,:,0]      = np.einsum('rme->rm',RECC_System.FlowDict['F_9_12'].Values[t,:,:,1::])
             RECC_System.FlowDict['F_12_5'].Values[t,:,:,:]      = RECC_System.FlowDict['F_9_12'].Values[t,:,:,:]
-                        
+            RECC_System.FlowDict['F_12_5'].Values[t,:,:,0]      = np.einsum('rme->rm',RECC_System.FlowDict['F_12_5'].Values[t,:,:,1::]) # All up all chemical elements to total
+                     
+            # Element composition shares of recycled material:
+            Element_Material_Composition_t_SecondaryMaterial = np.einsum('me,me->me',RECC_System.FlowDict['F_9_12'].Values[t,-1,:,:],1/np.einsum('m,e->me',RECC_System.FlowDict['F_9_12'].Values[t,-1,:,0],np.ones(Ne)))
+            Element_Material_Composition_t_SecondaryMaterial[np.isnan(Element_Material_Composition_t_SecondaryMaterial)] = 0            
+            
             # 6) Waste mgt. losses.
             RECC_System.FlowDict['F_9_0'].Values[t,:]         = np.einsum('rgme->e',RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:]) + np.einsum('rwe->e',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:]) - np.einsum('rwe->e',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]) - np.einsum('rme->e',RECC_System.FlowDict['F_9_12'].Values[t,:,:,:])
 
@@ -737,6 +754,14 @@ for mS in range(0,NS):
             Manufacturing_Input_Split_gm[np.isnan(Manufacturing_Input_Split_gm)] = 0
             
             PrimaryProduction_m          = Manufacturing_Input_m - RECC_System.FlowDict['F_12_5'].Values[t,-1,:,0]# secondary material comes first, no rebound! 
+            
+            # Correct for negative primary production: p.p. is set to zero, and a corresponding quantity is exported instead:
+            for pm in range(0,Nm):
+                if PrimaryProduction_m[pm] < 0:
+                    RECC_System.FlowDict['F_12_0'].Values[t,-1,pm,0] = -1 * PrimaryProduction_m[pm].copy()
+                    RECC_System.FlowDict['F_12_0'].Values[t,-1,pm,:] = Element_Material_Composition_t_SecondaryMaterial[pm,:] * RECC_System.FlowDict['F_12_0'].Values[t,-1,pm,0]
+                    RECC_System.FlowDict['F_12_5'].Values[t,-1,pm,:] = RECC_System.FlowDict['F_12_5'].Values[t,-1,pm,:] - RECC_System.FlowDict['F_12_0'].Values[t,-1,pm,:]
+                    PrimaryProduction_m[pm] = 0
         
             RECC_System.FlowDict['F_4_5'].Values[t,:,:] = np.einsum('m,me->me',PrimaryProduction_m,RECC_System.ParameterDict['3_MC_Elements_Materials_Primary'].Values)
             RECC_System.FlowDict['F_3_4'].Values[t,:,:] = RECC_System.FlowDict['F_4_5'].Values[t,:,:]
@@ -745,19 +770,19 @@ for mS in range(0,NS):
             Manufacturing_Input_me      = RECC_System.FlowDict['F_4_5'].Values[t,:,:] + RECC_System.FlowDict['F_12_5'].Values[t,-1,:,:] 
             Manufacturing_Input_gme     = np.einsum('me,gm->gme',Manufacturing_Input_me,Manufacturing_Input_Split_gm)       
         
+            # 10) Calculate element composition of materials of current year
+            Element_Material_Composition_t = np.einsum('me,me->me',RECC_System.FlowDict['F_4_5'].Values[t,:,:] + RECC_System.FlowDict['F_12_5'].Values[t,-1,:,:],1/np.einsum('m,e->me',RECC_System.FlowDict['F_4_5'].Values[t,:,0] + RECC_System.FlowDict['F_12_5'].Values[t,-1,:,0],np.ones(Ne)))
+            Element_Material_Composition_t[np.isnan(Element_Material_Composition_t)] = 0
+            Par_Element_Material_Composition_of_Products[CohortOffset,:,:,:,:] = np.einsum('mgr,me->rgme',Par_RECC_MC[CohortOffset,:,:,:],Element_Material_Composition_t) # crgme
+                    
+            # 11) Calculate manufacturing output
+            RECC_System.FlowDict['F_5_6'].Values[t,-1,:,:,:] = np.einsum('me,gm->gme',Element_Material_Composition_t,Manufacturing_Output_gm)
+        
             # 9) Calculate manufacturing scrap 
-            RECC_System.FlowDict['F_5_10'].Values[t,:,:,:] = np.einsum('gme,mwgr->rwe',Manufacturing_Input_gme,Par_FabYield[:,:,:,t,:])
+            RECC_System.FlowDict['F_5_10'].Values[t,-1,:,:] = np.einsum('gme,mwgr->we',Manufacturing_Input_gme,Par_FabYield[:,:,:,t,:]) 
             # Fabrication scrap, to be recycled next year:
             RECC_System.StockDict['S_10'].Values[t,:,:,:]  = RECC_System.FlowDict['F_5_10'].Values[t,:,:,:]
         
-            # 10) Calculate element composition of materials of current year
-            Element_Material_Composition_t = np.einsum('me,m->me',RECC_System.FlowDict['F_4_5'].Values[t,:,:] + RECC_System.FlowDict['F_12_5'].Values[t,-1,:,:],1/np.einsum('me->m',RECC_System.FlowDict['F_4_5'].Values[t,:,:] + RECC_System.FlowDict['F_12_5'].Values[t,-1,:,:]))
-            Element_Material_Composition_t[np.isnan(Element_Material_Composition_t)] = 0
-            Par_Element_Material_Composition_of_Products[CohortOffset,:,:,:,:] = np.einsum('mgr,me->rgme',Par_RECC_MC[CohortOffset,:,:,:],Element_Material_Composition_t) # crgme
-            
-            # 11) Calculate manufacturing output
-            RECC_System.FlowDict['F_5_6'].Values[t,-1,:,:,:] = np.einsum('gme,gm->gme',Par_Element_Material_Composition_of_Products[CohortOffset,-1,:,:,:],Manufacturing_Output_gm)
-            
             # 12) Calculate element composition of final consumption and latest age-cohort in in-use stock
             RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,:]   = \
             np.einsum('rgme,gr->rgme',Par_Element_Material_Composition_of_Products[CohortOffset,:,:,:,:],Inflow_Detail_UsePhase[t,:,:])/1000 # all elements, Indices='t,r,g,m,e'
@@ -807,6 +832,7 @@ for mS in range(0,NS):
         
         # G) Calculate process emissions
         SysVar_ProcessEmissions_PrimaryProd       = np.einsum('mX,tm->Xt'    ,RECC_System.ParameterDict['4_PE_ProcessExtensions_USA'].Values[:,:,110,5],RECC_System.FlowDict['F_3_4'].Values[:,:,0])
+        SysVar_ProcessEmissions_PrimaryProd_m     = np.einsum('mX,tm->Xtm'   ,RECC_System.ParameterDict['4_PE_ProcessExtensions_USA'].Values[:,:,110,5],RECC_System.FlowDict['F_3_4'].Values[:,:,0])
         # Unit: Mt/yr.
         
         # H) Calculate emissions from energy supply
@@ -839,8 +865,14 @@ for mS in range(0,NS):
         Scrap_Outflow[:,:,mS,mR]     = np.einsum('trw->tw',RECC_System.FlowDict['F_9_10'].Values[:,:,:,0])
 
 # DIAGNOSTICS
-a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_6_7',0)
-a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_7_8',0)
+a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_5_6',0)
+a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_5',0)
+a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_5_10',0)
+a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_4_5',0)
+
+a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_5',0)
+a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_0',0)
+a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_9_12',0)
         
 #####################################################
 #   Section 5) Evaluate results, save, and close    #
@@ -1124,11 +1156,11 @@ msf.ExcelSheetFill(Result_workbook, 'TotalGHGFootprint', ResultArray, topcornerl
 
 Result_workbook.save(os.path.join(ProjectSpecs_Path_Result,'SysVar_TotalGHGFootprint.xls'))
 
-### 5.3) Export as .mat file
-#Mylog.info('### 5.4 - Export to Matlab')
-#Mylog.info('Saving stock data to Matlab.')
-#Filestring_Matlab_out = os.path.join(ProjectSpecs_Path_Result, 'StockData.mat')
-#scipy.io.savemat(Filestring_Matlab_out, mdict={'Stock': np.einsum('tcrgSe->trgS', RECC_System.StockDict['S_4'].Values)})
+## 5.3) Export as .mat file
+Mylog.info('### 5.4 - Export to Matlab')
+Mylog.info('Saving stock data to Matlab.')
+Filestring_Matlab_out = os.path.join(ProjectSpecs_Path_Result, 'StockData.mat')
+scipy.io.savemat(Filestring_Matlab_out, mdict={'F_6_7_tgmSR_Mt/yr': Material_Inflow, 'F_9_10_twSR_Mt/yr': Scrap_Outflow})
 
 ### 5.4) Model run is finished. Wrap up.
 Mylog.info('### 5.5 - Finishing')
