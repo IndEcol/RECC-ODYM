@@ -10,10 +10,23 @@ import numpy as np
 import matplotlib.pyplot as plt  
 import pylab
 
+# EU
+#FolderlistV =[
+#        'G7IC_V1_2019_2_14__10_12_35',
+#        'G7IC_V1_2019_2_14__10_19_30',
+#        'G7IC_V1_2019_2_14__10_26_36',
+#        'G7IC_V1_2019_2_14__10_33_45',
+#        'G7IC_V1_2019_2_14__9_51_25'
+#        ]
+
+# USA
 FolderlistV =[
-        'G7IC_V1_2019_2_9__20_6_19',
-        'G7IC_V1_2019_2_9__20_20_4'
-        ]
+'G7IC_V1_2019_2_14__10_51_47',
+'G7IC_V1_2019_2_14__11_0_57',
+'G7IC_V1_2019_2_14__11_9_41',
+'G7IC_V1_2019_2_14__11_14_1',
+'G7IC_V1_2019_2_14__9_48_27'
+]
 
 # 1) None
 # 2) + IU
@@ -21,7 +34,7 @@ FolderlistV =[
 # 4) + IU + LWE + LTE
 # 5) + IU + LWE + LTE + EoL-RR = ALL
 NS = 3
-NR = 2
+NR = 5
 
 CumEmsV = np.zeros((NR,NS)) # RE-Scenario x SSP scenario
 
@@ -31,7 +44,7 @@ for m in range(0,NR): # RE scenario
     Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
     for n in range(0,NS): # SSP scenario
         for o in range(0,35): # time
-            CumEmsV[m,n] += Resultsheet.cell_value(o +2, 6*n +1)
+            CumEmsV[m,n] += Resultsheet.cell_value(o +2, NS*n +1)
     
     
 AnnEmsV2050 = np.zeros((NR,NS)) # RE-Scenario x SSP scenario
@@ -41,15 +54,15 @@ for m in range(0,NR): # RE scenario
     Resultfile = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
     Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
     for n in range(0,NS): # SSP scenario
-        AnnEmsV2050[m,n] = Resultsheet.cell_value(36, 6*n +1)    
+        AnnEmsV2050[m,n] = Resultsheet.cell_value(36, NS*n +1)    
 
 FolderlistB =FolderlistV
 
 # 1) None
-# 2) + IU
-# 3) + IU + LWE
-# 4) + IU + LWE + LTE
-# 5) + IU + LWE + LTE + EoL-RR = ALL
+# 2) + IU + RU
+# 3) + IU + RU + LWE
+# 4) + IU + RU + LWE + LTE
+# 5) + IU + RU + LWE + LTE + EoL-RR = ALL
 
 CumEmsB = np.zeros((NR,NS)) # RE-Scenario x SSP scenario
 
@@ -59,7 +72,7 @@ for m in range(0,NR): # RE scenario
     Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
     for n in range(0,NS): # SSP scenario
         for o in range(0,35): # time
-            CumEmsB[m,n] += Resultsheet.cell_value(o +2, 6*n +1)
+            CumEmsB[m,n] += Resultsheet.cell_value(o +2, NS*n +1)
       
         
 AnnEmsB2050 = np.zeros((NR,NS)) # RE-Scenario x SSP scenario
@@ -69,18 +82,18 @@ for m in range(0,NR): # RE scenario
     Resultfile = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
     Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
     for n in range(0,NS): # SSP scenario
-        AnnEmsB2050[m,n] = Resultsheet.cell_value(36, 6*n +1)        
+        AnnEmsB2050[m,n] = Resultsheet.cell_value(36, NS*n +1)        
             
 # Plot            
 MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Paired' color map.            
 
-Title = ['Passenger vehicles','residential buildings']
+Title = ['All','Passenger vehicles','residential buildings']
 Scens = ['SSP1','SSP2','SSP3','SSP4','SSP5']
 LWE   = ['No RE','More intense use','light-weighting','lifetime ext.','recycling improvemt.','All RE stratgs.']
 
 # Cumulative emissions
 for m in range(0,NS): # SSP
-    for n in range(0,2): # Veh/Buldings
+    for n in range(0,1): # All/Veh/Buldings
         
         if n == 0:
             Data = CumEmsV
@@ -146,7 +159,7 @@ for m in range(0,NS): # SSP
 
 # 2050 emissions
 for m in range(0,NS): # SSP
-    for n in range(0,2): # Veh/Buldings
+    for n in range(0,1): # All/Veh/Buldings
         
         if n == 0:
             Data = AnnEmsV2050
