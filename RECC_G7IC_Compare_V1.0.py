@@ -10,43 +10,55 @@ import numpy as np
 import matplotlib.pyplot as plt  
 import pylab
 
-# EU
-#FolderlistV =[
-#        'G7IC_V1_2019_2_14__10_12_35',
-#        'G7IC_V1_2019_2_14__10_19_30',
-#        'G7IC_V1_2019_2_14__10_26_36',
-#        'G7IC_V1_2019_2_14__10_33_45',
-#        'G7IC_V1_2019_2_14__9_51_25'
-#        ]
-
-# USA
 FolderlistV =[
-'G7IC_V1_2019_2_15__17_9_18',
-'G7IC_V1_2019_2_15__17_16_52',
-'G7IC_V1_2019_2_15__17_25_18',
-'G7IC_V1_2019_2_15__17_34_18',
-'G7IC_V1_2019_2_15__17_42_26'
+'Germany_2019_4_17__22_22_32',
+'Germany_2019_4_17__22_25_52',
+'Germany_2019_4_17__22_27_11',
+'Germany_2019_4_17__22_28_18',
+'Germany_2019_4_17__22_29_52'
 ]
 
 # 1) None
-# 2) + IU
-# 3) + IU + LWE
-# 4) + IU + LWE + LTE
-# 5) + IU + LWE + LTE + EoL-RR = ALL
+# 2) + EoL + FYI
+# 3) + EoL + FYI + LWE + MSu
+# 4) + EoL + FYI + LWE + MSu + ReU + LTE
+# 5) + EoL + FYI + LWE + MSu + ReU + LTE + MIU = ALL
+
+# For G7:
+FolderlistV =[
+'G7_2019_4_17__22_34_39',
+'G7_2019_4_17__22_42_31',
+'G7_2019_4_17__22_46_54',
+'G7_2019_4_17__22_50_15',
+'G7_2019_4_17__22_54_21'
+]
+
+
+
 NS = 3
+NC = 2
 NR = 5
 
-CumEmsV = np.zeros((NR,NS)) # RE-Scenario x SSP scenario
+CumEmsV     = np.zeros((NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+AnnEmsV2030 = np.zeros((NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+AnnEmsV2050 = np.zeros((NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
 
-for m in range(0,NR): # RE scenario
-    Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistV[m] + '\\'
+for r in range(0,NR): # RE scenario
+    Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistV[r] + '\\'
     Resultfile = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
     Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
-    for n in range(0,NS): # SSP scenario
-        for o in range(0,35): # time
-            CumEmsV[m,n] += Resultsheet.cell_value(o +2, NS*n +1)
-    
-    
+    for s in range(0,NS): # SSP scenario
+        for c in range(0,NC):
+            for t in range(0,35): # time
+                CumEmsV[s,c,r] += Resultsheet.cell_value(t +2, 1 + c + NC*s)
+            AnnEmsV2030[s,c,r]  = Resultsheet.cell_value(16  , 1 + c + NC*s)
+            AnnEmsV2050[s,c,r]  = Resultsheet.cell_value(36  , 1 + c + NC*s)
+            
+     
+        
+        
+        
+        
 AnnEmsV2050 = np.zeros((NR,NS)) # RE-Scenario x SSP scenario
 
 for m in range(0,NR): # RE scenario
