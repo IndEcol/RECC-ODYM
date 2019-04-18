@@ -10,28 +10,174 @@ import numpy as np
 import matplotlib.pyplot as plt  
 import pylab
 
-FolderlistV =[
-'Germany_2019_4_17__22_22_32',
-'Germany_2019_4_17__22_25_52',
-'Germany_2019_4_17__22_27_11',
-'Germany_2019_4_17__22_28_18',
-'Germany_2019_4_17__22_29_52'
-]
-
+# FileOrder:
 # 1) None
 # 2) + EoL + FYI
 # 3) + EoL + FYI + LWE + MSu
-# 4) + EoL + FYI + LWE + MSu + ReU + LTE
-# 5) + EoL + FYI + LWE + MSu + ReU + LTE + MIU = ALL
+# 4) + EoL + FYI + LWE + MSu + ReU (+LTE)
+# 5) + EoL + FYI + LWE + MSu + ReU (+LTE) + MIU = ALL
 
-# For G7:
+
+Region= 'Canada'
+Scope = 'Canada_Vehicles'
 FolderlistV =[
-'G7_2019_4_17__22_34_39',
-'G7_2019_4_17__22_42_31',
-'G7_2019_4_17__22_46_54',
-'G7_2019_4_17__22_50_15',
-'G7_2019_4_17__22_54_21'
+'Canada_2019_4_18__19_37_51',
+'Canada_2019_4_18__19_38_53',
+'Canada_2019_4_18__19_40_4',
+'Canada_2019_4_18__19_41_8',
+'Canada_2019_4_18__19_42_14'
 ]
+
+Scope = 'Canada_Buildings'
+FolderlistB =[
+'Canada_2019_4_18__19_44_29',
+'Canada_2019_4_18__19_45_31',
+'Canada_2019_4_18__19_46_33',
+'Canada_2019_4_18__19_47_36',
+'Canada_2019_4_18__19_48_40'
+]
+
+
+Region= 'USA'
+Scope = 'USA_Vehicles'
+FolderlistV =[
+'USA_2019_4_18__19_51_23',
+'USA_2019_4_18__19_52_53',
+'USA_2019_4_18__19_54_18',
+'USA_2019_4_18__19_55_20',
+'USA_2019_4_18__19_56_25'
+]
+
+Scope = 'USA_buildings'
+FolderlistB =[
+'USA_2019_4_18__20_2_49',
+'USA_2019_4_18__20_1_43',
+'USA_2019_4_18__20_0_22',
+'USA_2019_4_18__19_58_59',
+'USA_2019_4_18__19_57_34'
+]
+
+
+Region= 'France'
+Scope = 'France_Vehicles'
+FolderlistV =[
+'France_2019_4_18__20_4_52',
+'France_2019_4_18__20_6_10',
+'France_2019_4_18__20_7_12',
+'France_2019_4_18__20_8_28',
+'France_2019_4_18__20_9_43'
+]
+
+Scope = 'France_Buildings'
+FolderlistB =[
+'France_2019_4_18__20_10_46',
+'France_2019_4_18__20_12_23',
+'France_2019_4_18__20_14_8',
+'France_2019_4_18__20_18_29',
+'France_2019_4_18__20_19_46'
+]
+
+
+Region= 'Germany'
+Scope = 'Germany_Vehicles'
+FolderlistV =[
+'Germany_2019_4_18__19_17_19',
+'Germany_2019_4_18__19_16_17',
+'Germany_2019_4_18__19_15_14',
+'Germany_2019_4_18__19_13_48',
+'Germany_2019_4_18__19_12_41'
+]
+
+Scope = 'Germany_Buildings'
+FolderlistB =[
+'Germany_2019_4_18__19_4_5',
+'Germany_2019_4_18__19_5_32',
+'Germany_2019_4_18__19_6_35',
+'Germany_2019_4_18__19_7_37',
+'Germany_2019_4_18__19_8_46'
+]
+
+
+Region= 'Japan'
+Scope = 'Japan_Vehicles'
+FolderlistV =[
+'Japan_2019_4_18__21_12_0',
+'Japan_2019_4_18__21_15_30',
+'Japan_2019_4_18__21_16_56',
+'Japan_2019_4_18__21_18_10',
+'Japan_2019_4_18__21_19_18'
+]
+
+Scope = 'Japan_Buildings'
+FolderlistB =[
+'Japan_2019_4_18__21_20_40',
+'Japan_2019_4_18__21_21_45',
+'Japan_2019_4_18__21_23_0',
+'Japan_2019_4_18__21_24_4',
+'Japan_2019_4_18__21_25_7'
+]
+
+
+Region= 'Italy'
+Scope = 'Italy_Vehicles'
+FolderlistV =[
+'Italy_2019_4_18__20_24_58',
+'Italy_2019_4_18__20_57_50',
+'Italy_2019_4_18__20_59_46',
+'Italy_2019_4_18__21_1_6',
+'Italy_2019_4_18__21_2_34'
+]
+
+Scope = 'Italy_Buildings'
+FolderlistB =[
+'Italy_2019_4_18__21_3_40',
+'Italy_2019_4_18__21_4_54',
+'Italy_2019_4_18__21_6_29',
+'Italy_2019_4_18__21_7_46',
+'Italy_2019_4_18__21_8_57'
+]
+
+
+Region= 'UK'
+Scope = 'UK_Vehicles'
+FolderlistV =[
+'UK_2019_4_18__21_27_39',
+'UK_2019_4_18__21_31_44',
+'UK_2019_4_18__21_33_8',
+'UK_2019_4_18__21_35_11',
+'UK_2019_4_18__21_36_29'
+]
+
+Scope = 'UK_Buildings'
+FolderlistB =[
+'UK_2019_4_18__21_37_33',
+'UK_2019_4_18__21_38_39',
+'UK_2019_4_18__21_40_3',
+'UK_2019_4_18__21_41_36',
+'UK_2019_4_18__21_43_8'
+]
+
+
+Region= 'G7'
+Scope = 'G7 Vehicles'
+FolderlistV =[
+'G7_2019_4_18__22_8_8',
+'G7_2019_4_18__22_13_30',
+'G7_2019_4_18__22_16_48',
+'G7_2019_4_18__22_19_48',
+'G7_2019_4_18__22_23_47'
+]
+
+Scope = 'G7 Buildings'
+FolderlistB =[
+'G7_2019_4_18__22_27_0',
+'G7_2019_4_18__22_31_32',
+'G7_2019_4_18__22_35_15',
+'G7_2019_4_18__22_39_25',
+'G7_2019_4_18__22_43_45'
+]
+
+
 
 
 
@@ -42,6 +188,7 @@ NR = 5
 CumEmsV     = np.zeros((NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
 AnnEmsV2030 = np.zeros((NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
 AnnEmsV2050 = np.zeros((NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+ASummaryV    = np.zeros((9,NR)) # For direct copy-paste to Excel
 
 for r in range(0,NR): # RE scenario
     Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistV[r] + '\\'
@@ -54,63 +201,51 @@ for r in range(0,NR): # RE scenario
             AnnEmsV2030[s,c,r]  = Resultsheet.cell_value(16  , 1 + c + NC*s)
             AnnEmsV2050[s,c,r]  = Resultsheet.cell_value(36  , 1 + c + NC*s)
             
-     
+ASummaryV[0:3,:] = AnnEmsV2030[:,1,:].copy()
+ASummaryV[3:6,:] = AnnEmsV2050[:,1,:].copy()
+ASummaryV[6::,:] = CumEmsV[:,1,:].copy()
         
-        
-        
-        
-AnnEmsV2050 = np.zeros((NR,NS)) # RE-Scenario x SSP scenario
 
-for m in range(0,NR): # RE scenario
-    Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistV[m] + '\\'
+CumEmsB     = np.zeros((NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+AnnEmsB2030 = np.zeros((NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+AnnEmsB2050 = np.zeros((NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+ASummaryB    = np.zeros((9,NR)) # For direct copy-paste to Excel
+
+for r in range(0,NR): # RE scenario
+    Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistB[r] + '\\'
     Resultfile = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
     Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
-    for n in range(0,NS): # SSP scenario
-        AnnEmsV2050[m,n] = Resultsheet.cell_value(36, NS*n +1)    
-
-FolderlistB =FolderlistV
-
-# 1) None
-# 2) + IU + RU
-# 3) + IU + RU + LWE
-# 4) + IU + RU + LWE + LTE
-# 5) + IU + RU + LWE + LTE + EoL-RR = ALL
-
-CumEmsB = np.zeros((NR,NS)) # RE-Scenario x SSP scenario
-
-for m in range(0,NR): # RE scenario
-    Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistB[m] + '\\'
-    Resultfile = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
-    Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
-    for n in range(0,NS): # SSP scenario
-        for o in range(0,35): # time
-            CumEmsB[m,n] += Resultsheet.cell_value(o +2, NS*n +1)
-      
-        
-AnnEmsB2050 = np.zeros((NR,NS)) # RE-Scenario x SSP scenario
-
-for m in range(0,NR): # RE scenario
-    Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistB[m] + '\\'
-    Resultfile = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
-    Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
-    for n in range(0,NS): # SSP scenario
-        AnnEmsB2050[m,n] = Resultsheet.cell_value(36, NS*n +1)        
+    for s in range(0,NS): # SSP scenario
+        for c in range(0,NC):
+            for t in range(0,35): # time
+                CumEmsB[s,c,r] += Resultsheet.cell_value(t +2, 1 + c + NC*s)
+            AnnEmsB2030[s,c,r]  = Resultsheet.cell_value(16  , 1 + c + NC*s)
+            AnnEmsB2050[s,c,r]  = Resultsheet.cell_value(36  , 1 + c + NC*s)
             
+ASummaryB[0:3,:] = AnnEmsB2030[:,1,:].copy()
+ASummaryB[3:6,:] = AnnEmsB2050[:,1,:].copy()
+ASummaryB[6::,:] = CumEmsB[:,1,:].copy()
+        
+        
+     
+
+
+     
 # Plot            
 MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Paired' color map.            
 
-Title = ['All','Passenger vehicles','residential buildings']
-Scens = ['SSP1','SSP2','SSP3','SSP4','SSP5']
-LWE   = ['No RE','More intense use','light-weighting','lifetime ext.','recycling improvemt.','All RE stratgs.']
+Title = ['Passenger vehicles','residential buildings']
+Scens = ['LED','SSP1','SSP2']
+LWE   = ['No RE','recycling improvemt.','light-weighting','re-use','More intense use','All RE stratgs.']
 
 # Cumulative emissions
 for m in range(0,NS): # SSP
-    for n in range(0,1): # All/Veh/Buldings
+    for n in range(0,2): # Veh/Buildings
         
         if n == 0:
-            Data = CumEmsV
+            Data = np.einsum('SR->RS',CumEmsV[:,1,:])
         if n == 1:
-            Data = CumEmsB
+            Data = np.einsum('SR->RS',CumEmsB[:,1,:])
     
         inc = -100 * (Data[0,m] - Data[4,m])/Data[0,m]
     
@@ -163,7 +298,7 @@ for m in range(0,NS): # SSP
         plt.axis([-0.2, 5.7, 0.9*Right, 1.02*Left])
     
         plt.show()
-        fig_name = 'Cum_GHG_G7_' + Title[n] + '_' + Scens[m] + '.png'
+        fig_name = 'Cum_GHG_' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.png'
         fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
             
 
@@ -171,12 +306,12 @@ for m in range(0,NS): # SSP
 
 # 2050 emissions
 for m in range(0,NS): # SSP
-    for n in range(0,1): # All/Veh/Buldings
+    for n in range(0,2): # Veh/Buldings
         
         if n == 0:
-            Data = AnnEmsV2050
+            Data = np.einsum('SR->RS',AnnEmsV2050[:,1,:])
         if n == 1:
-            Data = AnnEmsB2050
+            Data = np.einsum('SR->RS',AnnEmsB2050[:,1,:])
     
         inc = -100 * (Data[0,m] - Data[4,m])/Data[0,m]
     
@@ -229,7 +364,7 @@ for m in range(0,NS): # SSP
         plt.axis([-0.2, 5.7, 0.7*Right, 1.025*Left])
     
         plt.show()
-        fig_name = 'GHG_2050_G7_' + Title[n] + '_' + Scens[m] + '.png'
+        fig_name = 'GHG_2050_' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.png'
         fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
 
 
