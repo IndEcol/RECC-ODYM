@@ -623,6 +623,10 @@ for m in range(0,NS): # SSP
         fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
             
 
+
+
+
+
 ### Area plot RE
         
         
@@ -703,7 +707,160 @@ for mS in range(0,NS): # SSP
         plt.show()
         fig_name = 'GHG_TimeSeries_Stacked_' + Region + '_ ' + Title[mR] + '_' + Scens[mS] + '.png'
         fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
-           
 
-#
-#
+
+
+
+
+
+           
+##### line Plot overview of primary steel and steel recycling
+
+# Select scenario list: same as for bar chart above
+# E.g. for the USA, run code lines 41 to 59.
+
+MyColorCycle = pylab.cm.Paired(np.arange(0,1,0.2))
+#linewidth = [1.2,2.4,1.2,1.2,1.2]
+linewidth  = [1.2,2,1.2]
+linewidth2 = [1.2,2,1.2]
+
+Figurecounter = 1
+ColorOrder         = [1,0,3]
+        
+NS = 3
+NC = 2
+NR = 5
+Nt = 35
+
+# Primary steel
+AnnEmsV_PrimarySteel = np.zeros((Nt,NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+AnnEmsB_PrimarySteel = np.zeros((Nt,NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+
+for r in range(0,NR): # RE scenario
+    Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistV[r] + '\\'
+    Resultfile1  = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
+    Resultsheet1 = Resultfile1.sheet_by_name('Cover')
+    UUID         = Resultsheet1.cell_value(3,2)
+    Resultfile2  = xlrd.open_workbook(Path + 'ODYM_RECC_ModelResults_' + UUID + '.xls')
+    Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
+    for s in range(0,NS): # SSP scenario
+        for c in range(0,NC):
+            for t in range(0,35): # time
+                AnnEmsV_PrimarySteel[t,s,c,r] = Resultsheet2.cell_value(19+ 2*s +c,t+8)
+                
+for r in range(0,NR): # RE scenario
+    Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistB[r] + '\\'
+    Resultfile1  = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
+    Resultsheet1 = Resultfile1.sheet_by_name('Cover')
+    UUID         = Resultsheet1.cell_value(3,2)
+    Resultfile2  = xlrd.open_workbook(Path + 'ODYM_RECC_ModelResults_' + UUID + '.xls')
+    Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
+    for s in range(0,NS): # SSP scenario
+        for c in range(0,NC):
+            for t in range(0,35): # time
+                AnnEmsB_PrimarySteel[t,s,c,r] = Resultsheet2.cell_value(19+ 2*s +c,t+8)                
+                
+Title      = ['Passenger vehicles','residential buildings']
+ScensL     = ['SSP2, no REFs','SSP2, full REF spectrum','SSP1, no REFs','SSP1, full REF spectrum','LED, no REFs','LED, full REF spectrum']
+
+#mS = 1
+#mR = 1
+mRCP = 1 # select RCP2.6, which has full implementation of RE strategies by 2050.
+for mR in range(0,2): # Veh/Buildings
+    
+    if mR == 0:
+        Data = AnnEmsV_PrimarySteel[:,:,mRCP,:]
+    if mR == 1:
+        Data = AnnEmsB_PrimarySteel[:,:,mRCP,:]
+
+
+    fig  = plt.figure(figsize=(8,5))
+    ax1  = plt.axes([0.08,0.08,0.85,0.9])
+    
+    ProxyHandlesList = []   # For legend     
+    
+    for mS in range(NS-1,-1,-1):
+        ax1.plot(np.arange(2016,2051), Data[:,mS,0],  linewidth = linewidth[mS],  linestyle = '-',  color = MyColorCycle[ColorOrder[mS],:])
+        #ProxyHandlesList.append(plt.line((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+        ax1.plot(np.arange(2016,2051), Data[:,mS,-1], linewidth = linewidth2[mS], linestyle = '--', color = MyColorCycle[ColorOrder[mS],:])
+        #ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))     
+    plt_lgd  = plt.legend(ScensL,shadow = False, prop={'size':14}, loc = 'upper left',bbox_to_anchor=(1.05, 1))    
+    plt.ylabel('Primary steel and iron, Mt/yr.', fontsize = 18) 
+    plt.xlabel('year', fontsize = 18)         
+    plt.title('Primary steel, by socio-economic scenario, \n' + Region + ', ' + Title[mR] + '.', fontsize = 18)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    ax1.set_xlim([2015, 2051])
+    plt.gca().set_ylim(bottom=0)
+    
+    plt.show()
+    fig_name = 'PrimarySteel_TimeSeries_' + Region + '_ ' + Title[mR] + '.png'
+    fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
+
+
+# recycled steel (both used within sector and exported to other sectors)
+AnnEmsV_SecondarySteel = np.zeros((Nt,NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+AnnEmsB_SecondarySteel = np.zeros((Nt,NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+
+for r in range(0,NR): # RE scenario
+    Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistV[r] + '\\'
+    Resultfile1  = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
+    Resultsheet1 = Resultfile1.sheet_by_name('Cover')
+    UUID         = Resultsheet1.cell_value(3,2)
+    Resultfile2  = xlrd.open_workbook(Path + 'ODYM_RECC_ModelResults_' + UUID + '.xls')
+    Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
+    for s in range(0,NS): # SSP scenario
+        for c in range(0,NC):
+            for t in range(0,35): # time
+                AnnEmsV_SecondarySteel[t,s,c,r] = Resultsheet2.cell_value(151+ 2*s +c,t+8)
+                
+for r in range(0,NR): # RE scenario
+    Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistB[r] + '\\'
+    Resultfile1  = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
+    Resultsheet1 = Resultfile1.sheet_by_name('Cover')
+    UUID         = Resultsheet1.cell_value(3,2)
+    Resultfile2  = xlrd.open_workbook(Path + 'ODYM_RECC_ModelResults_' + UUID + '.xls')
+    Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
+    for s in range(0,NS): # SSP scenario
+        for c in range(0,NC):
+            for t in range(0,35): # time
+                AnnEmsB_SecondarySteel[t,s,c,r] = Resultsheet2.cell_value(151+ 2*s +c,t+8)                
+                
+Title      = ['Passenger vehicles','residential buildings']
+ScensL     = ['SSP2, no REFs','SSP2, full REF spectrum','SSP1, no REFs','SSP1, full REF spectrum','LED, no REFs','LED, full REF spectrum']
+
+#mS = 1
+#mR = 1
+mRCP = 1 # select RCP2.6, which has full implementation of RE strategies by 2050.
+for mR in range(0,2): # Veh/Buildings
+    
+    if mR == 0:
+        Data = AnnEmsV_SecondarySteel[:,:,mRCP,:]
+    if mR == 1:
+        Data = AnnEmsB_SecondarySteel[:,:,mRCP,:]
+
+
+    fig  = plt.figure(figsize=(8,5))
+    ax1  = plt.axes([0.08,0.08,0.85,0.9])
+    
+    ProxyHandlesList = []   # For legend     
+    
+    for mS in range(NS-1,-1,-1):
+        ax1.plot(np.arange(2016,2051), Data[:,mS,0],  linewidth = linewidth[mS],  linestyle = '-',  color = MyColorCycle[ColorOrder[mS],:])
+        #ProxyHandlesList.append(plt.line((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+        ax1.plot(np.arange(2016,2051), Data[:,mS,-1], linewidth = linewidth2[mS], linestyle = '--', color = MyColorCycle[ColorOrder[mS],:])
+        #ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))     
+    plt_lgd  = plt.legend(ScensL,shadow = False, prop={'size':14}, loc = 'upper left',bbox_to_anchor=(1.05, 1))    
+    plt.ylabel('Secondary steel and iron, Mt/yr.', fontsize = 18) 
+    plt.xlabel('year', fontsize = 18)         
+    plt.title('Secondary steel, by socio-economic scenario, \n' + Region + ', ' + Title[mR] + '.', fontsize = 18)
+    plt.xticks(fontsize=18)
+    plt.yticks(fontsize=18)
+    ax1.set_xlim([2015, 2051])
+    plt.gca().set_ylim(bottom=0)
+    
+    plt.show()
+    fig_name = 'SecondarySteel_TimeSeries_' + Region + '_ ' + Title[mR] + '.png'
+    fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
+
+
