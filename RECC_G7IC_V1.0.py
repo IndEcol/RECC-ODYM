@@ -473,7 +473,8 @@ np.einsum('grcS,gmrcS->cmgrS',100 - ParameterDict['3_SHA_LightWeighting_Building
 np.einsum('grcS,gmrcS->cmgrS',100 - ParameterDict['3_SHA_LightWeighting_Buildings'].Values[6::,:,:,:],np.einsum('urcS,grm->gmrcS',100 - ParameterDict['3_SHA_DownSizing_Buildings'].Values,ParameterDict['3_MC_BuildingArchetypes'].Values[[24,25,26,27,28,29,30,31,32],:,:]))/10000
 # Replicate values for Al, Cu, Plastics:
 ParameterDict['3_MC_RECC_Buildings_RECC'].Values[115::,[4,5,6,7,10],:,:,:] = np.einsum('mgr,cS->cmgrS',ParameterDict['3_MC_RECC_Buildings_G7IC'].Values[110,1,[4,5,6,7,10],:,:].copy(),np.ones((Nt,NS)))
-
+# No cement for buildings, as all cement is part of concrete:
+ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,8,:,:,:] = 0
 
 ParameterDict['3_EI_Products_UsePhase_G7IC'].Values[115::,6::,:,:,:,:] = \
 np.einsum('grcS,gnrVcS->cgVnrS',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[6::,:,:,:],np.einsum('urcS,grVn->gnrVcS',ParameterDict['3_SHA_DownSizing_Buildings'].Values,ParameterDict['3_EI_BuildingArchetypes'].Values[[51,52,53,54,55,56,57,58,59],:,:,:]))/10000 +\
@@ -559,8 +560,12 @@ Mylog.info('Define RECC system and processes.')
 GHG_System       = np.zeros((Nt,NS,NR))
 GHG_UsePhase     = np.zeros((Nt,NS,NR))
 GHG_Other        = np.zeros((Nt,NS,NR))
-GHG_Vehicles     = np.zeros((Nt,Nr,NS,NR))
-GHG_Buildings    = np.zeros((Nt,Nr,NS,NR))
+GHG_Vehicles     = np.zeros((Nt,Nr,NS,NR)) # use phase only
+GHG_Buildings    = np.zeros((Nt,Nr,NS,NR)) # use phase only
+GHG_Vehicles_id  = np.zeros((Nt,NS,NR)) # energy supply only
+GHG_Building_id  = np.zeros((Nt,NS,NR)) # energy supply only
+GHG_Manufact_all = np.zeros((Nt,NS,NR))
+GHG_WasteMgt_all = np.zeros((Nt,NS,NR))
 GHG_PrimaryMetal = np.zeros((Nt,NS,NR))
 Material_Inflow  = np.zeros((Nt,Ng,Nm,NS,NR))
 Scrap_Outflow    = np.zeros((Nt,Nw,NS,NR))
@@ -573,6 +578,12 @@ StockMatch_2015  = np.zeros((NG,Nr))
 NegInflowFlags   = np.zeros((NS,NR))
 NegInflowFlags_After2020   = np.zeros((NS,NR))
 FabricationScrap = np.zeros((Nt,Nw,NS,Nr))
+EnergyCons_UP_Vh = np.zeros((Nt,NS,NR))
+EnergyCons_UP_Bd = np.zeros((Nt,NS,NR))
+EnergyCons_UP_Mn = np.zeros((Nt,NS,NR))
+EnergyCons_UP_Wm = np.zeros((Nt,NS,NR))
+StockCurves_Totl = np.zeros((Nt,NG,NS,NR))
+StockCurves_Prod = np.zeros((Nt,Ng,NS,NR))
 
 #  Examples for testing
 #mS = 1
@@ -770,7 +781,7 @@ for mS in range(0,NS):
                 SFArrayCombined = SF_Array[:,:,:,r]
                 TypeSplit       = RECC_System.ParameterDict['3_SHA_TypeSplit_NewProducts_G7IC'].Values[G,:,1::,r,mS].transpose() # indices: gc
   
-                Var_S, Var_O, Var_I = msf.compute_stock_driven_model_initialstock_typesplit(FutureStock,InitialStock,SFArrayCombined,TypeSplit, NegativeInflowCorrect = False)
+                Var_S, Var_O, Var_I = msf.compute_stock_driven_model_initialstock_typesplit(FutureStock,InitialStock,SFArrayCombined,TypeSplit, NegativeInflowCorrect = True)
 
                 # Below, the results are added with += because the different commodity groups (buildings, vehicles) are calculated separately
                 # to introduce the type split for each, but using the product resolution of the full model with all sectors.
@@ -780,6 +791,8 @@ for mS in range(0,NS):
                 Inflow_Detail_UsePhase[1::,:,r]    += Var_I[SwitchTime::,:].copy() # tgr
 
         # Here so far: Units: Vehicles: million, Buildings: million m2. for stocks, X/yr for flows.
+        StockCurves_Totl[:,:,mS,mR] = TotalStockCurves_UsePhase.sum(axis =1)
+        StockCurves_Prod[:,:,mS,mR] = np.einsum('tcgr->tg',Stock_Detail_UsePhase)
         
         # Clean up
         #del TotalStockCurves_UsePhase
@@ -792,7 +805,7 @@ for mS in range(0,NS):
             NegInflowFlags_After2020[mS,mR] = 1
         
         # Prepare parameters:        
-        # include light-weighting in future MC parameter
+        # include light-weighting in future MC parameter, cmgr
         Par_RECC_MC = RECC_System.ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[:,:,:,:,mS] + RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS]
         
         # Units: Vehicles: kg/unit, Buildings: kg/m2  
@@ -806,20 +819,25 @@ for mS in range(0,NS):
         # future element composition of materials inflow use phase (mix new and reused products)
         Par_Element_Composition_of_Materials_c   = np.zeros((Nt,Nm,Ne)) # cme, produced in age-cohort c. Applies to new manufactured goods.
         
-        # Determine total element composition of products, needs to be updated for future age-cohorts!
-        Par_Element_Material_Composition_of_Products = np.einsum('cmgr,cme->crgme',Par_RECC_MC,Par_Element_Composition_of_Materials_m)
-        
-        # Manufacturing yield:
+        # Manufacturing yield and other improvements
         Par_FabYield = np.einsum('mwggtr->mwgtr',RECC_System.ParameterDict['4_PY_Manufacturing_G7IC'].Values) # take diagonal of product = manufacturing process
         # Consider Fabrication yield improvement
         if ScriptConfig['Include_REStrategy_FabYieldImprovement'] == 'True':
             Par_FabYieldImprovement = np.einsum('w,tmgr->mwgtr',np.ones((Nw)),np.einsum('tr,mgr->tmgr',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_SSP_32R'].Values[:,:,mR]*0.01,RECC_System.ParameterDict['6_PR_FabricationYieldImprovement_G7IC'].Values[:,:,:,mS]))
+            # Reduce cement content by up to 15.6 %
+            Par_RECC_MC[115::,[11,12],:,:] = Par_RECC_MC[115::,[11,12],:,:] * (1 - 0.156 * np.einsum('tr,mg->tmgr',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_SSP_32R'].Values[:,:,mR]*0.01,np.ones((2,Ng)))).copy()
         else:
             Par_FabYieldImprovement = 0
+
+        #Mylog.info('Concrete Content total: %s' % (Par_RECC_MC[130::,11,:,:].sum()))                    
+            
         Par_FabYield_Raster = Par_FabYield > 0    
         Par_FabYield        = Par_FabYield - Par_FabYield_Raster * Par_FabYieldImprovement #mwgtr
         Par_FabYield_total  = np.einsum('mwgtr->mgtr',Par_FabYield)
         Par_FabYield_total_inv = 1/(1-Par_FabYield_total) # mgtr
+        
+        # Determine total element composition of products, needs to be updated for future age-cohorts!
+        Par_Element_Material_Composition_of_Products = np.einsum('cmgr,cme->crgme',Par_RECC_MC,Par_Element_Composition_of_Materials_m)
         
         # Consider EoL recovery rate improvement:
         if ScriptConfig['Include_REStrategy_EoL_RR_Improvement'] == 'True':
@@ -946,6 +964,14 @@ for mS in range(0,NS):
             
             # 10) Calculate manufacturing output
             RECC_System.FlowDict['F_5_6'].Values[t,-1,:,:,:] = np.einsum('me,gm->gme',Element_Material_Composition_t,Manufacturing_Output_gm)
+        
+            # Manufacturing diagnostics
+            Aa = RECC_System.FlowDict['F_5_6'].Values[:,-1,:,:,:].sum(axis=1) #tme
+            Ab = RECC_System.FlowDict['F_5_10'].Values[:,-1,:,:] # twe
+            Ac = RECC_System.FlowDict['F_4_5'].Values # tme
+            Ad = RECC_System.FlowDict['F_12_5'].Values[:,-1,:,:] # tme
+            Bal_20 = Aa[20,:,0] - Ac[20,:,0] - Ad[20,:,0]
+            Bal_30 = Aa[30,:,0] - Ac[30,:,0] - Ad[30,:,0]
         
             # 10a) Calculate material composition of product consumption
             Element_Material_Composition_cons = np.einsum('me,me->me',np.einsum('gme->me',RECC_System.FlowDict['F_5_6'].Values[t,-1,:,:,:]) + np.einsum('cgme->me',RECC_System.FlowDict['F_17_6'].Values[t,0:CohortOffset,-1,:,:,:]),1/np.einsum('m,e->me',np.einsum('gm->m',RECC_System.FlowDict['F_5_6'].Values[t,-1,:,:,0]) + np.einsum('cgm->m',RECC_System.FlowDict['F_17_6'].Values[t,0:CohortOffset,-1,:,:,0]),np.ones(Ne)))
@@ -1094,17 +1120,25 @@ for mS in range(0,NS):
         # Unit: million $ / yr.
         
         # K) Compile results
-        GHG_System[:,mS,mR]          = SysVar_TotalGHGEms[0,:]
-        GHG_UsePhase[:,mS,mR]        = SysVar_GHGEms_UsePhase[0,:]
-        GHG_Other[:,mS,mR]           = SysVar_GHGEms_Other[0,:] # all non use-phase processes
-        GHG_Vehicles[:,:,mS,mR]      = np.einsum('trg->tr',SysVar_DirectEmissions_UsePhase_Vehicles[0,:,:,:])
-        GHG_Buildings[:,:,mS,mR]     = np.einsum('trg->tr',SysVar_DirectEmissions_UsePhase_Buildings[0,:,:,:])
-        GHG_PrimaryMetal[:,mS,mR]    = SysVar_ProcessEmissions_PrimaryProd[0,:] + SysVar_IndirectGHGEms_EnergySupply_PrimaryProd[0,:] + np.einsum('Xtm->t',SysVar_DirectEmissions_PrimaryProd)
-        Material_Inflow[:,:,:,mS,mR] = np.einsum('trgm->tgm',RECC_System.FlowDict['F_6_7'].Values[:,:,:,:,0])
-        Scrap_Outflow[:,:,mS,mR]     = np.einsum('trw->tw',RECC_System.FlowDict['F_9_10'].Values[:,:,:,0])
-        PrimaryProduction[:,:,mS,mR] = RECC_System.FlowDict['F_3_4'].Values[:,:,0]
-        SecondaryProduct[:,:,mS,mR]  = RECC_System.FlowDict['F_9_12'].Values[:,-1,:,0]
-        FabricationScrap[:,:,mS,mR]  = RECC_System.FlowDict['F_5_10'].Values[:,-1,:,0]
+        GHG_System[:,mS,mR]          = SysVar_TotalGHGEms[0,:].copy()
+        GHG_UsePhase[:,mS,mR]        = SysVar_GHGEms_UsePhase[0,:].copy()
+        GHG_Other[:,mS,mR]           = SysVar_GHGEms_Other[0,:].copy() # all non use-phase processes
+        GHG_Vehicles[:,:,mS,mR]      = np.einsum('trg->tr',SysVar_DirectEmissions_UsePhase_Vehicles[0,:,:,:]).copy()
+        GHG_Buildings[:,:,mS,mR]     = np.einsum('trg->tr',SysVar_DirectEmissions_UsePhase_Buildings[0,:,:,:]).copy()
+        GHG_PrimaryMetal[:,mS,mR]    = SysVar_ProcessEmissions_PrimaryProd[0,:].copy() + SysVar_IndirectGHGEms_EnergySupply_PrimaryProd[0,:].copy() + np.einsum('Xtm->t',SysVar_DirectEmissions_PrimaryProd).copy()
+        Material_Inflow[:,:,:,mS,mR] = np.einsum('trgm->tgm',RECC_System.FlowDict['F_6_7'].Values[:,:,:,:,0]).copy()
+        Scrap_Outflow[:,:,mS,mR]     = np.einsum('trw->tw',RECC_System.FlowDict['F_9_10'].Values[:,:,:,0]).copy()
+        PrimaryProduction[:,:,mS,mR] = RECC_System.FlowDict['F_3_4'].Values[:,:,0].copy()
+        SecondaryProduct[:,:,mS,mR]  = RECC_System.FlowDict['F_9_12'].Values[:,-1,:,0].copy()
+        FabricationScrap[:,:,mS,mR]  = RECC_System.FlowDict['F_5_10'].Values[:,-1,:,0].copy()
+        GHG_Vehicles_id[:,mS,mR]     = SysVar_IndirectGHGEms_EnergySupply_UsePhase_Buildings[0,:].copy()
+        GHG_Building_id[:,mS,mR]     = SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles[0,:].copy()
+        GHG_Manufact_all[:,mS,mR]    = SysVar_DirectEmissions_Manufacturing[0,:].copy() + SysVar_IndirectGHGEms_EnergySupply_Manufacturing[0,:].copy()
+        GHG_WasteMgt_all[:,mS,mR]    = SysVar_DirectEmissions_WasteMgt[0,:].copy() + SysVar_DirectEmissions_Remelting[0,:].copy() + SysVar_IndirectGHGEms_EnergySupply_WasteMgt[0,:].copy() + SysVar_IndirectGHGEms_EnergySupply_Remelting[0,:].copy()
+        EnergyCons_UP_Vh[:,mS,mR]    = np.einsum('trgn->t',SysVar_EnergyDemand_UsePhase_Vehicles_ByEnergyCarrier).copy()
+        EnergyCons_UP_Bd[:,mS,mR]    = np.einsum('trgn->t',SysVar_EnergyDemand_UsePhase_Buildings_ByEnergyCarrier).copy()
+        EnergyCons_UP_Mn[:,mS,mR]    = SysVar_EnergyDemand_Manufacturing.sum(axis =1).copy()
+        EnergyCons_UP_Wm[:,mS,mR]    = SysVar_EnergyDemand_WasteMgt.sum(axis =1).copy() +  SysVar_EnergyDemand_Remelting.sum(axis =1).copy()
 
 # DIAGNOSTICS
 a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_5_6',0)
@@ -1144,6 +1178,7 @@ for m in range(0,len(ColLabels)):
 for n in range(m+1,m+1+Nt):
     Sheet.write(0,n,label = int(IndexTable.Classification[IndexTable.index.get_loc('Time')].Items[n-m-1]), style = mystyle)
 
+#added on April 17, 2019
 newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_System,1,len(ColLabels),'GHG emissions, system-wide','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'Figs 1 and 2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_PrimaryMetal,newrowoffset,len(ColLabels),'GHG emissions, primary metal production','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'Figs 4 and 5','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.ExcelExportAdd_tAB(Sheet,0.13 * PrimaryProduction[:,11,:,:],newrowoffset,len(ColLabels),'Cement production','Mt / yr',ScriptConfig['RegionalScope'],'Figs 9-11','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -1158,6 +1193,35 @@ newrowoffset = msf.ExcelExportAdd_tAB(Sheet,SecondaryProduct[:,4:6,:,:].sum(axis
 newrowoffset = msf.ExcelExportAdd_tAB(Sheet,SecondaryProduct[:,6,:,:],newrowoffset,len(ColLabels),'Secondary copper','Mt / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_UsePhase,newrowoffset,len(ColLabels),'GHG emissions, use phase','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_Other,newrowoffset,len(ColLabels),'GHG emissions, industries and energy supply','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+## added on April 24, 2019
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_Vehicles.sum(axis =1),newrowoffset,len(ColLabels),'GHG emissions, vehicles, use phase','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_Buildings.sum(axis =1),newrowoffset,len(ColLabels),'GHG emissions, buildings, use phase','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_Vehicles_id,newrowoffset,len(ColLabels),'GHG emissions, vehicles, energy supply','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_Building_id,newrowoffset,len(ColLabels),'GHG emissions, buildings, energy supply','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_Manufact_all,newrowoffset,len(ColLabels),'GHG emissions, manufacturing, all','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_WasteMgt_all,newrowoffset,len(ColLabels),'GHG emissions, waste mgt. and remelting, all','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,PrimaryProduction[:,4:6,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary Al production','Mt / yr',ScriptConfig['RegionalScope'],'Figs 6-8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,PrimaryProduction[:,6,:,:],newrowoffset,len(ColLabels),'Primary Cu production','Mt / yr',ScriptConfig['RegionalScope'],'Figs 6-8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_Other,newrowoffset,len(ColLabels),'GHG emissions, industries and energy supply','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+# energy flows
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,EnergyCons_UP_Vh,newrowoffset,len(ColLabels),'Energy cons., use phase, vehicles','TJ/yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,EnergyCons_UP_Bd,newrowoffset,len(ColLabels),'Energy cons., use phase, buildings','TJ/yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,EnergyCons_UP_Mn,newrowoffset,len(ColLabels),'Energy cons., use phase, manufacturing','TJ/yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,EnergyCons_UP_Wm,newrowoffset,len(ColLabels),'Energy cons., use phase, waste mgt. and remelting','TJ/yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+# stocks
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,StockCurves_Totl[:,0,:,:],newrowoffset,len(ColLabels),'In-use stock, pass. vehicles','million units',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,StockCurves_Totl[:,1,:,:],newrowoffset,len(ColLabels),'In-use stock, res. buildings','million m2',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+for mg in range(0,Ng):
+    newrowoffset = msf.ExcelExportAdd_tAB(Sheet,StockCurves_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million, Buildings: million m2',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+#Downsizing and Mat subst. shares
+for mr in range(0,Nr-1):
+    newrowoffset = msf.ExcelExportAdd_tAB(Sheet,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[0,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of downsized pass. vehicles','%',IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[mr],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.ExcelExportAdd_tAB(Sheet,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Buildings'].Values[0,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of downsized res. buildings','%',IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[mr],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    for mg in range(0,6):
+        newrowoffset = msf.ExcelExportAdd_tAB(Sheet,np.einsum('tS,R->tSR',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[mg,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels), 'Share of light-weighted ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'%',IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[mr],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    for mg in range(6,Ng):
+        newrowoffset = msf.ExcelExportAdd_tAB(Sheet,np.einsum('tS,R->tSR',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[mg,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of light-weighted ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'%',IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[mr],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
 
 MyColorCycle = pylab.cm.Paired(np.arange(0,1,0.2))
 #linewidth = [1.2,2.4,1.2,1.2,1.2]
@@ -1183,7 +1247,8 @@ plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shado
 plt.ylabel('GHG emissions of system, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('No CP and energy system transformation', fontsize = 12) 
-plt.axis([2015, 2050, 0, ScriptConfig['Plot1Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2015, 2050, 0, ScriptConfig['Plot1Max']])
 plt.show()
 fig_name = 'CO2_Ems_Baseline'
 # include figure in logfile:
@@ -1202,7 +1267,8 @@ plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shado
 plt.ylabel('GHG emissions of system, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('RCP 2.6, energy system transformation', fontsize = 12) 
-plt.axis([2015, 2050, 0, ScriptConfig['Plot1Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2015, 2050, 0, ScriptConfig['Plot1Max']])
 plt.show()
 fig_name = 'CO2_Ems_2dC'
 # include figure in logfile:
@@ -1225,7 +1291,8 @@ plt_lgd  = plt.legend(LegendItems_SSP_RE,shadow = False, prop={'size':9}, loc = 
 plt.ylabel('GHG emissions of system, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('System-wide emissions, by SSP scenario, '+ ScriptConfig['RegionalScope'] + '.', fontsize = 12) 
-plt.axis([2016, 2050, 0, ScriptConfig['Plot1Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2016, 2050, 0, ScriptConfig['Plot1Max']])
 plt.show()
 fig_name = 'CO2_Ems_Overview'
 # include figure in logfile:
@@ -1264,7 +1331,8 @@ plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'up
 plt.ylabel('GHG emissions of primary material production, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('SSP baseline (no RE)', fontsize = 12) 
-plt.axis([2015, 2050, 0, ScriptConfig['Plot2Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2015, 2050, 0, ScriptConfig['Plot2Max']])
 plt.show()
 fig_name = 'GHG_PP_Baseline'
 # include figure in logfile:
@@ -1282,7 +1350,8 @@ plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'up
 plt.ylabel('GHG emissions of primary material production, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('RE', fontsize = 12) 
-plt.axis([2015, 2050, 0, ScriptConfig['Plot2Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2015, 2050, 0, ScriptConfig['Plot2Max']])
 plt.show()
 fig_name = 'GHG_PP_2dC'
 # include figure in logfile:
@@ -1301,7 +1370,8 @@ plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'up
 plt.ylabel('Primary steel production, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('SSP baseline (no CP)', fontsize = 12) 
-plt.axis([2015, 2050, 0, 0.15 * ScriptConfig['Plot2Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:    
+    plt.axis([2015, 2050, 0, 0.15 * ScriptConfig['Plot2Max']])
 plt.show()
 fig_name = 'PrimarySteel_Baseline'
 # include figure in logfile:
@@ -1319,7 +1389,8 @@ plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'up
 plt.ylabel('Primary steel production, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('2°C', fontsize = 12) 
-plt.axis([2015, 2050, 0, 0.15 * ScriptConfig['Plot2Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2015, 2050, 0, 0.15 * ScriptConfig['Plot2Max']])
 plt.show()
 fig_name = 'PrimarySteel_2dC'
 # include figure in logfile:
@@ -1342,7 +1413,8 @@ plt_lgd  = plt.legend(LegendItems_SSP_RE,shadow = False, prop={'size':9}, loc = 
 plt.ylabel('Primary steel production, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('Primary steel production, by SSP scenario, '+ ScriptConfig['RegionalScope'] + '.', fontsize = 12) 
-plt.axis([2017, 2050, 0, 0.15 * ScriptConfig['Plot2Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2017, 2050, 0, 0.15 * ScriptConfig['Plot2Max']])
 plt.show()
 fig_name = 'PSteel_Overview'
 # include figure in logfile:
@@ -1361,7 +1433,8 @@ plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'up
 plt.ylabel('Cement production, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('SSP baseline (no CP)', fontsize = 12) 
-plt.axis([2020, 2050, 0, 0.3 * ScriptConfig['Plot2Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2020, 2050, 0, 0.3 * ScriptConfig['Plot2Max']])
 plt.show()
 fig_name = 'Cement_Baseline'
 # include figure in logfile:
@@ -1379,7 +1452,8 @@ plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'up
 plt.ylabel('Cement production, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('RE', fontsize = 12) 
-plt.axis([2020, 2050, 0, 0.3 * ScriptConfig['Plot2Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2020, 2050, 0, 0.3 * ScriptConfig['Plot2Max']])
 plt.show()
 fig_name = 'Cement_2dC'
 # include figure in logfile:
@@ -1402,7 +1476,8 @@ plt_lgd  = plt.legend(LegendItems_SSP_RE,shadow = False, prop={'size':9}, loc = 
 plt.ylabel('Cement production, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('Cement production, by SSP scenario, '+ ScriptConfig['RegionalScope'] + '.', fontsize = 12) 
-plt.axis([2017, 2050, 0, 0.30 * ScriptConfig['Plot2Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2017, 2050, 0, 0.30 * ScriptConfig['Plot2Max']])
 plt.show()
 fig_name = 'Cement_Overview'
 # include figure in logfile:
@@ -1421,7 +1496,8 @@ plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'up
 plt.ylabel('Secondary steel, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('no CP', fontsize = 12) 
-plt.axis([2020, 2050, 0, 0.6* ScriptConfig['Plot3Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2020, 2050, 0, 0.6* ScriptConfig['Plot3Max']])
 plt.show()
 fig_name = 'SecondarySteel_Baseline'
 # include figure in logfile:
@@ -1439,7 +1515,8 @@ plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'up
 plt.ylabel('Secondary steel, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('2°C', fontsize = 12) 
-plt.axis([2020, 2050, 0, 0.6 * ScriptConfig['Plot3Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2020, 2050, 0, 0.6 * ScriptConfig['Plot3Max']])
 plt.show()
 fig_name = 'SecondarySteel_2dC'
 # include figure in logfile:
@@ -1462,7 +1539,8 @@ plt_lgd  = plt.legend(LegendItems_SSP_RE,shadow = False, prop={'size':9}, loc = 
 plt.ylabel('Recycled steel and iron, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('Recycled iron and steel, by SSP scenario, '+ ScriptConfig['RegionalScope'] + '.', fontsize = 12) 
-plt.axis([2018, 2050, 0, 0.8 * ScriptConfig['Plot3Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2018, 2050, 0, 0.8 * ScriptConfig['Plot3Max']])
 plt.show()
 fig_name = 'SteelRecycling_Overview'
 # include figure in logfile:
@@ -1485,7 +1563,8 @@ plt_lgd  = plt.legend(LegendItems_SSP_RE,shadow = False, prop={'size':9}, loc = 
 plt.ylabel('Recycled aluminium, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('Recycled aluminium, by SSP scenario, '+ ScriptConfig['RegionalScope'] + '.', fontsize = 12) 
-plt.axis([2018, 2050, 0, 0.06 * ScriptConfig['Plot3Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2018, 2050, 0, 0.06 * ScriptConfig['Plot3Max']])
 plt.show()
 fig_name = 'AluminiumRecycling_Overview'
 # include figure in logfile:
@@ -1508,7 +1587,8 @@ plt_lgd  = plt.legend(LegendItems_SSP_RE,shadow = False, prop={'size':9}, loc = 
 plt.ylabel('Recycled copper, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('Recycled copper, by SSP scenario, '+ ScriptConfig['RegionalScope'] + '.', fontsize = 12) 
-plt.axis([2018, 2050, 0, 0.04 * ScriptConfig['Plot3Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2018, 2050, 0, 0.04 * ScriptConfig['Plot3Max']])
 plt.show()
 fig_name = 'CopperRecycling_Overview'
 # include figure in logfile:
@@ -1533,7 +1613,8 @@ plt_lgd  = plt.legend(LegendItems_SSP_UP,shadow = False, prop={'size':9}, loc = 
 plt.ylabel('GHG emissions, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('GHG emissions by process and scenario, SSP1, '+ ScriptConfig['RegionalScope'] + '.', fontsize = 12) 
-plt.axis([2018, 2050, 0, 0.75 * ScriptConfig['Plot1Max']])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:
+    plt.axis([2018, 2050, 0, 0.75 * ScriptConfig['Plot1Max']])
 plt.show()
 fig_name = 'GHG_UsePhase_Overview'
 # include figure in logfile:
@@ -1552,7 +1633,8 @@ plt_lgd  = plt.legend(LegendItems_RCP,shadow = False, prop={'size':9}, loc = 'up
 plt.ylabel('Stock reduction potential seized, %.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
 plt.title('Implementation curves for more intense use, by region and scenario', fontsize = 12) 
-plt.axis([2020, 2050, 0, 110])
+if ScriptConfig['UseGivenPlotBoundaries'] == True:    
+    plt.axis([2020, 2050, 0, 110])
 plt.show()
 fig_name = 'ImplementationCurves_' + IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[0]
 # include figure in logfile:
