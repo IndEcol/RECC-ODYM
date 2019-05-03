@@ -6,7 +6,7 @@ Created on July 22, 2018
 """
 
 """
-File RECC_G7_V1
+File RECC_G7_V1.0.py
 
 Contains the model instructions for the resource efficiency climate change project developed using ODYM: ODYM-RECC
 
@@ -24,7 +24,6 @@ import numpy as np
 import time
 import datetime
 import scipy.io
-import scipy
 import pandas as pd
 import shutil   
 import uuid
@@ -354,7 +353,7 @@ Nk = len(IndexTable.Classification[IndexTable.index.get_loc('Component')].Items)
 NX = len(IndexTable.Classification[IndexTable.index.get_loc('Extensions')].Items)
 Nn = len(IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items)
 NV = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('V')].Items)
-#IndexTable.ix['t']['Classification'].Items # get classification content
+#IndexTable.ix['t']['Classification'].Items # get classification items
 
 Mylog.info('Read model data and parameters.')
 
@@ -430,7 +429,6 @@ for rr in range(0,Nr-1): # replicate vehicle lightweighting parameter:
     if IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[rr] != 'R32USA':
         ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[:,rr,:,:] = ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[:,-1,:,:].copy()
 ParameterDict['3_SHA_LightWeighting_Buildings'].Values                  = np.einsum('gtS,r->grtS',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[:,-1,:,:],np.ones(Nr))
-
 
 # Check if RE strategies are active and set implementation curves to 0 if not.
 if ScriptConfig['Include_REStrategy_ChangeMaterialComposition'] == 'False': # no lightweighting trough material substitution.
@@ -573,6 +571,7 @@ PrimaryProduction= np.zeros((Nt,Nm,NS,NR))
 SecondaryProduct = np.zeros((Nt,Nm,NS,NR))
 Element_Material_Composition     = np.zeros((Nt,Nm,Ne,NS,NR))
 Element_Material_Composition_raw = np.zeros((Nt,Nm,Ne,NS,NR))
+Element_Material_Composition_con = np.zeros((Nt,Nm,Ne,NS,NR))
 Manufacturing_Output             = np.zeros((Nt,Ng,Nm,NS,NR))
 StockMatch_2015  = np.zeros((NG,Nr))
 NegInflowFlags   = np.zeros((NS,NR))
@@ -819,6 +818,9 @@ for mS in range(0,NS):
         # future element composition of materials inflow use phase (mix new and reused products)
         Par_Element_Composition_of_Materials_c   = np.zeros((Nt,Nm,Ne)) # cme, produced in age-cohort c. Applies to new manufactured goods.
         
+        # Element composition of material in the use phase
+        Par_Element_Composition_of_Materials_u   = Par_Element_Composition_of_Materials_m.copy() # cme
+        
         # Manufacturing yield and other improvements
         Par_FabYield = np.einsum('mwggtr->mwgtr',RECC_System.ParameterDict['4_PY_Manufacturing_G7IC'].Values) # take diagonal of product = manufacturing process
         # Consider Fabrication yield improvement
@@ -884,27 +886,50 @@ for mS in range(0,NS):
             np.einsum('crgme,cgr->crgme',Par_Element_Material_Composition_of_Products[0:CohortOffset,:,:,:,:],Outflow_Detail_UsePhase[t,0:CohortOffset,:,:])/1000 # All elements.
             # RECC_System.FlowDict['F_8_0'].Values = MatContent * ObsStockFormation. Currently 0, already defined.
                         
-            # 2) Consider re-use, as ReUseFactor(m,g,r,R,t) * RECC_System.FlowDict['F_7_8'].Values(t,c,r,g,m,e)
+            # 2) Consider re-use of materials in product groups (via components), as ReUseFactor(m,g,r,R,t) * RECC_System.FlowDict['F_7_8'].Values(t,c,r,g,m,e)
+            # Distribute material for re-use onto product groups
             if ScriptConfig['Include_REStrategy_ReUse'] == 'True':
-                ReUsePotential_t = np.einsum('mg,crgm->mcgr',ReUseFactor_tmgr[t,:,:,-1],RECC_System.FlowDict['F_7_8'].Values[t,:,:,:,:,0])
+                ReUsePotential_Materials_t_m_Veh = np.einsum('mg,crgm->m',ReUseFactor_tmgr[t,:,0:6,-1],RECC_System.FlowDict['F_7_8'].Values[t,:,:,0:6,:,0])
+                ReUsePotential_Materials_t_m_Bld = np.einsum('mg,crgm->m',ReUseFactor_tmgr[t,:,6::,-1],RECC_System.FlowDict['F_7_8'].Values[t,:,:,6::,:,0])
                 # in the future, re-use will be a region-to-region parameter depicting, e.g., the export of used vehicles from the EU to Africa.
                 # check whether inflow is big enough for potential to be used, correct otherwise:
-                for mmg in range(0,Ng):
-                    for mmr in range(0,Nr):
-                        if Inflow_Detail_UsePhase[t,mmg,mmr] < ReUsePotential_t[:,mmr,mmg].sum(): # if re-use potential is larger than new inflow:
-                            if ReUsePotential_t[:,mmr,mmg].sum() > 0:
-                                ReUsePotential_t[:,mmr,mmg] = Inflow_Detail_UsePhase[t,mmg,mmr] * 1/ReUsePotential_t[:,mmr,mmg].sum() * ReUsePotential_t[:,mmr,mmg] # scale down reuse flow.
+                for mmm in range(0,Nm):
+                    # Vehicles
+                    if RECC_System.FlowDict['F_6_7'].Values[t,:,0:6,mmm,0].sum() < ReUsePotential_Materials_t_m_Veh[mmm]: # if re-use potential is larger than new inflow:
+                        if ReUsePotential_Materials_t_m_Veh[mmm] > 0:
+                            ReUsePotential_Materials_t_m_Veh[mmm] = RECC_System.FlowDict['F_6_7'].Values[t,:,0:6,mmm,0].sum()
+                    # Buildings
+                    if RECC_System.FlowDict['F_6_7'].Values[t,:,6::,mmm,0].sum() < ReUsePotential_Materials_t_m_Bld[mmm]: # if re-use potential is larger than new inflow:
+                        if ReUsePotential_Materials_t_m_Bld[mmm] > 0:
+                            ReUsePotential_Materials_t_m_Bld[mmm] = RECC_System.FlowDict['F_6_7'].Values[t,:,6::,mmm,0].sum()
             else:
-                ReUsePotential_t = np.zeros((Nm,Nc,Ng,Nr))
-                
-            RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,:,:,:] = \
-            np.einsum('crgme,mcgr->crgme',Par_Element_Material_Composition_of_Products[0:CohortOffset,:,:,:,:],ReUsePotential_t[:,0:CohortOffset,:,:])/1000 # All elements.
-            RECC_System.FlowDict['F_17_6'].Values[t,0:CohortOffset,:,:,:,:] = RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,:,:,:]
-                
+                ReUsePotential_Materials_t_m_Veh = np.zeros((Nm)) # in Mt/yr, total mass
+                ReUsePotential_Materials_t_m_Bld = np.zeros((Nm)) # in Mt/yr, total mass
             
-            # 4) Add re-use flow to inflow and calculate manufacturing output, in Mt/yr, all elements, trgme, element composition not yet known.
-            Manufacturing_Output_gm           = np.einsum('rgm->gm',RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0]) - np.einsum('crgm->gm',RECC_System.FlowDict['F_17_6'].Values[t,:,:,:,:,0])
+            # Vehicles
+            MassShareVeh = RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,0:6,:,0] / np.einsum('m,crg->crgm',np.einsum('crgm->m',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,0:6,:,0]),np.ones((CohortOffset,Nr,6)))
+            MassShareVeh[np.isnan(MassShareVeh)] = 0 # share of combination crg in total mass of m in outflow 7_8
+            RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,0:6,:,:] = \
+            np.einsum('cme,crgm->crgme', Par_Element_Composition_of_Materials_u[0:CohortOffset,:,:],\
+            np.einsum('m,crgm->crgm',ReUsePotential_Materials_t_m_Veh,MassShareVeh))  # All elements.
+            # Buildings
+            MassShareBld = RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,6::,:,0] / np.einsum('m,crg->crgm',np.einsum('crgm->m',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,6::,:,0]),np.ones((CohortOffset,Nr,9)))
+            MassShareBld[np.isnan(MassShareBld)] = 0 # share of combination crg in total mass of m in outflow 7_8
+            RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,6::,:,:] = \
+            np.einsum('cme,crgm->crgme', Par_Element_Composition_of_Materials_u[0:CohortOffset,:,:],\
+            np.einsum('m,crgm->crgm',ReUsePotential_Materials_t_m_Bld,MassShareBld))  # All elements.
+            
+            InvMass = 1 / np.einsum('m,rg->rgm',np.einsum('rgm->m',RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0]),np.ones((Nr,Ng)))
+            InvMass[np.isnan(InvMass)] = 0
+            InvMass[np.isinf(InvMass)] = 0
+            RECC_System.FlowDict['F_17_6'].Values[t,0:CohortOffset,:,:,:,:] = \
+            np.einsum('cme,rgm->crgme',np.einsum('crgme->cme',RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,:,:,:]),\
+            RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0]*InvMass) # reused material mapped to final consumption region and good
+            
+            # 3) Add re-use flow to inflow and calculate manufacturing output, in Mt/yr, all elements, trgme, element composition not yet known.
+            Manufacturing_Output_gm           = np.einsum('rgm->gm',RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0]) - np.einsum('crgm->gm',RECC_System.FlowDict['F_17_6'].Values[t,:,:,:,:,0]) # global total
             Manufacturing_Output[t,:,:,mS,mR] = Manufacturing_Output_gm
+            
             # 4) calculate inflow waste mgt.
             RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:]     = np.einsum('crgme->rgme',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_0'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,:,:,:])
     
@@ -927,7 +952,6 @@ for mS in range(0,NS):
             
             # 7) Waste mgt. losses.
             RECC_System.FlowDict['F_9_0'].Values[t,:]         = np.einsum('rgme->e',RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:]) + np.einsum('rwe->e',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:]) - np.einsum('rwe->e',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]) - np.einsum('rme->e',RECC_System.FlowDict['F_9_12'].Values[t,:,:,:])
-
 
             # 8) Calculate manufacturing input and primary production, all elements, element composition not yet known.
             Manufacturing_Input_m        = np.einsum('mg,gm->m',Par_FabYield_total_inv[:,:,t,-1],Manufacturing_Output_gm)
@@ -957,12 +981,13 @@ for mS in range(0,NS):
             Element_Material_Composition_raw[t,:,:,mS,mR] = Element_Material_Composition_t.copy()
             Element_Material_Composition_t[np.isnan(Element_Material_Composition_t)] = 0
             Element_Material_Composition_t[np.isinf(Element_Material_Composition_t)] = 0
-            Element_Material_Composition_t[:,0] = 1
-            Element_Material_Composition_t[:,-1] = 1 - Element_Material_Composition_t[:,1:-1].sum(axis =1)
+            #Element_Material_Composition_t[:,0] = 1
+            #Element_Material_Composition_t[:,-1] = 1 - Element_Material_Composition_t[:,1:-1].sum(axis =1)
             Element_Material_Composition[t,:,:,mS,mR] = Element_Material_Composition_t.copy()
             Par_Element_Composition_of_Materials_m[t+115,:,:] = Element_Material_Composition_t.copy()
+            Par_Element_Composition_of_Materials_u[t+115,:,:] = Element_Material_Composition_t.copy()
             
-            # 10) Calculate manufacturing output
+            # 10) Calculate manufacturing output, at global level only
             RECC_System.FlowDict['F_5_6'].Values[t,-1,:,:,:] = np.einsum('me,gm->gme',Element_Material_Composition_t,Manufacturing_Output_gm)
         
             # Manufacturing diagnostics
@@ -974,11 +999,13 @@ for mS in range(0,NS):
             Bal_30 = Aa[30,:,0] - Ac[30,:,0] - Ad[30,:,0]
         
             # 10a) Calculate material composition of product consumption
-            Element_Material_Composition_cons = np.einsum('me,me->me',np.einsum('gme->me',RECC_System.FlowDict['F_5_6'].Values[t,-1,:,:,:]) + np.einsum('cgme->me',RECC_System.FlowDict['F_17_6'].Values[t,0:CohortOffset,-1,:,:,:]),1/np.einsum('m,e->me',np.einsum('gm->m',RECC_System.FlowDict['F_5_6'].Values[t,-1,:,:,0]) + np.einsum('cgm->m',RECC_System.FlowDict['F_17_6'].Values[t,0:CohortOffset,-1,:,:,0]),np.ones(Ne)))
+            Throughput_FinalGoods_me = RECC_System.FlowDict['F_5_6'].Values[t,-1,:,:,:].sum(axis =0) + np.einsum('crgme->me',RECC_System.FlowDict['F_17_6'].Values[t,0:CohortOffset,:,:,:,:])
+            Element_Material_Composition_cons = np.einsum('me,me->me',Throughput_FinalGoods_me,1/np.einsum('m,e->me',Throughput_FinalGoods_me[:,1::].sum(axis =1),np.ones(Ne)))
             Element_Material_Composition_cons[np.isnan(Element_Material_Composition_cons)] = 0
             Element_Material_Composition_cons[np.isinf(Element_Material_Composition_cons)] = 0
-            Element_Material_Composition_cons[:,0] = 1
-            Element_Material_Composition_cons[:,-1] = 1 - Element_Material_Composition_t[:,1:-1].sum(axis =1)
+            #Element_Material_Composition_cons[:,0] = 1
+            #Element_Material_Composition_cons[:,-1] = 1 - Element_Material_Composition_t[:,1:-1].sum(axis =1)
+            Element_Material_Composition_con[t,:,:,mS,mR] = Element_Material_Composition_cons.copy()
             
             Par_Element_Composition_of_Materials_c[t,:,:] = Element_Material_Composition_cons.copy()
             Par_Element_Material_Composition_of_Products[CohortOffset,:,:,:,:] = np.einsum('mgr,me->rgme',Par_RECC_MC[CohortOffset,:,:,:],Par_Element_Composition_of_Materials_c[t,:,:]) # crgme
@@ -1018,7 +1045,12 @@ for mS in range(0,NS):
             Aa = np.einsum('trgm->trm',RECC_System.FlowDict['F_5_6'].Values[:,:,6::,:,0])  # materials in manufactured buildings
             Aa = np.einsum('tcgr->tgr',Stock_Detail_UsePhase)                              # Total stock time series
             
-
+            # ReUse Diagnostics
+            Ab = np.einsum('tcrgme->tme',RECC_System.FlowDict['F_8_17'].Values)
+            Ab = np.einsum('tcrgme->tme',RECC_System.FlowDict['F_17_6'].Values)
+            Ab = Element_Material_Composition_con[:,:,:,mS,mR]
+            Ab = MassShareVeh[:,0,:,:]
+            Ab = np.einsum('m,crgm->cgm',ReUsePotential_Materials_t_m_Veh,MassShareVeh)
             
         # Check whether flow value arrays match their indices, etc.
         RECC_System.Consistency_Check() 
