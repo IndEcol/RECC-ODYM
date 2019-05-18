@@ -82,20 +82,20 @@ FolderlistB =[
 Region= 'Germany'
 Scope = 'Germany_Vehicles'
 FolderlistV =[
-'Germany_2019_4_25__16_25_30',
-'Germany_2019_4_25__16_29_7',
-'Germany_2019_4_25__16_30_11',
-'Germany_2019_4_25__16_31_17',
-'Germany_2019_4_25__16_32_27'
+'Germany_2019_5_18__10_44_50',
+'Germany_2019_5_18__10_47_7',
+'Germany_2019_5_18__13_41_58',
+'Germany_2019_5_18__13_45_25',
+'Germany_2019_5_18__10_55_11'
 ]
 
 Scope = 'Germany_Buildings'
 FolderlistB =[
-'Germany_2019_4_25__16_33_36',
-'Germany_2019_4_25__16_34_54',
-'Germany_2019_4_25__16_35_58',
-'Germany_2019_4_25__16_37_7',
-'Germany_2019_4_25__16_38_43'
+'Germany_2019_5_18__10_44_50',
+'Germany_2019_5_18__10_47_7',
+'Germany_2019_5_18__13_41_58',
+'Germany_2019_5_18__13_45_25',
+'Germany_2019_5_18__10_55_11'
 ]
 
 
@@ -381,26 +381,39 @@ Nt = 35
 
 AnnEmsV = np.zeros((Nt,NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
 AnnEmsB = np.zeros((Nt,NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+MatEmsV = np.zeros((Nt,NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+MatEmsB = np.zeros((Nt,NS,NC,NR)) # SSP-Scenario x RCP scenario x RES scenario
+
 
 for r in range(0,NR): # RE scenario
     Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistV[r] + '\\'
-    Resultfile = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
-    Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
+    Resultfile   = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
+    Resultsheet  = Resultfile.sheet_by_name('TotalGHGFootprint')
+    Resultsheet1 = Resultfile.sheet_by_name('Cover')
+    UUID         = Resultsheet1.cell_value(3,2)
+    Resultfile2  = xlrd.open_workbook(Path + 'ODYM_RECC_ModelResults_' + UUID + '.xls')
+    Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
     for s in range(0,NS): # SSP scenario
         for c in range(0,NC):
             for t in range(0,35): # time
                 AnnEmsV[t,s,c,r] = Resultsheet.cell_value(t +2, 1 + c + NC*s)
+                MatEmsV[t,s,c,r] = Resultsheet2.cell_value(229+ 2*s +c,t+8)
 
 for r in range(0,NR): # RE scenario
     Path = 'C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + FolderlistB[r] + '\\'
     Resultfile = xlrd.open_workbook(Path + 'SysVar_TotalGHGFootprint.xls')
     Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
+    Resultsheet1 = Resultfile.sheet_by_name('Cover')
+    UUID         = Resultsheet1.cell_value(3,2)
+    Resultfile2  = xlrd.open_workbook(Path + 'ODYM_RECC_ModelResults_' + UUID + '.xls')
+    Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
     for s in range(0,NS): # SSP scenario
         for c in range(0,NC):
             for t in range(0,35): # time
                 AnnEmsB[t,s,c,r] = Resultsheet.cell_value(t +2, 1 + c + NC*s)
-        
-# Area plot, stacked
+                MatEmsB[t,s,c,r] = Resultsheet2.cell_value(229+ 2*s +c,t+8)
+                
+# Area plot, stacked, GHG emissions, system
 MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Paired' color map.            
 grey0_9      = np.array([0.9,0.9,0.9,1])
 
@@ -449,6 +462,54 @@ for mS in range(0,NS): # SSP
         fig_name = 'GHG_TimeSeries_Stacked_' + Region + '_ ' + Title[mR] + '_' + Scens[mS] + '.png'
         fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
 
+# Area plot, stacked, GHG emissions, material production, waste mgt, remelting.
+MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Paired' color map.            
+grey0_9      = np.array([0.9,0.9,0.9,1])
+
+Title      = ['Passenger vehicles','residential buildings']
+Scens      = ['LED','SSP1','SSP2']
+LWE_area   = ['higher yields, re-use','material subst.','down-sizing','more intense use']     
+
+#mS = 1
+#mR = 1
+mRCP = 1 # select RCP2.6, which has full implementation of RE strategies by 2050.
+for mS in range(0,NS): # SSP
+    for mR in range(0,2): # Veh/Buildings
+        
+        if mR == 0:
+            Data = MatEmsV[:,mS,mRCP,:]
+        if mR == 1:
+            Data = MatEmsB[:,mS,mRCP,:]
+    
+    
+        fig  = plt.figure(figsize=(8,5))
+        ax1  = plt.axes([0.08,0.08,0.85,0.9])
+        
+        ProxyHandlesList = []   # For legend     
+        
+        # plot bars for domestic footprint
+        ax1.fill_between(np.arange(2016,2051),np.zeros((Nt)), Data[:,-1], linestyle = '-', facecolor = grey0_9, linewidth = 1.0)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=grey0_9)) # create proxy artist for legend
+        for m in range(4,0,-1):
+            ax1.fill_between(np.arange(2016,2051),Data[:,m], Data[:,m-1], linestyle = '-', facecolor = MyColorCycle[2*m,:], linewidth = 1.0)
+            ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[2*m,:])) # create proxy artist for legend
+            
+        #plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
+        
+        plt.title('GHG emissions, stacked by RE strategy, \n' + Region + ', ' + Title[mR] + ', ' + Scens[mS] + '.', fontsize = 18)
+        plt.ylabel('Mt of CO2-eq.', fontsize = 18)
+        plt.xlabel('Year', fontsize = 18)
+        plt.xticks(fontsize=18)
+        plt.yticks(fontsize=18)
+        if mR == 0: # vehicles, legend lower left
+            plt_lgd  = plt.legend(handles = reversed(ProxyHandlesList),labels = LWE_area, shadow = False, prop={'size':16},ncol=1, loc = 'lower left')# ,bbox_to_anchor=(1.91, 1)) 
+        if mR == 1: # buildings, legend upper right
+            plt_lgd  = plt.legend(handles = reversed(ProxyHandlesList),labels = LWE_area, shadow = False, prop={'size':16},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
+        ax1.set_xlim([2015, 2050])
+        
+        plt.show()
+        fig_name = 'GHG_TimeSeries_Materials_Stacked_' + Region + '_ ' + Title[mR] + '_' + Scens[mS] + '.png'
+        fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
 
 
 
