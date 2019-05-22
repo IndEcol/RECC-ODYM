@@ -22,164 +22,170 @@ import pylab
 Region= 'Canada'
 Scope = 'Canada_Vehicles'
 FolderlistV =[
-'Canada_2019_4_25__16_5_45',
-'Canada_2019_4_25__16_10_23',
-'Canada_2019_4_25__16_12_0',
-'Canada_2019_4_25__16_13_46',
-'Canada_2019_4_25__16_15_1'
+'Canada_2019_5_22__5_53_1',
+'Canada_2019_5_22__5_58_58',
+'Canada_2019_5_22__6_1_9',
+'Canada_2019_5_22__6_3_14',
+'Canada_2019_5_22__6_4_51'
 ]
 
 Scope = 'Canada_Buildings'
 FolderlistB =[
-'Canada_2019_4_25__16_17_22',
-'Canada_2019_4_25__16_19_35',
-'Canada_2019_4_25__16_20_48',
-'Canada_2019_4_25__16_21_59',
-'Canada_2019_4_25__16_23_4'
+'Canada_2019_5_22__6_6_45',
+'Canada_2019_5_22__6_8_24',
+'Canada_2019_5_22__6_9_59',
+'Canada_2019_5_22__6_11_49',
+'Canada_2019_5_22__6_13_11'
 ]
 
 
 Region= 'USA'
 Scope = 'USA_Vehicles'
 FolderlistV =[
-'USA_2019_4_25__15_26_48',
-'USA_2019_4_25__15_29_21',
-'USA_2019_4_25__15_30_43',
-'USA_2019_4_25__15_31_50',
-'USA_2019_4_25__15_32_56'
+'USA_2019_5_21__23_30_39',
+'USA_2019_5_22__5_27_10',
+'USA_2019_5_22__5_30_38',
+'USA_2019_5_22__5_32_37',
+'USA_2019_5_22__5_34_29'
 ]
 
 Scope = 'USA_buildings'
 FolderlistB =[
-'USA_2019_4_25__15_34_4',
-'USA_2019_4_25__15_36_1',
-'USA_2019_4_25__15_37_10',
-'USA_2019_4_25__15_38_21',
-'USA_2019_4_25__15_39_34'
+'USA_2019_5_22__5_36_12',
+'USA_2019_5_22__5_37_49',
+'USA_2019_5_22__5_39_39',
+'USA_2019_5_22__5_42_0',
+'USA_2019_5_22__5_43_46'
 ]
 
 
 Region= 'France'
 Scope = 'France_Vehicles'
 FolderlistV =[
-'France_2019_4_25__15_43_17',
-'France_2019_4_25__15_53_52',
-'France_2019_4_25__15_55_5',
-'France_2019_4_25__15_56_30',
-'France_2019_4_25__15_57_58'
+'France_2019_5_22__6_17_37',
+'France_2019_5_22__6_22_35',
+'France_2019_5_22__6_24_22',
+'France_2019_5_22__6_26_12',
+'France_2019_5_22__6_28_36'
 ]
 
 Scope = 'France_Buildings'
 FolderlistB =[
-'France_2019_4_25__15_59_34',
-'France_2019_4_25__16_0_55',
-'France_2019_4_25__16_2_12',
-'France_2019_4_25__16_3_18',
-'France_2019_4_25__16_4_30'
+'France_2019_5_22__6_30_25',
+'France_2019_5_22__6_31_59',
+'France_2019_5_22__6_33_49',
+'France_2019_5_22__6_36_43',
+'France_2019_5_22__6_39_29'
 ]
 
 
 Region= 'Germany'
 Scope = 'Germany_Vehicles'
 FolderlistV =[
-'Germany_2019_5_18__10_44_50',
-'Germany_2019_5_18__10_47_7',
-'Germany_2019_5_18__13_41_58',
-'Germany_2019_5_18__13_45_25',
-'Germany_2019_5_18__10_55_11'
+'Germany_2019_5_21__23_3_54',
+'Germany_2019_5_21__23_8_42',
+'Germany_2019_5_21__23_10_11',
+'Germany_2019_5_21__23_11_54',
+'Germany_2019_5_21__23_13_15'
 ]
 
 Scope = 'Germany_Buildings'
 FolderlistB =[
-'Germany_2019_5_18__10_44_50',
-'Germany_2019_5_18__10_47_7',
-'Germany_2019_5_18__13_41_58',
-'Germany_2019_5_18__13_45_25',
-'Germany_2019_5_18__10_55_11'
+'Germany_2019_5_21__23_15_9',
+'Germany_2019_5_21__23_17_3',
+'Germany_2019_5_21__23_18_31',
+'Germany_2019_5_21__23_20_0',
+'Germany_2019_5_21__23_21_24'
 ]
 
 
 Region= 'Japan'
 Scope = 'Japan_Vehicles'
 FolderlistV =[
-'Japan_2019_4_25__17_35_40',
-'Japan_2019_4_25__17_38_50',
-'Japan_2019_4_25__17_40_28',
-'Japan_2019_4_25__17_43_1',
-'Japan_2019_4_25__17_45_38'
+'Japan_2019_5_22__7_13_43',
+'Japan_2019_5_22__7_34_9',
+'Japan_2019_5_22__7_36_24',
+'Japan_2019_5_22__7_37_51',
+'Japan_2019_5_22__7_39_27'
 ]
 
 Scope = 'Japan_Buildings'
 FolderlistB =[
-'Japan_2019_4_25__17_47_14',
-'Japan_2019_4_25__17_48_34',
-'Japan_2019_4_25__17_50_16',
-'Japan_2019_4_25__17_51_37',
-'Japan_2019_4_25__17_52_51'
+'Japan_2019_5_22__7_40_46',
+'Japan_2019_5_22__7_42_9',
+'Japan_2019_5_22__7_43_25',
+'Japan_2019_5_22__7_44_41',
+'Japan_2019_5_22__7_46_2'
 ]
 
 
 Region= 'Italy'
 Scope = 'Italy_Vehicles'
 FolderlistV =[
-'Italy_2019_4_25__17_19_53',
-'Italy_2019_4_25__17_21_19',
-'Italy_2019_4_25__17_22_32',
-'Italy_2019_4_25__17_23_36',
-'Italy_2019_4_25__17_24_38'
+'Italy_2019_5_22__6_43_23',
+'Italy_2019_5_22__6_48_13',
+'Italy_2019_5_22__6_49_45',
+'Italy_2019_5_22__6_52_28',
+'Italy_2019_5_22__6_53_48'
 ]
 
 Scope = 'Italy_Buildings'
 FolderlistB =[
-'Italy_2019_4_25__17_25_51',
-'Italy_2019_4_25__17_27_6',
-'Italy_2019_4_25__17_28_7',
-'Italy_2019_4_25__17_32_51',
-'Italy_2019_4_25__17_34_2'
+'Italy_2019_5_22__6_55_23',
+'Italy_2019_5_22__6_58_56',
+'Italy_2019_5_22__7_2_56',
+'Italy_2019_5_22__7_7_54',
+'Italy_2019_5_22__7_10_18'
 ]
 
 
 Region= 'UK'
 Scope = 'UK_Vehicles'
 FolderlistV =[
-'UK_2019_4_25__17_58_24',
-'UK_2019_4_25__18_2_5',
-'UK_2019_4_25__18_3_18',
-'UK_2019_4_25__18_4_57',
-'UK_2019_4_25__18_6_32'
+'UK_2019_5_22__7_52_12',
+'UK_2019_5_22__8_17_45',
+'UK_2019_5_22__8_19_0',
+'UK_2019_5_22__8_20_12',
+'UK_2019_5_22__8_21_47'
 ]
 
 Scope = 'UK_Buildings'
 FolderlistB =[
-'UK_2019_4_25__18_8_4',
-'UK_2019_4_25__18_11_4',
-'UK_2019_4_25__18_12_20',
-'UK_2019_4_25__18_14_50',
-'UK_2019_4_25__18_16_10'
+'UK_2019_5_22__8_23_10',
+'UK_2019_5_22__8_24_30',
+'UK_2019_5_22__8_25_45',
+'UK_2019_5_22__8_27_39',
+'UK_2019_5_22__8_29_19'
 ]
 
 
 Region= 'G7'
 Scope = 'G7 Vehicles'
 FolderlistV =[
-'G7_2019_4_25__18_21_20',
-'G7_2019_4_25__18_27_44',
-'G7_2019_4_25__18_37_49',
-'G7_2019_4_25__18_41_35',
-'G7_2019_4_25__18_46_2'
+'G7_2019_5_22__8_33_10',
+'G7_2019_5_22__8_42_34',
+'G7_2019_5_22__8_47_17',
+'G7_2019_5_22__8_53_52',
+'G7_2019_5_22__8_59_15'
 ]
 
 Scope = 'G7 Buildings'
 FolderlistB =[
-'G7_2019_4_25__18_49_22',
-'G7_2019_4_25__18_52_54',
-'G7_2019_4_25__18_56_20',
-'G7_2019_4_25__18_59_50',
-'G7_2019_4_25__19_3_29'
+'G7_2019_5_22__9_4_17',
+'G7_2019_5_22__9_9_0',
+'G7_2019_5_22__9_13_45',
+'G7_2019_5_22__9_19_8',
+'G7_2019_5_22__9_25_10'
 ]
 
-
-
+### Template:
+FolderlistB =[
+'',
+'',
+'',
+'',
+''
+]
 
 
 
@@ -258,7 +264,7 @@ for m in range(0,NS): # SSP
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
     
         ProxyHandlesList = []   # For legend     
-        # plot bars for domestic footprint
+        # plot bars
         ax1.fill_between([0,0+bw], [0,0],[Left,Left],linestyle = '--', facecolor =MyColorCycle[0,:], linewidth = 0.0)
         ax1.fill_between([1,1+bw], [Data[1,m],Data[1,m]],[Left,Left],linestyle = '--', facecolor =MyColorCycle[1,:], linewidth = 0.0)
         ax1.fill_between([2,2+bw], [Data[2,m],Data[2,m]],[Data[1,m],Data[1,m]],linestyle = '--', facecolor =MyColorCycle[2,:], linewidth = 0.0)
@@ -324,7 +330,7 @@ for m in range(0,NS): # SSP
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
     
         ProxyHandlesList = []   # For legend     
-        # plot bars for domestic footprint
+        # plot bars
         ax1.fill_between([0,0+bw], [0,0],[Left,Left],linestyle = '--', facecolor =MyColorCycle[0,:], linewidth = 0.0)
         ax1.fill_between([1,1+bw], [Data[1,m],Data[1,m]],[Left,Left],linestyle = '--', facecolor =MyColorCycle[1,:], linewidth = 0.0)
         ax1.fill_between([2,2+bw], [Data[2,m],Data[2,m]],[Data[1,m],Data[1,m]],linestyle = '--', facecolor =MyColorCycle[2,:], linewidth = 0.0)
@@ -438,7 +444,7 @@ for mS in range(0,NS): # SSP
         
         ProxyHandlesList = []   # For legend     
         
-        # plot bars for domestic footprint
+        # plot area
         ax1.fill_between(np.arange(2016,2051),np.zeros((Nt)), Data[:,-1], linestyle = '-', facecolor = grey0_9, linewidth = 1.0)
         ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=grey0_9)) # create proxy artist for legend
         for m in range(4,0,-1):
@@ -463,7 +469,7 @@ for mS in range(0,NS): # SSP
         fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
 
 # Area plot, stacked, GHG emissions, material production, waste mgt, remelting.
-MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Paired' color map.            
+MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Set1' color map.            
 grey0_9      = np.array([0.9,0.9,0.9,1])
 
 Title      = ['Passenger vehicles','residential buildings']
@@ -487,7 +493,7 @@ for mS in range(0,NS): # SSP
         
         ProxyHandlesList = []   # For legend     
         
-        # plot bars for domestic footprint
+        # plot area
         ax1.fill_between(np.arange(2016,2051),np.zeros((Nt)), Data[:,-1], linestyle = '-', facecolor = grey0_9, linewidth = 1.0)
         ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=grey0_9)) # create proxy artist for legend
         for m in range(4,0,-1):

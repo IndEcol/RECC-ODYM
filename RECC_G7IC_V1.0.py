@@ -28,6 +28,7 @@ import pandas as pd
 import shutil   
 import uuid
 import matplotlib.pyplot as plt   
+from matplotlib.lines import Line2D
 import importlib
 import getpass
 from copy import deepcopy
@@ -391,6 +392,7 @@ except:
 mr = 0 # reference region for GHG prices and intensities (Default: 0, which is the first region selected in the config file.)
 LEDindex  = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('LED')
 SSP1index = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP1')
+SSP2index = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP2')
 
 # 1) Material composition of vehicles, will only use historic age-cohorts.
 # Values are given every 5 years, we need all values in between.
@@ -424,10 +426,6 @@ ParameterDict[PL_Names[index]].Values = MC_Bld_New.copy()
 
 # 3) Determine future energy intensity and material composition of vehicles by mixing archetypes:
 # Replicate values for other countries
-# Lightweighting regional values replicate:
-for rr in range(0,Nr-1): # replicate vehicle lightweighting parameter from World to all regions except for the USA, for which a country-specific value is given
-    if IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[rr] != 'R32USA':
-        ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[:,rr,:,:] = ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[:,-1,:,:].copy()
 # replicate vehicle building parameter from World to all regions
 ParameterDict['3_SHA_LightWeighting_Buildings'].Values                  = np.einsum('gtS,r->grtS',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[:,-1,:,:],np.ones(Nr))
 
@@ -510,11 +508,13 @@ ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values     = np.einsum('tR,r->trR'
 
 # 11) LED scenario data from proxy scenarios:
 # 2_P_RECC_Population_SSP_32R
-ParameterDict['2_P_RECC_Population_SSP_32R'].Values[:,:,:,LEDindex]     = ParameterDict['2_P_RECC_Population_SSP_32R'].Values[:,:,:,SSP1index].copy()
+ParameterDict['2_P_RECC_Population_SSP_32R'].Values[:,:,:,LEDindex]       = ParameterDict['2_P_RECC_Population_SSP_32R'].Values[:,:,:,SSP2index].copy()
 # 3_EI_Products_UsePhase, historic
-ParameterDict['3_EI_Products_UsePhase'].Values[0:115,:,:,:,:,LEDindex] = ParameterDict['3_EI_Products_UsePhase'].Values[0:115,:,:,:,:,SSP1index].copy()
-# 3_IO_Buildings_UsePhase_G7IC and 3_IO_Vehicles_UsePhase
-ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,LEDindex]      = ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,SSP1index].copy()
+ParameterDict['3_EI_Products_UsePhase'].Values[0:115,:,:,:,:,LEDindex]    = ParameterDict['3_EI_Products_UsePhase'].Values[0:115,:,:,:,:,SSP2index].copy()
+# 3_IO_Buildings_UsePhase_G7IC
+ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,LEDindex]         = ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,SSP2index].copy()
+# 4_PE_GHGIntensityEnergySupply
+ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,LEDindex,:,:,:] = ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,SSP2index,:,:,:].copy()
 
 #13) Combine type split parameter
 ParameterDict['3_SHA_TypeSplit_NewProducts'] = msc.Parameter(Name='3_SHA_TypeSplit_NewProducts', ID='3_SHA_TypeSplit_NewProducts',
@@ -539,6 +539,10 @@ ParameterDict['3_EI_Products_UsePhase'].Values[0:115,0:6,3,:,0:-1,:]   = Paramet
 # Calibrate building energy consumption
 ParameterDict['3_EI_Products_UsePhase'].Values[0:115,6::,0:3,:,0:-1,:] = ParameterDict['3_EI_Products_UsePhase'].Values[0:115,6::,0:3,:,0:-1,:] * np.einsum('r,cgVnS->cgVnrS',ParameterDict['6_PR_Calibration'].Values[2,0:-1],np.ones((115,9,3,Nn,NS)))
 
+#16) No recycling scenario (counterfactual reference)
+if ScriptConfig['IncludeRecycling'] == 'False': # no recycling and remelting
+    ParameterDict['4_PY_EoL_RecoveryRate'].Values            = np.zeros(ParameterDict['4_PY_EoL_RecoveryRate'].Values.shape)
+    ParameterDict['4_PY_MaterialProductionRemelting'].Values = np.zeros(ParameterDict['4_PY_MaterialProductionRemelting'].Values.shape)
 
 # Model flow control: Include or exclude certain sectors
 if ScriptConfig['SectorSelect'] == 'passenger vehicles':
@@ -568,6 +572,10 @@ GHG_Building_id  = np.zeros((Nt,NS,NR)) # energy supply only
 GHG_Manufact_all = np.zeros((Nt,NS,NR))
 GHG_WasteMgt_all = np.zeros((Nt,NS,NR))
 GHG_PrimaryMetal = np.zeros((Nt,NS,NR))
+GHG_UsePhase_Scope2_El  = np.zeros((Nt,NS,NR))
+GHG_UsePhase_OtherIndir = np.zeros((Nt,NS,NR))
+GHG_MaterialCycle       = np.zeros((Nt,NS,NR))
+GHG_RecyclingCredit     = np.zeros((Nt,NS,NR))
 Material_Inflow  = np.zeros((Nt,Ng,Nm,NS,NR))
 Scrap_Outflow    = np.zeros((Nt,Nw,NS,NR))
 PrimaryProduction= np.zeros((Nt,Nm,NS,NR))
@@ -1115,6 +1123,8 @@ for mS in range(0,NS):
         SysVar_IndirectGHGEms_EnergySupply_Manufacturing           = 0.001 * np.einsum('Xnt,tn->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,mr,:],SysVar_EnergyDemand_Manufacturing)
         SysVar_IndirectGHGEms_EnergySupply_WasteMgt                = 0.001 * np.einsum('Xnt,tn->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,mr,:],SysVar_EnergyDemand_WasteMgt)
         SysVar_IndirectGHGEms_EnergySupply_Remelting               = 0.001 * np.einsum('Xnt,tn->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,mr,:],SysVar_EnergyDemand_Remelting)
+        SysVar_IndirectGHGEms_EnergySupply_UsePhase_Buildings_EL   = 0.001 * np.einsum('Xrt,trg->Xt', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,0,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_Buildings_ByEnergyCarrier[:,:,:,0]) # electricity only
+        SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_EL    = 0.001 * np.einsum('Xrt,trg->Xt', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,0,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_Vehicles_ByEnergyCarrier[:,:,:,0])  # electricity only
         
         # Unit: Mt/yr.
         
@@ -1141,27 +1151,22 @@ for mS in range(0,NS):
             SysVar_ProcessEmissions_RecyclingCredit = 0
             SysVar_IndirectGHGEms_EnergySupply_RecyclingCredit = 0
         
-        # I) Calculate total emissions of system
-        SysVar_TotalGHGEms = np.einsum('Xtrg->Xt',SysVar_DirectEmissions_UsePhase_Buildings + SysVar_DirectEmissions_UsePhase_Vehicles) + np.einsum('Xtm->Xt',SysVar_DirectEmissions_PrimaryProd) + SysVar_DirectEmissions_Manufacturing + \
-        SysVar_DirectEmissions_WasteMgt + SysVar_DirectEmissions_Remelting + SysVar_ProcessEmissions_PrimaryProd + \
-        SysVar_IndirectGHGEms_EnergySupply_UsePhase_Buildings + SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles + \
-        SysVar_IndirectGHGEms_EnergySupply_PrimaryProd + SysVar_IndirectGHGEms_EnergySupply_Manufacturing +\
-        SysVar_IndirectGHGEms_EnergySupply_WasteMgt + SysVar_IndirectGHGEms_EnergySupply_Remelting +\
-        SysVar_DirectEmissions_RecyclingCredit + SysVar_ProcessEmissions_RecyclingCredit + SysVar_IndirectGHGEms_EnergySupply_RecyclingCredit
+        # I) Calculate emissions of system, by process group
+        SysVar_GHGEms_UsePhase            = np.einsum('Xtrg->Xt',SysVar_DirectEmissions_UsePhase_Buildings + SysVar_DirectEmissions_UsePhase_Vehicles)
+        SysVar_GHGEms_UsePhase_Scope2_El  = SysVar_IndirectGHGEms_EnergySupply_UsePhase_Buildings_EL + SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_EL
+        SysVar_GHGEms_UsePhase_OtherIndir = SysVar_IndirectGHGEms_EnergySupply_UsePhase_Buildings + SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles - SysVar_GHGEms_UsePhase_Scope2_El
+        SysVar_GHGEms_PrimaryMetal        = np.einsum('Xtm->Xt',SysVar_DirectEmissions_PrimaryProd) + SysVar_ProcessEmissions_PrimaryProd + SysVar_IndirectGHGEms_EnergySupply_PrimaryProd
+        SysVar_GHGEms_Manufacturing       = SysVar_DirectEmissions_Manufacturing + SysVar_IndirectGHGEms_EnergySupply_Manufacturing
+        SysVar_GHGEms_WasteMgtRemelting   = SysVar_DirectEmissions_WasteMgt + SysVar_DirectEmissions_Remelting + SysVar_IndirectGHGEms_EnergySupply_WasteMgt + SysVar_IndirectGHGEms_EnergySupply_Remelting
+        SysVar_GHGEms_MaterialCycle       = SysVar_GHGEms_Manufacturing + SysVar_GHGEms_WasteMgtRemelting
+                                             
+        SysVar_GHGEms_RecyclingCredit     = SysVar_DirectEmissions_RecyclingCredit + SysVar_ProcessEmissions_RecyclingCredit + SysVar_IndirectGHGEms_EnergySupply_RecyclingCredit
         
-        SysVar_GHGEms_UsePhase = np.einsum('Xtrg->Xt',SysVar_DirectEmissions_UsePhase_Buildings + SysVar_DirectEmissions_UsePhase_Vehicles)
+        # J) Calculate total emissions of system
+        SysVar_GHGEms_Other     = SysVar_GHGEms_UsePhase_Scope2_El + SysVar_GHGEms_UsePhase_OtherIndir + SysVar_GHGEms_PrimaryMetal + SysVar_GHGEms_MaterialCycle
+        SysVar_TotalGHGEms      = SysVar_GHGEms_UsePhase + SysVar_GHGEms_Other + SysVar_GHGEms_RecyclingCredit
 
-        SysVar_GHGEms_Other    = np.einsum('Xtm->Xt',SysVar_DirectEmissions_PrimaryProd) + SysVar_DirectEmissions_Manufacturing + \
-        SysVar_DirectEmissions_WasteMgt + SysVar_DirectEmissions_Remelting + SysVar_ProcessEmissions_PrimaryProd + \
-        SysVar_IndirectGHGEms_EnergySupply_UsePhase_Buildings + SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles + \
-        SysVar_IndirectGHGEms_EnergySupply_PrimaryProd + SysVar_IndirectGHGEms_EnergySupply_Manufacturing +\
-        SysVar_IndirectGHGEms_EnergySupply_WasteMgt + SysVar_IndirectGHGEms_EnergySupply_Remelting +\
-        SysVar_DirectEmissions_RecyclingCredit + SysVar_ProcessEmissions_RecyclingCredit + SysVar_IndirectGHGEms_EnergySupply_RecyclingCredit
-
-        SysVar_GHGEms_Materials= np.einsum('Xtm->Xt',SysVar_DirectEmissions_PrimaryProd) + \
-        SysVar_DirectEmissions_WasteMgt + SysVar_DirectEmissions_Remelting + SysVar_ProcessEmissions_PrimaryProd + \
-        SysVar_IndirectGHGEms_EnergySupply_PrimaryProd +\
-        SysVar_IndirectGHGEms_EnergySupply_WasteMgt + SysVar_IndirectGHGEms_EnergySupply_Remelting
+        SysVar_GHGEms_Materials = SysVar_GHGEms_PrimaryMetal + SysVar_GHGEms_MaterialCycle - SysVar_DirectEmissions_Manufacturing - SysVar_IndirectGHGEms_EnergySupply_Manufacturing
 
         # Unit: Mt/yr.
         
@@ -1172,6 +1177,10 @@ for mS in range(0,NS):
         # K) Compile results
         GHG_System[:,mS,mR]          = SysVar_TotalGHGEms[0,:].copy()
         GHG_UsePhase[:,mS,mR]        = SysVar_GHGEms_UsePhase[0,:].copy()
+        GHG_UsePhase_Scope2_El[:,mS,mR]  = SysVar_GHGEms_UsePhase_Scope2_El[0,:].copy()
+        GHG_UsePhase_OtherIndir[:,mS,mR] = SysVar_GHGEms_UsePhase_OtherIndir[0,:].copy()
+        GHG_MaterialCycle[:,mS,mR]   = SysVar_GHGEms_MaterialCycle[0,:].copy()
+        GHG_RecyclingCredit[:,mS,mR] = SysVar_GHGEms_RecyclingCredit[0,:].copy()
         GHG_Other[:,mS,mR]           = SysVar_GHGEms_Other[0,:].copy() # all non use-phase processes
         GHG_Materials[:,mS,mR]       = SysVar_GHGEms_Materials[0,:].copy()
         GHG_Vehicles[:,:,mS,mR]      = np.einsum('trg->tr',SysVar_DirectEmissions_UsePhase_Vehicles[0,:,:,:]).copy()
@@ -1184,13 +1193,22 @@ for mS in range(0,NS):
         FabricationScrap[:,:,mS,mR]  = RECC_System.FlowDict['F_5_10'].Values[:,-1,:,0].copy()
         GHG_Vehicles_id[:,mS,mR]     = SysVar_IndirectGHGEms_EnergySupply_UsePhase_Buildings[0,:].copy()
         GHG_Building_id[:,mS,mR]     = SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles[0,:].copy()
-        GHG_Manufact_all[:,mS,mR]    = SysVar_DirectEmissions_Manufacturing[0,:].copy() + SysVar_IndirectGHGEms_EnergySupply_Manufacturing[0,:].copy()
-        GHG_WasteMgt_all[:,mS,mR]    = SysVar_DirectEmissions_WasteMgt[0,:].copy() + SysVar_DirectEmissions_Remelting[0,:].copy() + SysVar_IndirectGHGEms_EnergySupply_WasteMgt[0,:].copy() + SysVar_IndirectGHGEms_EnergySupply_Remelting[0,:].copy()
+        GHG_Manufact_all[:,mS,mR]    = SysVar_GHGEms_Manufacturing[0,:].copy()
+        GHG_WasteMgt_all[:,mS,mR]    = SysVar_GHGEms_WasteMgtRemelting[0,:].copy()
         EnergyCons_UP_Vh[:,mS,mR]    = np.einsum('trgn->t',SysVar_EnergyDemand_UsePhase_Vehicles_ByEnergyCarrier).copy()
         EnergyCons_UP_Bd[:,mS,mR]    = np.einsum('trgn->t',SysVar_EnergyDemand_UsePhase_Buildings_ByEnergyCarrier).copy()
         EnergyCons_UP_Mn[:,mS,mR]    = SysVar_EnergyDemand_Manufacturing.sum(axis =1).copy()
         EnergyCons_UP_Wm[:,mS,mR]    = SysVar_EnergyDemand_WasteMgt.sum(axis =1).copy() +  SysVar_EnergyDemand_Remelting.sum(axis =1).copy()
         Vehicle_km[:,mS,mR]          = np.einsum('tcgr->t',SysVar_StockServiceProvision_UsePhase[:,:,:,:,-1])
+ 
+#Emissions scopes:
+# System, all processes:         GHG_System        
+# Use phase only:                GHG_UsePhase    
+# Use phase, electricity scope2: GHG_UsePhase_Scope2_El
+# Use phase, indirect, rest:     GHG_UsePhase_OtherIndir
+# Primary metal production:      GHG_PrimaryMetal    
+# Manufacturing_Recycling:       GHG_MaterialCycle
+# RecyclingCredit                GHG_RecyclingCredit
         
         
 # DIAGNOSTICS
@@ -1282,7 +1300,12 @@ for mr in range(0,Nr-1):
         newrowoffset = msf.ExcelExportAdd_tAB(Sheet,np.einsum('tS,R->tSR',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[mg,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of light-weighted ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'%',IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[mr],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
 #vehicle km 
 newrowoffset = msf.ExcelExportAdd_tAB(Sheet,Vehicle_km,newrowoffset,len(ColLabels),'km driven by pass. vehicles','million km/yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-
+# Use phase indirect GHG, primary prodution GHG, material cycle and recycling credit
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_UsePhase_Scope2_El,newrowoffset,len(ColLabels),'GHG emissions, use phase scope 2 (electricity)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_UsePhase_OtherIndir,newrowoffset,len(ColLabels),'GHG emissions, use phase other indirect (non-el.)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_PrimaryMetal,newrowoffset,len(ColLabels),'GHG emissions, primary metal production','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_MaterialCycle,newrowoffset,len(ColLabels),'GHG emissions, manufact, wast mgt., remelting and indirect','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_RecyclingCredit,newrowoffset,len(ColLabels),'GHG emissions, recycling credits','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 
 
 MyColorCycle = pylab.cm.Paired(np.arange(0,1,0.2))
@@ -1293,51 +1316,51 @@ linewidth2 = [1.2,2,1.2]
 Figurecounter = 1
 LegendItems_SSP    = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items
 LegendItems_RCP    = IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items
-LegendItems_SSP_RE = ['LED, no CP', 'LED, 2°C', 'SSP1, no CP', 'SSP1, 2°C', 'SSP2, no CP', 'SSP2, 2°C']
-LegendItems_SSP_UP = ['Use Phase, SSP1, no CP', 'Indirect GHG, SSP1, no CP','Use Phase, SSP1, 2°C', 'Indirect GHG, SSP1, 2°C']
+LegendItems_SSP_RE = ['LED, no EST', 'LED, 2°C ES', 'SSP1, no EST', 'SSP1, 2°C ES', 'SSP2, no EST', 'SSP2, 2°C ES']
+LegendItems_SSP_UP = ['Use Phase, SSP1, no EST', 'Rest of system GHG, SSP1, no EST','Use Phase, SSP1, 2°C ES', 'Rest of system GHG, SSP1, 2°C ES']
 ColorOrder         = [1,0,3]
 
 # 1) Emissions by scenario
 
-fig1, ax1 = plt.subplots()
-ax1.set_color_cycle(MyColorCycle)
-ProxyHandlesList = []
-for m in range(0,NS):
-    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),GHG_System[:,m,0], linewidth = linewidth[m])
-    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
-plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
-plt.ylabel('GHG emissions of system, Mt/yr.', fontsize = 12) 
-plt.xlabel('year', fontsize = 12) 
-plt.title('No CP and energy system transformation', fontsize = 12) 
-if ScriptConfig['UseGivenPlotBoundaries'] == True:
-    plt.axis([2015, 2050, 0, ScriptConfig['Plot1Max']])
-plt.show()
-fig_name = 'CO2_Ems_Baseline'
-# include figure in logfile:
-fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
-Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-Figurecounter += 1
-
-fig1, ax1 = plt.subplots()
-ax1.set_color_cycle(MyColorCycle)
-ProxyHandlesList = []
-for m in range(0,NS):
-    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),GHG_System[:,m,1], linewidth = linewidth[m])
-    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
-plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
-plt.ylabel('GHG emissions of system, Mt/yr.', fontsize = 12) 
-plt.xlabel('year', fontsize = 12) 
-plt.title('RCP 2.6, energy system transformation', fontsize = 12) 
-if ScriptConfig['UseGivenPlotBoundaries'] == True:
-    plt.axis([2015, 2050, 0, ScriptConfig['Plot1Max']])
-plt.show()
-fig_name = 'CO2_Ems_2dC'
-# include figure in logfile:
-fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
-Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-Figurecounter += 1
+#fig1, ax1 = plt.subplots()
+#ax1.set_color_cycle(MyColorCycle)
+#ProxyHandlesList = []
+#for m in range(0,NS):
+#    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),GHG_System[:,m,0], linewidth = linewidth[m])
+#    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+#plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+#plt.ylabel('GHG emissions of system, Mt/yr.', fontsize = 12) 
+#plt.xlabel('year', fontsize = 12) 
+#plt.title('No energy system (ES) transformation (EST)', fontsize = 12) 
+#if ScriptConfig['UseGivenPlotBoundaries'] == True:
+#    plt.axis([2015, 2050, 0, ScriptConfig['Plot1Max']])
+#plt.show()
+#fig_name = 'GHG_No_EST'
+## include figure in logfile:
+#fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+#fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+#Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+#Figurecounter += 1
+#
+#fig1, ax1 = plt.subplots()
+#ax1.set_color_cycle(MyColorCycle)
+#ProxyHandlesList = []
+#for m in range(0,NS):
+#    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),GHG_System[:,m,1], linewidth = linewidth[m])
+#    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+#plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP),shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+#plt.ylabel('GHG emissions of system, Mt/yr.', fontsize = 12) 
+#plt.xlabel('year', fontsize = 12) 
+#plt.title('With energy system (ES) transformation (EST)', fontsize = 12) 
+#if ScriptConfig['UseGivenPlotBoundaries'] == True:
+#    plt.axis([2015, 2050, 0, ScriptConfig['Plot1Max']])
+#plt.show()
+#fig_name = 'GHG_With_EST'
+## include figure in logfile:
+#fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+#fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+#Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+#Figurecounter += 1
 
 # policy baseline vs. RCP 2.6
 fig1, ax1 = plt.subplots()
@@ -1356,34 +1379,14 @@ plt.title('System-wide emissions, by SSP scenario, '+ ScriptConfig['RegionalScop
 if ScriptConfig['UseGivenPlotBoundaries'] == True:
     plt.axis([2016, 2050, 0, ScriptConfig['Plot1Max']])
 plt.show()
-fig_name = 'CO2_Ems_Overview'
+fig_name = 'GHG_Ems_Overview'
 # include figure in logfile:
 fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
 fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
 Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
 Figurecounter += 1
 
-#
-#fig1, ax1 = plt.subplots()
-#ax1.set_color_cycle(MyColorCycle)
-#ProxyHandlesList = []
-#ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),SysVar_TotalGHGCosts[:,0,:,0]/1000)
-#plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
-#plt.ylabel('GHG costs of system, bn USD$2005.', fontsize = 12) 
-#plt.xlabel('year', fontsize = 12) 
-#plt.text(2026, (SysVar_TotalGHGCosts[:,0,:,0]/1000).max() * 0.93, '(SSP3 has carbon price of 0.)')
-#plt.title('RE', fontsize = 12) 
-#plt.show()
-#fig_name = 'CO2_Ems_Costs_RE'
-## include figure in logfile:
-#fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-#fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
-#Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-#Figurecounter += 1
-##
-#
 # Primary material production emissions
-
 fig1, ax1 = plt.subplots()
 ax1.set_color_cycle(MyColorCycle)
 ProxyHandlesList = []
@@ -1392,11 +1395,11 @@ for m in range(0,NS):
 plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
 plt.ylabel('GHG emissions of primary material production, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
-plt.title('SSP baseline (no RE)', fontsize = 12) 
+plt.title('GHG primary materials, no EST', fontsize = 12) 
 if ScriptConfig['UseGivenPlotBoundaries'] == True:
     plt.axis([2015, 2050, 0, ScriptConfig['Plot2Max']])
 plt.show()
-fig_name = 'GHG_PP_Baseline'
+fig_name = 'GHG_PP_NoEST'
 # include figure in logfile:
 fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
 fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
@@ -1411,55 +1414,55 @@ for m in range(0,NS):
 plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
 plt.ylabel('GHG emissions of primary material production, Mt/yr.', fontsize = 12) 
 plt.xlabel('year', fontsize = 12) 
-plt.title('RE', fontsize = 12) 
+plt.title('GHG primary materials, with EST', fontsize = 12) 
 if ScriptConfig['UseGivenPlotBoundaries'] == True:
     plt.axis([2015, 2050, 0, ScriptConfig['Plot2Max']])
 plt.show()
-fig_name = 'GHG_PP_2dC'
+fig_name = 'GHG_PP_WithEST'
 # include figure in logfile:
 fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
 fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
 Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
 Figurecounter += 1
 
-# Primary material production
-fig1, ax1 = plt.subplots()
-ax1.set_color_cycle(MyColorCycle)
-ProxyHandlesList = []
-for m in range(0,NS):
-    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), PrimaryProduction[:,0:3,m,0].sum(axis=1))
-plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
-plt.ylabel('Primary steel production, Mt/yr.', fontsize = 12) 
-plt.xlabel('year', fontsize = 12) 
-plt.title('SSP baseline (no CP)', fontsize = 12) 
-if ScriptConfig['UseGivenPlotBoundaries'] == True:    
-    plt.axis([2015, 2050, 0, 0.15 * ScriptConfig['Plot2Max']])
-plt.show()
-fig_name = 'PrimarySteel_Baseline'
-# include figure in logfile:
-fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
-Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-Figurecounter += 1
-
-fig1, ax1 = plt.subplots()
-ax1.set_color_cycle(MyColorCycle)
-ProxyHandlesList = []
-for m in range(0,NS):
-    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), PrimaryProduction[:,0:3,m,1].sum(axis=1))
-plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
-plt.ylabel('Primary steel production, Mt/yr.', fontsize = 12) 
-plt.xlabel('year', fontsize = 12) 
-plt.title('2°C', fontsize = 12) 
-if ScriptConfig['UseGivenPlotBoundaries'] == True:
-    plt.axis([2015, 2050, 0, 0.15 * ScriptConfig['Plot2Max']])
-plt.show()
-fig_name = 'PrimarySteel_2dC'
-# include figure in logfile:
-fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
-Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-Figurecounter += 1
+## Primary material production
+#fig1, ax1 = plt.subplots()
+#ax1.set_color_cycle(MyColorCycle)
+#ProxyHandlesList = []
+#for m in range(0,NS):
+#    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), PrimaryProduction[:,0:3,m,0].sum(axis=1))
+#plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+#plt.ylabel('Primary steel production, Mt/yr.', fontsize = 12) 
+#plt.xlabel('year', fontsize = 12) 
+#plt.title('Primary steel, no EST', fontsize = 12) 
+#if ScriptConfig['UseGivenPlotBoundaries'] == True:    
+#    plt.axis([2015, 2050, 0, 0.15 * ScriptConfig['Plot2Max']])
+#plt.show()
+#fig_name = 'PrimarySteel_NoEST'
+## include figure in logfile:
+#fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+#fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+#Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+#Figurecounter += 1
+#
+#fig1, ax1 = plt.subplots()
+#ax1.set_color_cycle(MyColorCycle)
+#ProxyHandlesList = []
+#for m in range(0,NS):
+#    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), PrimaryProduction[:,0:3,m,1].sum(axis=1))
+#plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+#plt.ylabel('Primary steel production, Mt/yr.', fontsize = 12) 
+#plt.xlabel('year', fontsize = 12) 
+#plt.title('Primary steel, with EST', fontsize = 12) 
+#if ScriptConfig['UseGivenPlotBoundaries'] == True:
+#    plt.axis([2015, 2050, 0, 0.15 * ScriptConfig['Plot2Max']])
+#plt.show()
+#fig_name = 'PrimarySteel_WithEST'
+## include figure in logfile:
+#fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+#fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+#Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+#Figurecounter += 1
 
 # primary steel, no CP and 2°C combined:
 fig1, ax1 = plt.subplots()
@@ -1486,43 +1489,43 @@ Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
 Figurecounter += 1
 
 
-fig1, ax1 = plt.subplots()
-ax1.set_color_cycle(MyColorCycle)
-ProxyHandlesList = []
-for m in range(0,NS):
-    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), 0.13 * PrimaryProduction[:,11,m,0]) # 0.13 is the cement content of concrete
-plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
-plt.ylabel('Cement production, Mt/yr.', fontsize = 12) 
-plt.xlabel('year', fontsize = 12) 
-plt.title('SSP baseline (no CP)', fontsize = 12) 
-if ScriptConfig['UseGivenPlotBoundaries'] == True:
-    plt.axis([2020, 2050, 0, 0.3 * ScriptConfig['Plot2Max']])
-plt.show()
-fig_name = 'Cement_Baseline'
-# include figure in logfile:
-fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
-Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-Figurecounter += 1
-
-fig1, ax1 = plt.subplots()
-ax1.set_color_cycle(MyColorCycle)
-ProxyHandlesList = []
-for m in range(0,NS):
-    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), 0.13 * PrimaryProduction[:,11,m,1]) # 0.13 is the cement content of concrete
-plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
-plt.ylabel('Cement production, Mt/yr.', fontsize = 12) 
-plt.xlabel('year', fontsize = 12) 
-plt.title('RE', fontsize = 12) 
-if ScriptConfig['UseGivenPlotBoundaries'] == True:
-    plt.axis([2020, 2050, 0, 0.3 * ScriptConfig['Plot2Max']])
-plt.show()
-fig_name = 'Cement_2dC'
-# include figure in logfile:
-fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
-Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-Figurecounter += 1
+#fig1, ax1 = plt.subplots()
+#ax1.set_color_cycle(MyColorCycle)
+#ProxyHandlesList = []
+#for m in range(0,NS):
+#    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), 0.13 * PrimaryProduction[:,11,m,0]) # 0.13 is the cement content of concrete
+#plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+#plt.ylabel('Cement production, Mt/yr.', fontsize = 12) 
+#plt.xlabel('year', fontsize = 12) 
+#plt.title('Cement production, no EST', fontsize = 12) 
+#if ScriptConfig['UseGivenPlotBoundaries'] == True:
+#    plt.axis([2020, 2050, 0, 0.3 * ScriptConfig['Plot2Max']])
+#plt.show()
+#fig_name = 'Cement_NoEST'
+## include figure in logfile:
+#fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+#fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+#Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+#Figurecounter += 1
+#
+#fig1, ax1 = plt.subplots()
+#ax1.set_color_cycle(MyColorCycle)
+#ProxyHandlesList = []
+#for m in range(0,NS):
+#    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), 0.13 * PrimaryProduction[:,11,m,1]) # 0.13 is the cement content of concrete
+#plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+#plt.ylabel('Cement production, Mt/yr.', fontsize = 12) 
+#plt.xlabel('year', fontsize = 12) 
+#plt.title('Cement production, with EST', fontsize = 12) 
+#if ScriptConfig['UseGivenPlotBoundaries'] == True:
+#    plt.axis([2020, 2050, 0, 0.3 * ScriptConfig['Plot2Max']])
+#plt.show()
+#fig_name = 'Cement_WithEST'
+## include figure in logfile:
+#fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+#fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+#Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+#Figurecounter += 1
 
 # Cement production, no RE and RE combined:
 fig1, ax1 = plt.subplots()
@@ -1548,44 +1551,44 @@ fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inc
 Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
 Figurecounter += 1
 
-# Plot on recycled steel
-fig1, ax1 = plt.subplots()
-ax1.set_color_cycle(MyColorCycle)
-ProxyHandlesList = []
-for m in range(0,NS):
-    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), SecondaryProduct[:,0:4,m,0].sum(axis =1)) # all steel types
-plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
-plt.ylabel('Secondary steel, Mt/yr.', fontsize = 12) 
-plt.xlabel('year', fontsize = 12) 
-plt.title('no CP', fontsize = 12) 
-if ScriptConfig['UseGivenPlotBoundaries'] == True:
-    plt.axis([2020, 2050, 0, 0.6* ScriptConfig['Plot3Max']])
-plt.show()
-fig_name = 'SecondarySteel_Baseline'
-# include figure in logfile:
-fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
-Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-Figurecounter += 1
-
-fig1, ax1 = plt.subplots()
-ax1.set_color_cycle(MyColorCycle)
-ProxyHandlesList = []
-for m in range(0,NS):
-    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), SecondaryProduct[:,0:4,m,1].sum(axis =1)) # all steel types
-plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
-plt.ylabel('Secondary steel, Mt/yr.', fontsize = 12) 
-plt.xlabel('year', fontsize = 12) 
-plt.title('2°C', fontsize = 12) 
-if ScriptConfig['UseGivenPlotBoundaries'] == True:
-    plt.axis([2020, 2050, 0, 0.6 * ScriptConfig['Plot3Max']])
-plt.show()
-fig_name = 'SecondarySteel_2dC'
-# include figure in logfile:
-fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
-Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-Figurecounter += 1
+## Plot on recycled steel
+#fig1, ax1 = plt.subplots()
+#ax1.set_color_cycle(MyColorCycle)
+#ProxyHandlesList = []
+#for m in range(0,NS):
+#    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), SecondaryProduct[:,0:4,m,0].sum(axis =1)) # all steel types
+#plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+#plt.ylabel('Secondary steel, Mt/yr.', fontsize = 12) 
+#plt.xlabel('year', fontsize = 12) 
+#plt.title('Recycled steel, no EST', fontsize = 12) 
+#if ScriptConfig['UseGivenPlotBoundaries'] == True:
+#    plt.axis([2020, 2050, 0, 0.6* ScriptConfig['Plot3Max']])
+#plt.show()
+#fig_name = 'SecondarySteel_NoEST'
+## include figure in logfile:
+#fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+#fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+#Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+#Figurecounter += 1
+#
+#fig1, ax1 = plt.subplots()
+#ax1.set_color_cycle(MyColorCycle)
+#ProxyHandlesList = []
+#for m in range(0,NS):
+#    ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), SecondaryProduct[:,0:4,m,1].sum(axis =1)) # all steel types
+#plt_lgd  = plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
+#plt.ylabel('Secondary steel, Mt/yr.', fontsize = 12) 
+#plt.xlabel('year', fontsize = 12) 
+#plt.title('SecondarySteel_WithEST', fontsize = 12) 
+#if ScriptConfig['UseGivenPlotBoundaries'] == True:
+#    plt.axis([2020, 2050, 0, 0.6 * ScriptConfig['Plot3Max']])
+#plt.show()
+#fig_name = 'SecondarySteel_WithEST'
+## include figure in logfile:
+#fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+#fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+#Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+#Figurecounter += 1
 
 # Recycled steel, RE and no RE
 fig1, ax1 = plt.subplots()
@@ -1704,6 +1707,92 @@ fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig[
 fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
 Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
 Figurecounter += 1
+
+
+# Plot system emissions, by process, stacked.
+# Area plot, stacked, GHG emissions, material production, waste mgt, remelting, etc.
+MyColorCycle = pylab.cm.gist_earth(np.arange(0,1,0.155)) # select 12 colors from the 'Set1' color map.            
+grey0_9      = np.array([0.9,0.9,0.9,1])
+
+SSPScens   = ['LED','SSP1','SSP2']
+RCPScens   = ['No climate policy','2 degrees C energy mix']
+Area       = ['use phase','use phase, scope 2 (el)','use phase, other indirect','primary metal product.','manufact. & recycling','total (incl. recycling credit)']     
+
+for mS in range(1,2): #0,NS): # SSP
+    for mR in range(1,2): #0,NR): # RCP
+
+        fig  = plt.figure(figsize=(8,5))
+        ax1  = plt.axes([0.08,0.08,0.85,0.9])
+        
+        ProxyHandlesList = []   # For legend     
+        
+        # plot area
+        ax1.fill_between(np.arange(2015,2061),np.zeros((Nt)), GHG_UsePhase[:,mS,mR], linestyle = '-', facecolor = MyColorCycle[1,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[1,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2015,2061),GHG_UsePhase[:,mS,mR], GHG_UsePhase[:,mS,mR] + GHG_UsePhase_Scope2_El[:,mS,mR], linestyle = '-', facecolor = MyColorCycle[2,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[2,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2015,2061),GHG_UsePhase[:,mS,mR] + GHG_UsePhase_Scope2_El[:,mS,mR], GHG_UsePhase[:,mS,mR] + GHG_UsePhase_Scope2_El[:,mS,mR] + GHG_UsePhase_OtherIndir[:,mS,mR], linestyle = '-', facecolor = MyColorCycle[3,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[3,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2016,2061),GHG_UsePhase[1::,mS,mR] + GHG_UsePhase_Scope2_El[1::,mS,mR] + GHG_UsePhase_OtherIndir[1::,mS,mR], GHG_UsePhase[1::,mS,mR] + GHG_UsePhase_Scope2_El[1::,mS,mR] + GHG_UsePhase_OtherIndir[1::,mS,mR] + GHG_PrimaryMetal[1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[4,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend    
+        ax1.fill_between(np.arange(2016,2061),GHG_UsePhase[1::,mS,mR] + GHG_UsePhase_Scope2_El[1::,mS,mR] + GHG_UsePhase_OtherIndir[1::,mS,mR] + GHG_PrimaryMetal[1::,mS,mR], GHG_UsePhase[1::,mS,mR] + GHG_UsePhase_Scope2_El[1::,mS,mR] + GHG_UsePhase_OtherIndir[1::,mS,mR] + GHG_PrimaryMetal[1::,mS,mR] + GHG_MaterialCycle[1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[5,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[5,:])) # create proxy artist for legend    
+        plt.plot(np.arange(2016,2061), GHG_System[1::,mS,mR] , linewidth = linewidth[2], color = 'k')
+        plta = Line2D(np.arange(2016,2061), GHG_System[1::,mS,mR] , linewidth = linewidth[2], color = 'k')
+        ProxyHandlesList.append(plta) # create proxy artist for legend    
+        #plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
+        
+        plt.title('GHG emissions, stacked by process group, \n' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.', fontsize = 18)
+        plt.ylabel('Mt of CO2-eq.', fontsize = 18)
+        plt.xlabel('Year', fontsize = 18)
+        plt.xticks(fontsize=18)
+        plt.yticks(fontsize=18)
+        plt_lgd  = plt.legend(handles = reversed(ProxyHandlesList),labels = reversed(Area), shadow = False, prop={'size':14},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
+        ax1.set_xlim([2015, 2050])
+        
+        plt.show()
+        fig_name = 'GHG_TimeSeries_AllProcesses_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
+        # include figure in logfile:
+        fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+        fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=300, bbox_inches='tight')
+        Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+        Figurecounter += 1
+
+# Area plot, for material industries:
+Area2   = ['primary metal product.','waste mgt. & recycling','manufacturing']     
+
+for mS in range(1,2): # 0,NS): # SSP
+    for mR in range(1,2): #0,NR): # RCP
+
+        fig  = plt.figure(figsize=(8,5))
+        ax1  = plt.axes([0.08,0.08,0.85,0.9])
+        
+        ProxyHandlesList = []   # For legend     
+        
+        # plot area
+        ax1.fill_between(np.arange(2016,2061),np.zeros((Nt-1)), GHG_PrimaryMetal[1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[4,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2016,2061),GHG_PrimaryMetal[1::,mS,mR], GHG_PrimaryMetal[1::,mS,mR] + GHG_WasteMgt_all[1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[5,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[5,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2016,2061),GHG_PrimaryMetal[1::,mS,mR] + GHG_WasteMgt_all[1::,mS,mR], GHG_PrimaryMetal[1::,mS,mR] + GHG_WasteMgt_all[1::,mS,mR] + GHG_Manufact_all[1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[6,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[6,:])) # create proxy artist for legend
+        
+        
+        plt.title('GHG emissions, stacked by process group, \n' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.', fontsize = 18)
+        plt.ylabel('Mt of CO2-eq.', fontsize = 18)
+        plt.xlabel('Year', fontsize = 18)
+        plt.xticks(fontsize=18)
+        plt.yticks(fontsize=18)
+        plt_lgd  = plt.legend(handles = reversed(ProxyHandlesList),labels = reversed(Area2), shadow = False, prop={'size':14},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
+        ax1.set_xlim([2015, 2050])
+        
+        plt.show()
+        fig_name = 'GHG_TimeSeries_Materials_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
+        # include figure in logfile:
+        fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+        fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=300, bbox_inches='tight')
+        Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+        Figurecounter += 1
 
 
 ### 5.2) Export to Excel

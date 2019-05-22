@@ -20,38 +20,53 @@ import pylab
 #ReUse_Materials
 #LifeTimeExtension
 #MoreIntenseUse
+#NoRecycling
 
 
 Region= 'G7'
 Scope = 'G7 Vehicles'
 FolderlistV_Sens =[
-'G7_2019_4_25__18_21_20',
-'G7_2019_4_26__7_32_5',
-'G7_2019_4_26__7_39_6',
-'G7_2019_4_26__7_43_59',
-'G7_2019_4_26__7_48_5',
-'G7_2019_4_26__7_51_24',
-'G7_2019_4_26__7_55_26',
-'G7_2019_4_26__7_58_48',
+'G7_2019_5_22__8_33_10',
+'',
+'',
+'',
+'',
+'',
+'',
+'',
+'',
 ]
 
 Scope = 'G7 Buildings'
 FolderlistB_Sens =[
-'G7_2019_4_25__18_49_22',
-'G7_2019_4_26__8_2_20',
-'G7_2019_4_26__8_6_35',
-'G7_2019_4_26__8_9_49',
-'G7_2019_4_26__8_13_53',
-'G7_2019_4_26__8_18_5',
-'G7_2019_4_26__8_18_5',
-'G7_2019_4_26__8_21_33',
+'G7_2019_5_22__9_4_17',
+'',
+'',
+'',
+'',
+'',
+'',
+'',
+'',
+]
+
+Template =[
+'',
+'',
+'',
+'',
+'',
+'',
+'',
+'',
+'',
 ]
 
 
 # Sensitivity plots
 
 NS = 3
-NR = 8
+NR = 9
 
 CumEmsV_Sens     = np.zeros((NS,NR)) # SSP-Scenario x RCP scenario x RES scenario
 AnnEmsV2030_Sens = np.zeros((NS,NR)) # SSP-Scenario x RCP scenario x RES scenario
@@ -89,7 +104,7 @@ MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Pa
 
 Title = ['Passenger vehicles','residential buildings']
 Scens = ['LED','SSP1','SSP2']
-LWE   = ['higher yield, manuf. efficiency','EoL_RR_Improvement','Material substitution','ReduceMaterialContent','ReUse_Materials','LifeTimeExtension','MoreIntenseUse']
+LWE   = ['Higher yield, manuf. efficiency','EoL_RR_Improvement','Material substitution','ReduceMaterialContent','ReUse_Materials','LifeTimeExtension','MoreIntenseUse','No recycling']
 
 #2030 emissions
 
@@ -109,11 +124,11 @@ for m in range(0,NS): # SSP
         fig  = plt.figure(figsize=(5,8))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
             
-        Poss = np.arange(7,0,-1)
+        Poss = np.arange(NR-1,0,-1)
         ax1.barh(Poss,Data[m,:], color=MyColorCycle, lw=0.4)
 
         # plot text and labels
-        for mm in range(0,7):
+        for mm in range(0,NR-1):
             plt.text(Data[m,:].min()*0.9, 7.3-mm, LWE[mm],fontsize=14,fontweight='bold')          
             plt.text(15, 7.3-mm, ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
         
@@ -135,11 +150,13 @@ for m in range(0,NS): # SSP
         fig  = plt.figure(figsize=(5,8))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
             
-        Poss = np.arange(7,0,-1)
+          
+        
+        Poss = np.arange(NR-1,0,-1)
         ax1.barh(Poss,Data[m,:], color=MyColorCycle, lw=0.4)
 
         # plot text and labels
-        for mm in range(0,7):
+        for mm in range(0,NR-1):
             plt.text(Data[m,:].min()*0.9, 7.3-mm, LWE[mm] + ': ' + ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
         
         plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
@@ -176,11 +193,11 @@ for m in range(0,NS): # SSP
         fig  = plt.figure(figsize=(5,8))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
             
-        Poss = np.arange(7,0,-1)
+        Poss = np.arange(NR-1,0,-1)
         ax1.barh(Poss,Data[m,:], color=MyColorCycle, lw=0.4)
 
         # plot text and labels
-        for mm in range(0,7):
+        for mm in range(0,NR-1):
             plt.text(Data[m,:].min()*0.9, 7.3-mm, LWE[mm],fontsize=14,fontweight='bold')          
             plt.text(15, 7.3-mm, ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
         
@@ -199,14 +216,16 @@ for m in range(0,NS): # SSP
         fig_name = '2050_GHG_Sens_' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.png'
         fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
             
+        
+        
         fig  = plt.figure(figsize=(5,8))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
             
-        Poss = np.arange(7,0,-1)
+        Poss = np.arange(NR-1,0,-1)
         ax1.barh(Poss,Data[m,:], color=MyColorCycle, lw=0.4)
 
         # plot text and labels
-        for mm in range(0,7):
+        for mm in range(0,NR-1):
             plt.text(Data[m,:].min()*0.9, 7.3-mm, LWE[mm] + ': ' + ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
         
         plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
@@ -224,6 +243,8 @@ for m in range(0,NS): # SSP
         fig_name = '2050_GHG_Sens_' + Region + '_ ' + Title[n] + '_' + Scens[m] + '_V2.png'
         fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
       
+
+
 #2050 cum. emissions
 
 for m in range(0,NS): # SSP
@@ -241,12 +262,12 @@ for m in range(0,NS): # SSP
         fig  = plt.figure(figsize=(5,8))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
             
-        Poss = np.arange(7,0,-1)
+        Poss = np.arange(NR-1,0,-1)
 
         ax1.barh(Poss,Data[m,:], color=MyColorCycle, lw=0.4)
         
         # plot text and labels
-        for mm in range(0,7):
+        for mm in range(0,NR-1):
             plt.text(Data[m,:].min() *0.9, 7.3-mm, LWE[mm],fontsize=14,fontweight='bold')          
             plt.text(-Data[m,:].min() *0.1, 7.3-mm, ("%2.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
 
