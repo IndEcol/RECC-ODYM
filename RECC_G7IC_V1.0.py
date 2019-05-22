@@ -1718,8 +1718,8 @@ SSPScens   = ['LED','SSP1','SSP2']
 RCPScens   = ['No climate policy','2 degrees C energy mix']
 Area       = ['use phase','use phase, scope 2 (el)','use phase, other indirect','primary metal product.','manufact. & recycling','total (incl. recycling credit)']     
 
-for mS in range(1,2): #0,NS): # SSP
-    for mR in range(1,2): #0,NR): # RCP
+for mS in range(0,NS): # SSP
+    for mR in range(0,NR): # RCP
 
         fig  = plt.figure(figsize=(8,5))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
@@ -1761,8 +1761,8 @@ for mS in range(1,2): #0,NS): # SSP
 # Area plot, for material industries:
 Area2   = ['primary metal product.','waste mgt. & recycling','manufacturing']     
 
-for mS in range(1,2): # 0,NS): # SSP
-    for mR in range(1,2): #0,NR): # RCP
+for mS in range(0,NS): # SSP
+    for mR in range(0,NR): # RCP
 
         fig  = plt.figure(figsize=(8,5))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])

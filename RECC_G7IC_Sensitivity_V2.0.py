@@ -27,27 +27,27 @@ Region= 'G7'
 Scope = 'G7 Vehicles'
 FolderlistV_Sens =[
 'G7_2019_5_22__8_33_10',
-'',
-'',
-'',
-'',
-'',
-'',
-'',
-'',
+'G7_2019_5_22__9_34_40',
+'G7_2019_5_22__9_42_26',
+'G7_2019_5_22__9_47_30',
+'G7_2019_5_22__9_52_22',
+'G7_2019_5_22__9_57_36',
+'G7_2019_5_22__10_2_22',
+'G7_2019_5_22__10_10_9',
+'G7_2019_5_22__13_17_8',
 ]
 
 Scope = 'G7 Buildings'
 FolderlistB_Sens =[
 'G7_2019_5_22__9_4_17',
-'',
-'',
-'',
-'',
-'',
-'',
-'',
-'',
+'G7_2019_5_22__10_19_56',
+'G7_2019_5_22__10_25_51',
+'G7_2019_5_22__10_37_48',
+'G7_2019_5_22__10_42_53',
+'G7_2019_5_22__10_47_47',
+'G7_2019_5_22__10_52_12',
+'G7_2019_5_22__12_44_41',
+'G7_2019_5_22__13_12_6',
 ]
 
 Template =[
@@ -112,43 +112,43 @@ for m in range(0,NS): # SSP
     for n in range(0,2): # Veh/Buildings
         
         if n == 0:
-            Data = AnnEmsV2030_Sens[:,1::]-np.einsum('S,n->Sn',AnnEmsV2030_Sens[:,0],np.ones(7))
+            Data = AnnEmsV2030_Sens[:,1::]-np.einsum('S,n->Sn',AnnEmsV2030_Sens[:,0],np.ones(NR-1))
             Base = AnnEmsV2030_Sens[:,0]
             
         if n == 1:
-            Data = AnnEmsB2030_Sens[:,1::]-np.einsum('S,n->Sn',AnnEmsB2030_Sens[:,0],np.ones(7))
+            Data = AnnEmsB2030_Sens[:,1::]-np.einsum('S,n->Sn',AnnEmsB2030_Sens[:,0],np.ones(NR-1))
             Base = AnnEmsB2030_Sens[:,0]
             
         # plot results
     
-        fig  = plt.figure(figsize=(5,8))
+        fig  = plt.figure(figsize=(5,NR))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
             
-        Poss = np.arange(NR-1,0,-1)
-        ax1.barh(Poss,Data[m,:], color=MyColorCycle, lw=0.4)
-
-        # plot text and labels
-        for mm in range(0,NR-1):
-            plt.text(Data[m,:].min()*0.9, 7.3-mm, LWE[mm],fontsize=14,fontweight='bold')          
-            plt.text(15, 7.3-mm, ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
-        
-        plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
-
-        plt.title('2030 GHG emissions, sensitivity, ' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.', fontsize = 18)
-        plt.ylabel('RE strategies.', fontsize = 18)
-        plt.xlabel('Mt of CO2-eq.', fontsize = 14)
-        #plt.xticks([0.25,1.25,2.25,3.25,4.25,5.25])
-        plt.yticks([])
-        #ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
-        #plt_lgd  = plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':16},ncol=1, loc = 'upper right' ,bbox_to_anchor=(1.91, 1)) 
-        plt.axis([Data[m,:].min() -15, Data[m,:].max() +80, 0.7, 8.1])
-    
-        plt.show()
-        fig_name = '2030_GHG_Sens_' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.png'
-        fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
-            
-        fig  = plt.figure(figsize=(5,8))
-        ax1  = plt.axes([0.08,0.08,0.85,0.9])
+#        Poss = np.arange(NR-1,0,-1)
+#        ax1.barh(Poss,Data[m,:], color=MyColorCycle, lw=0.4)
+#
+#        # plot text and labels
+#        for mm in range(0,NR-1):
+#            plt.text(Data[m,:].min()*0.9, 8.3-mm, LWE[mm],fontsize=14,fontweight='bold')          
+#            plt.text(15, 8.3-mm, ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
+#        
+#        plt.text(Data[m,:].min()*0.55, 8.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
+#
+#        plt.title('2030 GHG emissions, sensitivity, ' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.', fontsize = 18)
+#        plt.ylabel('RE strategies.', fontsize = 18)
+#        plt.xlabel('Mt of CO2-eq.', fontsize = 14)
+#        #plt.xticks([0.25,1.25,2.25,3.25,4.25,5.25])
+#        plt.yticks([])
+#        #ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
+#        #plt_lgd  = plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':16},ncol=1, loc = 'upper right' ,bbox_to_anchor=(1.91, 1)) 
+#        plt.axis([Data[m,:].min() -15, Data[m,:].max() +80, 0.7, 9.1])
+#    
+#        plt.show()
+#        fig_name = '2030_GHG_Sens_' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.png'
+#        fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
+#            
+#        fig  = plt.figure(figsize=(5,NR))
+#        ax1  = plt.axes([0.08,0.08,0.85,0.9])
             
           
         
@@ -157,9 +157,9 @@ for m in range(0,NS): # SSP
 
         # plot text and labels
         for mm in range(0,NR-1):
-            plt.text(Data[m,:].min()*0.9, 7.3-mm, LWE[mm] + ': ' + ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
+            plt.text(Data[m,:].min()*0.9, 8.3-mm, LWE[mm] + ': ' + ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
         
-        plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
+        plt.text(Data[m,:].min()*0.55, 8.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
 
         plt.title('2030 GHG emissions, sensitivity, ' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.', fontsize = 18)
         plt.ylabel('RE strategies.', fontsize = 18)
@@ -168,7 +168,7 @@ for m in range(0,NS): # SSP
         plt.yticks([])
         #ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
         #plt_lgd  = plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':16},ncol=1, loc = 'upper right' ,bbox_to_anchor=(1.91, 1)) 
-        plt.axis([Data[m,:].min() -15, Data[m,:].max() +80, 0.7, 8.1])
+        plt.axis([Data[m,:].min() -15, Data[m,:].max() +80, 0.7, 9.1])
     
         plt.show()
         fig_name = '2030_GHG_Sens_' + Region + '_ ' + Title[n] + '_' + Scens[m] + '_V2.png'
@@ -181,16 +181,44 @@ for m in range(0,NS): # SSP
     for n in range(0,2): # Veh/Buildings
         
         if n == 0:
-            Data = AnnEmsV2050_Sens[:,1::]-np.einsum('S,n->Sn',AnnEmsV2050_Sens[:,0],np.ones(7))
+            Data = AnnEmsV2050_Sens[:,1::]-np.einsum('S,n->Sn',AnnEmsV2050_Sens[:,0],np.ones(NR-1))
             Base = AnnEmsV2050_Sens[:,0]
             
         if n == 1:
-            Data = AnnEmsB2050_Sens[:,1::]-np.einsum('S,n->Sn',AnnEmsB2050_Sens[:,0],np.ones(7))
+            Data = AnnEmsB2050_Sens[:,1::]-np.einsum('S,n->Sn',AnnEmsB2050_Sens[:,0],np.ones(NR-1))
             Base = AnnEmsB2050_Sens[:,0]
             
         # plot results
     
-        fig  = plt.figure(figsize=(5,8))
+#        fig  = plt.figure(figsize=(5,NR))
+#        ax1  = plt.axes([0.08,0.08,0.85,0.9])
+#            
+#        Poss = np.arange(NR-1,0,-1)
+#        ax1.barh(Poss,Data[m,:], color=MyColorCycle, lw=0.4)
+#
+#        # plot text and labels
+#        for mm in range(0,NR-1):
+#            plt.text(Data[m,:].min()*0.9, 8.3-mm, LWE[mm],fontsize=14,fontweight='bold')          
+#            plt.text(15, 8.3-mm, ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
+#        
+#        plt.text(Data[m,:].min()*0.55, 8.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
+#
+#        plt.title('2050 GHG emissions, sensitivity, ' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.', fontsize = 18)
+#        plt.ylabel('RE strategies.', fontsize = 18)
+#        plt.xlabel('Mt of CO2-eq.', fontsize = 14)
+#        #plt.xticks([0.25,1.25,2.25,3.25,4.25,5.25])
+#        plt.yticks([])
+#        #ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
+#        #plt_lgd  = plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':16},ncol=1, loc = 'upper right' ,bbox_to_anchor=(1.91, 1)) 
+#        plt.axis([Data[m,:].min() -15, Data[m,:].max() +80, 0.7, 9.1])
+#    
+#        plt.show()
+#        fig_name = '2050_GHG_Sens_' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.png'
+#        fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
+#            
+#        
+        
+        fig  = plt.figure(figsize=(5,NR))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
             
         Poss = np.arange(NR-1,0,-1)
@@ -198,10 +226,9 @@ for m in range(0,NS): # SSP
 
         # plot text and labels
         for mm in range(0,NR-1):
-            plt.text(Data[m,:].min()*0.9, 7.3-mm, LWE[mm],fontsize=14,fontweight='bold')          
-            plt.text(15, 7.3-mm, ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
+            plt.text(Data[m,:].min()*0.9, 8.3-mm, LWE[mm] + ': ' + ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
         
-        plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
+        plt.text(Data[m,:].min()*0.55, 8.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
 
         plt.title('2050 GHG emissions, sensitivity, ' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.', fontsize = 18)
         plt.ylabel('RE strategies.', fontsize = 18)
@@ -210,34 +237,7 @@ for m in range(0,NS): # SSP
         plt.yticks([])
         #ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
         #plt_lgd  = plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':16},ncol=1, loc = 'upper right' ,bbox_to_anchor=(1.91, 1)) 
-        plt.axis([Data[m,:].min() -15, Data[m,:].max() +80, 0.7, 8.1])
-    
-        plt.show()
-        fig_name = '2050_GHG_Sens_' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.png'
-        fig.savefig('C:\\Users\\spauliuk\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\RECC_Results\\' + fig_name, dpi = 400, bbox_inches='tight')             
-            
-        
-        
-        fig  = plt.figure(figsize=(5,8))
-        ax1  = plt.axes([0.08,0.08,0.85,0.9])
-            
-        Poss = np.arange(NR-1,0,-1)
-        ax1.barh(Poss,Data[m,:], color=MyColorCycle, lw=0.4)
-
-        # plot text and labels
-        for mm in range(0,NR-1):
-            plt.text(Data[m,:].min()*0.9, 7.3-mm, LWE[mm] + ': ' + ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
-        
-        plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
-
-        plt.title('2050 GHG emissions, sensitivity, ' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.', fontsize = 18)
-        plt.ylabel('RE strategies.', fontsize = 18)
-        plt.xlabel('Mt of CO2-eq.', fontsize = 14)
-        #plt.xticks([0.25,1.25,2.25,3.25,4.25,5.25])
-        plt.yticks([])
-        #ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
-        #plt_lgd  = plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':16},ncol=1, loc = 'upper right' ,bbox_to_anchor=(1.91, 1)) 
-        plt.axis([Data[m,:].min() -15, Data[m,:].max() +80, 0.7, 8.1])
+        plt.axis([Data[m,:].min() -15, Data[m,:].max() +80, 0.7, 9.1])
     
         plt.show()
         fig_name = '2050_GHG_Sens_' + Region + '_ ' + Title[n] + '_' + Scens[m] + '_V2.png'
@@ -251,15 +251,15 @@ for m in range(0,NS): # SSP
     for n in range(0,2): # Veh/Buildings
         
         if n == 0:
-            Data = CumEmsV_Sens[:,1::]-np.einsum('S,n->Sn',CumEmsV_Sens[:,0],np.ones(7))
+            Data = CumEmsV_Sens[:,1::]-np.einsum('S,n->Sn',CumEmsV_Sens[:,0],np.ones(NR-1))
             Base = CumEmsV_Sens[:,0]
         if n == 1:
-            Data = CumEmsB_Sens[:,1::]-np.einsum('S,n->Sn',CumEmsB_Sens[:,0],np.ones(7))
+            Data = CumEmsB_Sens[:,1::]-np.einsum('S,n->Sn',CumEmsB_Sens[:,0],np.ones(NR-1))
             Base = CumEmsB_Sens[:,0]
     
         # plot results
     
-        fig  = plt.figure(figsize=(5,8))
+        fig  = plt.figure(figsize=(5,NR))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
             
         Poss = np.arange(NR-1,0,-1)
@@ -268,10 +268,9 @@ for m in range(0,NS): # SSP
         
         # plot text and labels
         for mm in range(0,NR-1):
-            plt.text(Data[m,:].min() *0.9, 7.3-mm, LWE[mm],fontsize=14,fontweight='bold')          
-            plt.text(-Data[m,:].min() *0.1, 7.3-mm, ("%2.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
+            plt.text(Data[m,:].min()  * 0.9, 8.3-mm, LWE[mm] + ': ' + ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
 
-        plt.text(Data[m,:].min()*0.7, 7.8, 'Baseline: ' + ("%2.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
+        plt.text(Data[m,:].min()*0.7, 8.8, 'Baseline: ' + ("%2.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
         plt.title('2016-2050 cum. GHG, sensitivity, ' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.', fontsize = 18)
         plt.ylabel('RE strategies.', fontsize = 18)
         plt.xlabel('Mt of CO2-eq.', fontsize = 14)
@@ -279,7 +278,7 @@ for m in range(0,NS): # SSP
         plt.yticks([])
         #ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
         #plt_lgd  = plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':16},ncol=1, loc = 'upper right' ,bbox_to_anchor=(1.91, 1)) 
-        plt.axis([Data[m,:].min() *1.05, -Data[m,:].min() *0.05, 0.7, 8.1])
+        plt.axis([Data[m,:].min() *1.05, Data[m,:].max() *1.05, 0.7, 9.1])
     
         plt.show()
         fig_name = 'Cum_GHG_Sens_' + Region + '_ ' + Title[n] + '_' + Scens[m] + '.png'
