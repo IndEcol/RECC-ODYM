@@ -908,7 +908,7 @@ for mS in range(0,NS):
             # 2) Consider re-use of materials in product groups (via components), as ReUseFactor(m,g,r,R,t) * RECC_System.FlowDict['F_7_8'].Values(t,c,r,g,m,e)
             # Distribute material for re-use onto product groups
             if ScriptConfig['Include_REStrategy_ReUse'] == 'True':
-                ReUsePotential_Materials_t_m_Veh = np.einsum('mg,crgm->m',ReUseFactor_tmgrS[t,:,0:6,-1,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,0:6,:,0])
+                ReUsePotential_Materials_t_m_Veh = np.einsum('mgr,crgm->m',ReUseFactor_tmgrS[t,:,0:6,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,0:6,:,0])
                 ReUsePotential_Materials_t_m_Bld = np.einsum('mg,crgm->m',ReUseFactor_tmgrS[t,:,6::,-1,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,6::,:,0])
                 # in the future, re-use will be a region-to-region parameter depicting, e.g., the export of used vehicles from the EU to Africa.
                 # check whether inflow is big enough for potential to be used, correct otherwise:
