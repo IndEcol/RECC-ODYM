@@ -9,7 +9,7 @@ Created on Fri Jun 14 05:18:48 2019
 
 File RECC_ScenarioControl.py
 
-File that modifies the RECC config file to run a list of scenarios and executes RECC main script for each scenario config.
+Script that modifies the RECC config file to run a list of scenarios and executes RECC main script for each scenario config.
 
 """
 
@@ -22,8 +22,8 @@ import RECC_Paths # Import path file
 import RECC_G7IC_V1_1
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-#ScenarioSetting = 'RECC_Config_IRP_V1'
-ScenarioSetting = 'SingleTestRun'
+ScenarioSetting = 'RECC_Config_IRP_V1'
+#ScenarioSetting = 'SingleTestRun'
 #ScenarioSetting = 'GroupTestRun'
 
 
