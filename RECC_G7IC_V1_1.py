@@ -434,7 +434,7 @@ def main():
         ParameterDict['3_SHA_LightWeighting_Vehicles'].Values  = np.einsum('grS,t->grtS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[:,:,0,:],np.ones((Nt)))
         ParameterDict['3_SHA_LightWeighting_Buildings'].Values = np.einsum('grS,t->grtS',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[:,:,0,:],np.ones((Nt)))
         
-    if ScriptConfig['Include_REStrategy_Downsizing'] == 'False': # no lightweighting trough downsizing.
+    if ScriptConfig['Include_REStrategy_UsingLessMaterialByDesign'] == 'False': # no lightweighting trough UsingLessMaterialByDesign.
         ParameterDict['3_SHA_DownSizing_Vehicles'].Values  = np.einsum('urS,t->urtS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,:,0,:],np.ones((Nt)))
         ParameterDict['3_SHA_DownSizing_Buildings'].Values = np.einsum('urS,t->urtS',ParameterDict['3_SHA_DownSizing_Buildings'].Values[:,:,0,:],np.ones((Nt)))
     
@@ -1331,7 +1331,7 @@ def main():
     #population
     for mr in range(0,Nr-1):
         newrowoffset = msf.ExcelExportAdd_tAB(Sheet,Population[:,mr,:,:],newrowoffset,len(ColLabels),'Population','million',IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[mr],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    #Downsizing and Mat subst. shares
+    #UsingLessMaterialByDesign and Mat subst. shares
     for mr in range(0,Nr-1):
         newrowoffset = msf.ExcelExportAdd_tAB(Sheet,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[0,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of downsized pass. vehicles','%',IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[mr],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
         newrowoffset = msf.ExcelExportAdd_tAB(Sheet,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Buildings'].Values[0,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of downsized res. buildings','%',IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[mr],'none','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
@@ -1938,8 +1938,8 @@ def main():
         DescrString += '_EoL'
     if ScriptConfig['Include_REStrategy_MaterialSubstitution'] == 'True':
         DescrString += '_MSU'
-    if ScriptConfig['Include_REStrategy_Downsizing'] == 'True':
-        DescrString += '_DOS'
+    if ScriptConfig['Include_REStrategy_UsingLessMaterialByDesign'] == 'True':
+        DescrString += '_ULD'
     if ScriptConfig['Include_REStrategy_ReUse'] == 'True':
         DescrString += '_RUS'
     if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True':

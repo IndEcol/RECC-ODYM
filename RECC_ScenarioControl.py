@@ -23,8 +23,8 @@ import RECC_G7IC_V1_1
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
 #ScenarioSetting = 'RECC_Config_IRP_V1'
-#ScenarioSetting = 'SingleTestRun'
-ScenarioSetting = 'GroupTestRun'
+ScenarioSetting = 'SingleTestRun'
+#ScenarioSetting = 'GroupTestRun'
 
 
 # open scenario sheet
@@ -54,7 +54,7 @@ while True:
     sheet['D109'] = Config['Include_REStrategy_FabYieldImprovement']
     sheet['D110'] = Config['Include_REStrategy_EoL_RR_Improvement']
     sheet['D111'] = Config['Include_REStrategy_MaterialSubstitution']
-    sheet['D112'] = Config['Include_REStrategy_Downsizing']
+    sheet['D112'] = Config['Include_REStrategy_UsingLessMaterialByDesign']
     sheet['D113'] = Config['Include_REStrategy_ReUse']
     sheet['D114'] = Config['Include_REStrategy_LifeTimeExtension']
     sheet['D115'] = Config['Include_REStrategy_MoreIntenseUse']
