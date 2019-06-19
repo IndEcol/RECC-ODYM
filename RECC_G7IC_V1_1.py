@@ -764,11 +764,20 @@ def main():
             
             # 2) Include (or not) the RE strategies for the use phase:
             # Include_REStrategy_MoreIntenseUse:
+<<<<<<< HEAD
+            if ScriptConfig['Include_REStrategy_MoreIntenseUse'] == 'True': # calculate counter-factual scenario: 20% decrease of stock levels by 2040 compared to scenario reference
+                if SName != 'LED':
+                    MIURamp       = np.ones((Nt+7))
+                    MIURamp[8:38] = np.arange(1,0.8,-0.00667)
+                    MIURamp[38::] = 0.8
+                    MIURamp = np.convolve(MIURamp, np.ones((8,))/8, mode='valid')
+=======
             if ScriptConfig['Include_REStrategy_MoreIntenseUse'] == 'False': # calculate counter-factual scenario: 20% increase of stock levels by 2050
                 if IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('LED') != 'LED':
                     MIURamp       = np.zeros((Nt))
                     MIURamp[0:25] = np.arange(1,1.201,0.00833)
                     MIURamp[25::] = 1.2
+>>>>>>> a954728db15faf1a3dc03fb22c968107cd8d54b0
                     TotalStockCurves_UsePhase = TotalStockCurves_UsePhase * np.einsum('t,rG->trG',MIURamp,np.ones((Nr,NG)))
                 
     #        if ScriptConfig['Include_REStrategy_MoreIntenseUse'] == 'True': # calculate counter-factual scenario: SSP1 stocks for SSP2, LED stocks for SSP1

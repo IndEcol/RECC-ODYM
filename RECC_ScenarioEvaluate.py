@@ -24,7 +24,11 @@ import RECC_G7IC_Sensitivity_V2_1
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
 ScenarioSetting = 'Evaluate_Config_IRP_V1'
+<<<<<<< HEAD
+#ScenarioSetting = 'Evaluate_GroupTestRun'
+=======
 
+>>>>>>> a954728db15faf1a3dc03fb22c968107cd8d54b0
 
 # open scenario sheet
 ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List.xlsx'))
