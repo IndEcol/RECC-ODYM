@@ -22,9 +22,9 @@ import RECC_Paths # Import path file
 import RECC_G7IC_V1_1
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-ScenarioSetting = 'RECC_Config_IRP_V1'
+#ScenarioSetting = 'RECC_Config_IRP_V1'
 #ScenarioSetting = 'SingleTestRun'
-#ScenarioSetting = 'GroupTestRun'
+ScenarioSetting = 'GroupTestRun'
 
 
 # open scenario sheet

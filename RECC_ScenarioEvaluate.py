@@ -23,12 +23,9 @@ import RECC_G7IC_Compare_V2_1
 import RECC_G7IC_Sensitivity_V2_1
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-ScenarioSetting = 'Evaluate_Config_IRP_V1'
-<<<<<<< HEAD
-#ScenarioSetting = 'Evaluate_GroupTestRun'
-=======
+#ScenarioSetting = 'Evaluate_Config_IRP_V1'
+ScenarioSetting = 'Evaluate_GroupTestRun'
 
->>>>>>> a954728db15faf1a3dc03fb22c968107cd8d54b0
 
 # open scenario sheet
 ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List.xlsx'))
@@ -91,7 +88,7 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
     if Setting == 'Sensitivity':
         Row += NoofSensitivitySteps
     
-mywb.save(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_18June2019.xlsx'))
+mywb.save(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_25June2019.xlsx'))
     
     
     

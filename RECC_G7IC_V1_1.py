@@ -764,20 +764,12 @@ def main():
             
             # 2) Include (or not) the RE strategies for the use phase:
             # Include_REStrategy_MoreIntenseUse:
-<<<<<<< HEAD
-            if ScriptConfig['Include_REStrategy_MoreIntenseUse'] == 'True': # calculate counter-factual scenario: 20% decrease of stock levels by 2040 compared to scenario reference
+            if ScriptConfig['Include_REStrategy_MoreIntenseUse'] == 'True': # calculate counter-factual scenario: 20% decrease of stock levels by 2050 compared to scenario reference
                 if SName != 'LED':
                     MIURamp       = np.ones((Nt+7))
                     MIURamp[8:38] = np.arange(1,0.8,-0.00667)
                     MIURamp[38::] = 0.8
                     MIURamp = np.convolve(MIURamp, np.ones((8,))/8, mode='valid')
-=======
-            if ScriptConfig['Include_REStrategy_MoreIntenseUse'] == 'False': # calculate counter-factual scenario: 20% increase of stock levels by 2050
-                if IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('LED') != 'LED':
-                    MIURamp       = np.zeros((Nt))
-                    MIURamp[0:25] = np.arange(1,1.201,0.00833)
-                    MIURamp[25::] = 1.2
->>>>>>> a954728db15faf1a3dc03fb22c968107cd8d54b0
                     TotalStockCurves_UsePhase = TotalStockCurves_UsePhase * np.einsum('t,rG->trG',MIURamp,np.ones((Nr,NG)))
                 
     #        if ScriptConfig['Include_REStrategy_MoreIntenseUse'] == 'True': # calculate counter-factual scenario: SSP1 stocks for SSP2, LED stocks for SSP1
@@ -885,8 +877,8 @@ def main():
             Par_FabYield_Raster = Par_FabYield > 0    
             Par_FabYield        = Par_FabYield - Par_FabYield_Raster * Par_FabYieldImprovement #mwgtr
             Par_FabYield_total  = np.einsum('mwgtr->mgtr',Par_FabYield)
-            Par_FabYield_total_inv = 1/(1-Par_FabYield_total) # mgtr
-            
+            Divisor             = 1-Par_FabYield_total
+            Par_FabYield_total_inv = np.divide(1, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0) # mgtr
             # Determine total element composition of products, needs to be updated for future age-cohorts!
             Par_Element_Material_Composition_of_Products = np.einsum('cmgr,cme->crgme',Par_RECC_MC,Par_Element_Composition_of_Materials_m)
             
@@ -959,21 +951,22 @@ def main():
                     ReUsePotential_Materials_t_m_Bld = np.zeros((Nm)) # in Mt/yr, total mass
                 
                 # Vehicles
-                MassShareVeh = RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,0:6,:,0] / np.einsum('m,crg->crgm',np.einsum('crgm->m',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,0:6,:,0]),np.ones((CohortOffset,Nr,6)))
-                MassShareVeh[np.isnan(MassShareVeh)] = 0 # share of combination crg in total mass of m in outflow 7_8
+                Divisor = np.einsum('m,crg->crgm',np.einsum('crgm->m',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,0:6,:,0]),np.ones((CohortOffset,Nr,6)))
+                MassShareVeh = np.divide(RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,0:6,:,0], Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)
+                # share of combination crg in total mass of m in outflow 7_8
                 RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,0:6,:,:] = \
                 np.einsum('cme,crgm->crgme', Par_Element_Composition_of_Materials_u[0:CohortOffset,:,:],\
                 np.einsum('m,crgm->crgm',ReUsePotential_Materials_t_m_Veh,MassShareVeh))  # All elements.
                 # Buildings
-                MassShareBld = RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,6::,:,0] / np.einsum('m,crg->crgm',np.einsum('crgm->m',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,6::,:,0]),np.ones((CohortOffset,Nr,9)))
-                MassShareBld[np.isnan(MassShareBld)] = 0 # share of combination crg in total mass of m in outflow 7_8
+                Divisor = np.einsum('m,crg->crgm',np.einsum('crgm->m',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,6::,:,0]),np.ones((CohortOffset,Nr,9)))
+                MassShareBld = np.divide(RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,6::,:,0], Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)
+                # share of combination crg in total mass of m in outflow 7_8
                 RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,6::,:,:] = \
                 np.einsum('cme,crgm->crgme', Par_Element_Composition_of_Materials_u[0:CohortOffset,:,:],\
                 np.einsum('m,crgm->crgm',ReUsePotential_Materials_t_m_Bld,MassShareBld))  # All elements.
                 
-                InvMass = 1 / np.einsum('m,rg->rgm',np.einsum('rgm->m',RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0]),np.ones((Nr,Ng)))
-                InvMass[np.isnan(InvMass)] = 0
-                InvMass[np.isinf(InvMass)] = 0
+                Divisor = np.einsum('m,rg->rgm',np.einsum('rgm->m',RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0]),np.ones((Nr,Ng)))
+                InvMass = np.divide(1, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)
                 RECC_System.FlowDict['F_17_6'].Values[t,0:CohortOffset,:,:,:,:] = \
                 np.einsum('cme,rgm->crgme',np.einsum('crgme->cme',RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,:,:,:]),\
                 RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0]*InvMass) # reused material mapped to final consumption region and good
@@ -999,8 +992,8 @@ def main():
                 RECC_System.FlowDict['F_12_5'].Values[t,:,:,0]      = np.einsum('rme->rm',RECC_System.FlowDict['F_12_5'].Values[t,:,:,1::]) # All up all chemical elements to total
                          
                 # Element composition shares of recycled material:
-                Element_Material_Composition_t_SecondaryMaterial = np.einsum('me,me->me',RECC_System.FlowDict['F_9_12'].Values[t,-1,:,:],1/np.einsum('m,e->me',RECC_System.FlowDict['F_9_12'].Values[t,-1,:,0],np.ones(Ne)))
-                Element_Material_Composition_t_SecondaryMaterial[np.isnan(Element_Material_Composition_t_SecondaryMaterial)] = 0            
+                Divisor = np.einsum('m,e->me',RECC_System.FlowDict['F_9_12'].Values[t,-1,:,0],np.ones(Ne))
+                Element_Material_Composition_t_SecondaryMaterial = np.einsum('me,me->me',RECC_System.FlowDict['F_9_12'].Values[t,-1,:,:],np.divide(1, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0))
                 
                 # 7) Waste mgt. losses.
                 RECC_System.FlowDict['F_9_0'].Values[t,:]         = np.einsum('rgme->e',RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:]) + np.einsum('rwe->e',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:]) - np.einsum('rwe->e',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]) - np.einsum('rme->e',RECC_System.FlowDict['F_9_12'].Values[t,:,:,:])
@@ -1008,8 +1001,7 @@ def main():
                 # 8) Calculate manufacturing input and primary production, all elements, element composition not yet known.
                 Manufacturing_Input_m        = np.einsum('mg,gm->m',Par_FabYield_total_inv[:,:,t,-1],Manufacturing_Output_gm)
                 Manufacturing_Input_gm       = np.einsum('mg,gm->gm',Par_FabYield_total_inv[:,:,t,-1],Manufacturing_Output_gm)
-                Manufacturing_Input_Split_gm = np.einsum('gm,m->gm',Manufacturing_Input_gm, 1/Manufacturing_Input_m)
-                Manufacturing_Input_Split_gm[np.isnan(Manufacturing_Input_Split_gm)] = 0
+                Manufacturing_Input_Split_gm = np.einsum('gm,m->gm',Manufacturing_Input_gm, np.divide(1, Manufacturing_Input_m, out=np.zeros_like(Manufacturing_Input_m), where=Manufacturing_Input_m!=0))
                 
                 PrimaryProduction_m          = Manufacturing_Input_m - RECC_System.FlowDict['F_12_5'].Values[t,-1,:,0]# secondary material comes first, no rebound! 
                 
@@ -1029,10 +1021,10 @@ def main():
                 Manufacturing_Input_gme     = np.einsum('me,gm->gme',Manufacturing_Input_me,Manufacturing_Input_Split_gm)       
             
                 # 9) Calculate element composition of materials of current year
-                Element_Material_Composition_t = np.einsum('me,me->me',RECC_System.FlowDict['F_4_5'].Values[t,:,:] + RECC_System.FlowDict['F_12_5'].Values[t,-1,:,:],1/np.einsum('m,e->me',RECC_System.FlowDict['F_4_5'].Values[t,:,0] + RECC_System.FlowDict['F_12_5'].Values[t,-1,:,0],np.ones(Ne)))
+                Divisor = np.einsum('m,e->me',RECC_System.FlowDict['F_4_5'].Values[t,:,0] + RECC_System.FlowDict['F_12_5'].Values[t,-1,:,0],np.ones(Ne))
+                Element_Material_Composition_t = np.einsum('me,me->me',RECC_System.FlowDict['F_4_5'].Values[t,:,:] + RECC_System.FlowDict['F_12_5'].Values[t,-1,:,:],np.divide(1, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0))
                 Element_Material_Composition_raw[t,:,:,mS,mR] = Element_Material_Composition_t.copy()
-                Element_Material_Composition_t[np.isnan(Element_Material_Composition_t)] = 0
-                Element_Material_Composition_t[np.isinf(Element_Material_Composition_t)] = 0
+                
                 #Element_Material_Composition_t[:,0] = 1
                 #Element_Material_Composition_t[:,-1] = 1 - Element_Material_Composition_t[:,1:-1].sum(axis =1)
                 Element_Material_Composition[t,:,:,mS,mR] = Element_Material_Composition_t.copy()
@@ -1052,11 +1044,8 @@ def main():
             
                 # 10a) Calculate material composition of product consumption
                 Throughput_FinalGoods_me = RECC_System.FlowDict['F_5_6'].Values[t,-1,:,:,:].sum(axis =0) + np.einsum('crgme->me',RECC_System.FlowDict['F_17_6'].Values[t,0:CohortOffset,:,:,:,:])
-                Element_Material_Composition_cons = np.einsum('me,me->me',Throughput_FinalGoods_me,1/np.einsum('m,e->me',Throughput_FinalGoods_me[:,1::].sum(axis =1),np.ones(Ne)))
-                Element_Material_Composition_cons[np.isnan(Element_Material_Composition_cons)] = 0
-                Element_Material_Composition_cons[np.isinf(Element_Material_Composition_cons)] = 0
-                #Element_Material_Composition_cons[:,0] = 1
-                #Element_Material_Composition_cons[:,-1] = 1 - Element_Material_Composition_t[:,1:-1].sum(axis =1)
+                Divisor = np.einsum('m,e->me',Throughput_FinalGoods_me[:,1::].sum(axis =1),np.ones(Ne))
+                Element_Material_Composition_cons = np.einsum('me,me->me',Throughput_FinalGoods_me, np.divide(1, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0))
                 Element_Material_Composition_con[t,:,:,mS,mR] = Element_Material_Composition_cons.copy()
                 
                 Par_Element_Composition_of_Materials_c[t,:,:] = Element_Material_Composition_cons.copy()
