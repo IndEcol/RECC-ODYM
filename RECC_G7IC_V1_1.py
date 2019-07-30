@@ -50,7 +50,7 @@ def main():
     sys.path.insert(0, os.path.join(os.path.join(RECC_Paths.odym_path,'odym'),'modules'))
     ### 1.1.) Read main script parameters
     # Mylog.info('### 1.1 - Read main script parameters')
-    ProjectSpecs_Name_ConFile = 'RECC_Config.xlsx'
+    ProjectSpecs_Name_ConFile = 'RECC_Config_V1_1.xlsx'
     Model_Configfile = xlrd.open_workbook(ProjectSpecs_Name_ConFile)
     ScriptConfig = {'Model Setting': Model_Configfile.sheet_by_name('Config').cell_value(3,3)}
     Model_Configsheet = Model_Configfile.sheet_by_name(ScriptConfig['Model Setting'])
@@ -166,7 +166,7 @@ def main():
                 ThisItem = Classsheet.cell_value(ri, ci)
             except:
                 break
-            if ThisItem is not '':
+            if ThisItem != '':
                 TheseItems.append(ThisItem)
         MasterClassification[ThisName] = msc.Classification(Name = ThisName, Dimension = ThisDim, ID = ThisID, UUID = ThisUUID, Items = TheseItems)
         ci += 1
@@ -355,6 +355,8 @@ def main():
     Nn = len(IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items)
     NV = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('V')].Items)
     #IndexTable.ix['t']['Classification'].Items # get classification items
+    
+    SwitchTime = Nc-Nt+1
     
     Mylog.info('Read model data and parameters.')
     
@@ -806,25 +808,29 @@ def main():
             # Compute evolution of 2015 in-use stocks: initial stock evolution separately from future stock demand and stock-driven model
             for G in tqdm(range(0, NG), unit=' commodity groups'):
                 for r in range(0,Nr):   
-                    FutureStock          = TotalStockCurves_UsePhase[1::, r, G]# Future total stock
-                    InitialStock         = TotalStock_UsePhase_Hist_cgr[:,:,r].copy()
+                    FutureStock                 = np.zeros((Nc))
+                    FutureStock[SwitchTime::]   = TotalStockCurves_UsePhase[1::, r, G].copy()# Future total stock
+                    InitialStock                = TotalStock_UsePhase_Hist_cgr[:,:,r].copy()
+                    # Set the values from other sectors to zero:
                     if G == 0: # for vehicles and buildings only !!!
-                        InitialStock[:,6::] = 0  # set not relevant initial stock to 0
-                        InitialStocksum     = InitialStock[:,0:6].sum()
+                        InitialStock[:,6::]     = 0  # set not relevant initial stock to 0
+                        InitialStocksum         = InitialStock[:,0:6].sum()
                     if G == 1:
-                        InitialStock[:,0:6] = 0  # set not relevant initial stock to 0
-                        InitialStocksum     = InitialStock[:,6::].sum()
-                    StockMatch_2015[G,r] = TotalStockCurves_UsePhase[0, r, G]/InitialStocksum
-                    SFArrayCombined = SF_Array[:,:,:,r]
-                    TypeSplit       = RECC_System.ParameterDict['3_SHA_TypeSplit_NewProducts'].Values[G,:,1::,r,mS].transpose() # indices: gc
-      
-                    Var_S, Var_O, Var_I = msf.compute_stock_driven_model_initialstock_typesplit(FutureStock,InitialStock,SFArrayCombined,TypeSplit, NegativeInflowCorrect = True)
-    
+                        InitialStock[:,0:6]     = 0  # set not relevant initial stock to 0
+                        InitialStocksum         = InitialStock[:,6::].sum()
+                    StockMatch_2015[G,r]        = TotalStockCurves_UsePhase[0, r, G]/InitialStocksum
+                    SFArrayCombined             = SF_Array[:,:,:,r]
+                    TypeSplit                   = np.zeros((Nc,Ng))
+                    TypeSplit[SwitchTime::,:]   = RECC_System.ParameterDict['3_SHA_TypeSplit_NewProducts'].Values[G,:,1::,r,mS].transpose() # indices: gc
+                    
+                    RECC_dsm                    = dsm.DynamicStockModel(t=np.arange(0,Nc,1), s=FutureStock.copy(), lt = lt)  # The lt parameter is not used, the sf array is handed over directly in the next step.   
+                    Var_S, Var_O, Var_I, IFlags = RECC_dsm.compute_stock_driven_model_initialstock_typesplit_negativeinflowcorrect(SwitchTime,InitialStock,SFArrayCombined,TypeSplit,NegativeInflowCorrect = True)
+                    
                     # Below, the results are added with += because the different commodity groups (buildings, vehicles) are calculated separately
                     # to introduce the type split for each, but using the product resolution of the full model with all sectors.
                     Stock_Detail_UsePhase[0,:,:,r]     += InitialStock.copy() # cgr, needed for correct calculation of mass balance later.
-                    Stock_Detail_UsePhase[1::,:,:,r]   += Var_S.copy() # tcgr
-                    Outflow_Detail_UsePhase[1::,:,:,r] += Var_O.copy() # tcgr
+                    Stock_Detail_UsePhase[1::,:,:,r]   += Var_S[SwitchTime::,:,:].copy() # tcgr
+                    Outflow_Detail_UsePhase[1::,:,:,r] += Var_O[SwitchTime::,:,:].copy() # tcgr
                     Inflow_Detail_UsePhase[1::,:,r]    += Var_I[SwitchTime::,:].copy() # tgr
     
             # Here so far: Units: Vehicles: million, Buildings: million m2. for stocks, X/yr for flows.
@@ -1963,7 +1969,7 @@ def main():
     print('done.')
     
     return Name_Scenario + '_' + TimeString + DescrString # return new scenario folder name to ScenarioControl script
-
+    
 
 # code for script to be run as standalone function
 if __name__ == "__main__":

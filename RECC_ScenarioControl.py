@@ -22,13 +22,13 @@ import RECC_Paths # Import path file
 import RECC_G7IC_V1_1
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-ScenarioSetting = 'RECC_Config_IRP_V1'
-#ScenarioSetting = 'SingleTestRun'
+#ScenarioSetting = 'RECC_Config_IRP_V1'
+ScenarioSetting = 'SingleTestRun'
 #ScenarioSetting = 'GroupTestRun'
 
 
 # open scenario sheet
-ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List.xlsx'))
+ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V1_1.xlsx'))
 ModelConfigListSheet = ModelConfigListFile.sheet_by_name(ScenarioSetting)
 
 #Read control lines and execute main model script
@@ -46,7 +46,7 @@ while True:
         break
     Row += 1
     # rewrite RECC model config
-    mywb = openpyxl.load_workbook(os.path.join(RECC_Paths.recc_path,'RECC_Config.xlsx'))
+    mywb = openpyxl.load_workbook(os.path.join(RECC_Paths.recc_path,'RECC_Config_V1_1.xlsx'))
     
     sheet = mywb.get_sheet_by_name('Config')
     sheet['D4'] = SheetName
@@ -63,7 +63,7 @@ while True:
     sheet['D118'] = Config['ScrapExportRecyclingCredit']
     sheet['D119'] = Config['IncludeRecycling']
     
-    mywb.save(os.path.join(RECC_Paths.recc_path,'RECC_Config.xlsx'))
+    mywb.save(os.path.join(RECC_Paths.recc_path,'RECC_Config_V1_1.xlsx'))
     # run the ODYM-RECC model
     ResultFolder = RECC_G7IC_V1_1.main()
     ResultFolders.append(ResultFolder)
