@@ -100,25 +100,7 @@ Mylog.info('Unique ID of scenario run: ' + ScriptConfig['Current_UUID'])
 ### 1.2) Read model control parameters
 Mylog.info('### 1.2 - Read model control parameters')
 #Read control and selection parameters into dictionary
-SCix = 0
-# search for script config list entry
-while Model_Configsheet.cell_value(SCix, 1) != 'General Info':
-    SCix += 1
-        
-SCix += 2  # start on first data row
-while len(Model_Configsheet.cell_value(SCix, 3)) > 0:
-    ScriptConfig[Model_Configsheet.cell_value(SCix, 2)] = Model_Configsheet.cell_value(SCix,3)
-    SCix += 1
-
-SCix = 0
-# search for script config list entry
-while Model_Configsheet.cell_value(SCix, 1) != 'Software version selection':
-    SCix += 1
-        
-SCix += 2 # start on first data row
-while len(Model_Configsheet.cell_value(SCix, 3)) > 0:
-    ScriptConfig[Model_Configsheet.cell_value(SCix, 2)] = Model_Configsheet.cell_value(SCix,3)
-    SCix += 1  
+ScriptConfig = msf.ParseModelControl(Model_Configsheet,ScriptConfig)
 
 Mylog.info('Script: ' + Name_Script + '.py')
 Mylog.info('Model script version: ' + __version__)
@@ -143,161 +125,13 @@ Mylog.info('## 2 - Read classification items and define all classifications')
 Mylog.info('### 2.1 - Read model run config data')
 # Note: This part reads the items directly from the Exel master,
 # will be replaced by reading them from version-managed csv file.
-class_filename = str(ScriptConfig['Version of master classification']) + '.xlsx'
-Classfile = xlrd.open_workbook(os.path.join(RECC_Paths.data_path,class_filename))
-Classsheet = Classfile.sheet_by_name('MAIN_Table')
-ci = 1  # column index to start with
-MasterClassification = {}  # Dict of master classifications
-while True:
-    TheseItems = []
-    ri = 10  # row index to start with
-    try: 
-        ThisName = Classsheet.cell_value(0,ci)
-        ThisDim  = Classsheet.cell_value(1,ci)
-        ThisID   = Classsheet.cell_value(3,ci)
-        ThisUUID = Classsheet.cell_value(4,ci)
-        TheseItems.append(Classsheet.cell_value(ri,ci)) # read the first classification item
-    except:
-        Mylog.info('End of file or formatting error while reading the classification file in column ' + str(ci) + '. Check if all classifications are present. If yes, you are good to go!')
-        break
-    while True:
-        ri += 1
-        try:
-            ThisItem = Classsheet.cell_value(ri, ci)
-        except:
-            break
-        if ThisItem != '':
-            TheseItems.append(ThisItem)
-    MasterClassification[ThisName] = msc.Classification(Name = ThisName, Dimension = ThisDim, ID = ThisID, UUID = ThisUUID, Items = TheseItems)
-    ci += 1
+class_filename       = str(ScriptConfig['Version of master classification']) + '.xlsx'
+Classfile            = xlrd.open_workbook(os.path.join(RECC_Paths.data_path,class_filename))
+Classsheet           = Classfile.sheet_by_name('MAIN_Table')
+MasterClassification = msf.ParseClassificationFile_Main(Classsheet,Mylog)
     
-Mylog.info('Read index table from model config sheet.')
-ITix = 0
-
-# search for index table entry
-while True:
-    if Model_Configsheet.cell_value(ITix, 1) == 'Index Table':
-        break
-    else:
-        ITix += 1
-        
-IT_Aspects        = []
-IT_Description    = []
-IT_Dimension      = []
-IT_Classification = []
-IT_Selector       = []
-IT_IndexLetter    = []
-ITix += 2 # start on first data row
-while True:
-    if len(Model_Configsheet.cell_value(ITix,2)) > 0:
-        IT_Aspects.append(Model_Configsheet.cell_value(ITix,2))
-        IT_Description.append(Model_Configsheet.cell_value(ITix,3))
-        IT_Dimension.append(Model_Configsheet.cell_value(ITix,4))
-        IT_Classification.append(Model_Configsheet.cell_value(ITix,5))
-        IT_Selector.append(Model_Configsheet.cell_value(ITix,6))
-        IT_IndexLetter.append(Model_Configsheet.cell_value(ITix,7))        
-        ITix += 1
-    else:
-        break
-
-Mylog.info('Read parameter list from model config sheet.')
-PLix = 0
-while True: # search for parameter list entry
-    if Model_Configsheet.cell_value(PLix, 1) == 'Model Parameters':
-        break
-    else:
-        PLix += 1
-        
-PL_Names          = []
-PL_Description    = []
-PL_Version        = []
-PL_IndexStructure = []
-PL_IndexMatch     = []
-PL_IndexLayer     = []
-PLix += 2 # start on first data row
-while True:
-    if len(Model_Configsheet.cell_value(PLix,2)) > 0:
-        PL_Names.append(Model_Configsheet.cell_value(PLix,2))
-        PL_Description.append(Model_Configsheet.cell_value(PLix,3))
-        PL_Version.append(Model_Configsheet.cell_value(PLix,4))
-        PL_IndexStructure.append(Model_Configsheet.cell_value(PLix,5))
-        PL_IndexMatch.append(Model_Configsheet.cell_value(PLix,6))
-        PL_IndexLayer.append(msf.ListStringToListNumbers(Model_Configsheet.cell_value(PLix,7))) # strip numbers out of list string
-        PLix += 1
-    else:
-        break
-    
-Mylog.info('Read process list from model config sheet.')
-PrLix = 0
-
-# search for process list entry
-while True:
-    if Model_Configsheet.cell_value(PrLix, 1) == 'Process Group List':
-        break
-    else:
-        PrLix += 1
-        
-PrL_Number         = []
-PrL_Name           = []
-PrL_Comment        = []
-PrL_Type           = []
-PrLix += 2 # start on first data row
-while True:
-    if Model_Configsheet.cell_value(PrLix,2) != '':
-        try:
-            PrL_Number.append(int(Model_Configsheet.cell_value(PrLix,2)))
-        except:
-            PrL_Number.append(Model_Configsheet.cell_value(PrLix,2))
-        PrL_Name.append(Model_Configsheet.cell_value(PrLix,3))
-        PrL_Type.append(Model_Configsheet.cell_value(PrLix,4))
-        PrL_Comment.append(Model_Configsheet.cell_value(PrLix,5))
-        PrLix += 1
-    else:
-        break    
-
-Mylog.info('Read model run control from model config sheet.')
-PrLix = 0
-
-# search for model flow control entry
-while True:
-    if Model_Configsheet.cell_value(PrLix, 1) == 'Model flow control':
-        break
-    else:
-        PrLix += 1
-
-# start on first data row
-PrLix += 2
-while True:
-    if Model_Configsheet.cell_value(PrLix, 2) != '':
-        try:
-            ScriptConfig[Model_Configsheet.cell_value(PrLix, 2)] = Model_Configsheet.cell_value(PrLix,3)
-        except:
-            None
-        PrLix += 1
-    else:
-        break  
-
-Mylog.info('Read model output control from model config sheet.')
-PrLix = 0
-
-# search for model flow control entry
-while True:
-    if Model_Configsheet.cell_value(PrLix, 1) == 'Model output control':
-        break
-    else:
-        PrLix += 1
-
-# start on first data row
-PrLix += 2
-while True:
-    if Model_Configsheet.cell_value(PrLix, 2) != '':
-        try:
-            ScriptConfig[Model_Configsheet.cell_value(PrLix, 2)] = Model_Configsheet.cell_value(PrLix,3)
-        except:
-            None
-        PrLix += 1
-    else:
-        break  
+Mylog.info('Read and parse config table, including the model index table, from model config sheet.')
+IT_Aspects,IT_Description,IT_Dimension,IT_Classification,IT_Selector,IT_IndexLetter,PL_Names,PL_Description,PL_Version,PL_IndexStructure,PL_IndexMatch,PL_IndexLayer,PrL_Number,PrL_Name,PrL_Comment,PrL_Type,ScriptConfig = msf.ParseConfigFile(Model_Configsheet,ScriptConfig,Mylog)    
 
 Mylog.info('Define model classifications and select items for model classifications according to information provided by config file.')
 ModelClassification  = {} # Dict of model classifications
@@ -1000,7 +834,7 @@ for mS in range(0,NS):
         RECC_System.StockDict['S_7'].Values[0,0:SwitchTime,:,Sector_reb_rge,:,:] = \
         np.einsum('crBme,cBr->Bcrme',Par_Element_Material_Composition_of_Products[0:SwitchTime,:,Sector_reb_rge,:,:],Stock_Detail_UsePhase_B[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,r,B,m,e'
 
-        # 1) Inflow, future years, all elements only
+        # 2) Inflow, future years, all elements only
         RECC_System.FlowDict['F_6_7'].Values[1::,:,Sector_pav_rge,:,0]   = \
         np.einsum('ptrm,tpr->ptrm',Par_Element_Material_Composition_of_Products[SwitchTime::,:,Sector_pav_rge,:,0],Inflow_Detail_UsePhase_p[1::,:,:])/1000 # all elements, Indices='t,r,p,m,e'  
         RECC_System.FlowDict['F_6_7'].Values[1::,:,Sector_reb_rge,:,0]   = \
@@ -1165,6 +999,8 @@ for mS in range(0,NS):
             Par_Element_Composition_of_Materials_m[t+115,:,:]  = Element_Material_Composition_Manufacturing.copy()
             Par_Element_Composition_of_Materials_u[t+115,:,:]  = Element_Material_Composition_Manufacturing.copy()
 
+            # End of 8) SCRAP MARKET BALANCE.
+
             # 9) Primary production:
             RECC_System.FlowDict['F_3_4'].Values[t,:,:]        = RECC_System.FlowDict['F_4_5'].Values[t,:,:]
             RECC_System.FlowDict['F_0_3'].Values[t,:,:]        = RECC_System.FlowDict['F_3_4'].Values[t,:,:]
@@ -1215,27 +1051,27 @@ for mS in range(0,NS):
         Aa = np.einsum('Btrm->trm',RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_reb_rge,:,0])    # BuildingInflowMaterials
         Aa = np.einsum('ptrm->trm',RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_pav_rge,:,0])    # PassVehsInflowMaterials        
 
-        Aa = np.einsum('tcgr->tgr',Outflow_Detail_UsePhase_p)                            # product outflow use phase
-        Aa = np.einsum('tgr->tgr',Inflow_Detail_UsePhase_p)                              # product inflow use phase
-        Aa = np.einsum('tgr->tg',Inflow_Detail_UsePhase_p)                               # product inflow use phase, global total
-        Aa = np.einsum('tcgr->tgr',Stock_Detail_UsePhase_p)                              # Total stock time series            
-        Aa = np.einsum('tcgr->tgr',Outflow_Detail_UsePhase_B)                            # product outflow use phase
-        Aa = np.einsum('tgr->tgr',Inflow_Detail_UsePhase_B)                              # product inflow use phase
-        Aa = np.einsum('tgr->tg',Inflow_Detail_UsePhase_B)                               # product inflow use phase, global total
-        Aa = np.einsum('tcgr->tgr',Stock_Detail_UsePhase_B)                              # Total stock time series            
+        Aa = np.einsum('tcgr->tgr',Outflow_Detail_UsePhase_p)                                       # product outflow use phase
+        Aa = np.einsum('tgr->tgr',Inflow_Detail_UsePhase_p)                                         # product inflow use phase
+        Aa = np.einsum('tgr->tg',Inflow_Detail_UsePhase_p)                                          # product inflow use phase, global total
+        Aa = np.einsum('tcgr->tgr',Stock_Detail_UsePhase_p)                                         # Total stock time series            
+        Aa = np.einsum('tcgr->tgr',Outflow_Detail_UsePhase_B)                                       # product outflow use phase
+        Aa = np.einsum('tgr->tgr',Inflow_Detail_UsePhase_B)                                         # product inflow use phase
+        Aa = np.einsum('tgr->tg',Inflow_Detail_UsePhase_B)                                          # product inflow use phase, global total
+        Aa = np.einsum('tcgr->tgr',Stock_Detail_UsePhase_B)                                         # Total stock time series            
         
         # Material composition and flows
         Aa = Par_Element_Material_Composition_of_Products[:,0,:,:,0] # indices: cgm.
         Aa = RECC_System.FlowDict['F_5_10'].Values[:,0,:,:] # indices: twe
-        Aa = np.einsum('trw->trw',RECC_System.FlowDict['F_9_10'].Values[:,:,:,0])        # old scrap
-        Aa = np.einsum('trgm->tr',RECC_System.FlowDict['F_8_9'].Values[:,:,:,:,0])       # inflow waste mgt.
-        Aa = np.einsum('tgm->tgm',RECC_System.FlowDict['F_8_9'].Values[:,0,:,:,0])       # inflow waste mgt.        
-        Aa = np.einsum('trm->tm',RECC_System.FlowDict['F_9_12'].Values[:,:,:,0])         # secondary material
-        Aa = np.einsum('trm->trm',RECC_System.FlowDict['F_12_5'].Values[:,:,:,0])        # secondary material use
-        Aa = np.einsum('tm->tm',RECC_System.FlowDict['F_4_5'].Values[:,:,0])             # primary material production
-        Aa = np.einsum('ptrm->trm',RECC_System.FlowDict['F_5_6'].Values[:,:,Sector_pav_rge,:,0])  # materials in manufactured vehicles
-        Aa = np.einsum('Btrm->trm',RECC_System.FlowDict['F_5_6'].Values[:,:,Sector_reb_rge,:,0])  # materials in manufactured buildings
-        Aa = Element_Material_Composition[:,:,:,0,0]                                     # indices tme, latter to indices are mS and mR
+        Aa = np.einsum('trw->trw',RECC_System.FlowDict['F_9_10'].Values[:,:,:,0])                   # old scrap
+        Aa = np.einsum('trgm->tr',RECC_System.FlowDict['F_8_9'].Values[:,:,:,:,0])                  # inflow waste mgt.
+        Aa = np.einsum('tgm->tgm',RECC_System.FlowDict['F_8_9'].Values[:,0,:,:,0])                  # inflow waste mgt.        
+        Aa = np.einsum('trm->tm',RECC_System.FlowDict['F_9_12'].Values[:,:,:,0])                    # secondary material
+        Aa = np.einsum('trm->trm',RECC_System.FlowDict['F_12_5'].Values[:,:,:,0])                   # secondary material use
+        Aa = np.einsum('tm->tm',RECC_System.FlowDict['F_4_5'].Values[:,:,0])                        # primary material production
+        Aa = np.einsum('ptrm->trm',RECC_System.FlowDict['F_5_6'].Values[:,:,Sector_pav_rge,:,0])    # materials in manufactured vehicles
+        Aa = np.einsum('Btrm->trm',RECC_System.FlowDict['F_5_6'].Values[:,:,Sector_reb_rge,:,0])    # materials in manufactured buildings
+        Aa = Element_Material_Composition[:,:,:,0,0]                                                # indices tme, latter to indices are mS and mR
         
         # Manufacturing diagnostics
         Aa = RECC_System.FlowDict['F_5_6'].Values[:,0,:,:,:].sum(axis=1) #tme
