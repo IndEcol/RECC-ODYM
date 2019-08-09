@@ -51,22 +51,22 @@ while True:
     sheet = mywb.get_sheet_by_name('Config')
     sheet['D4'] = SheetName
     sheet = mywb.get_sheet_by_name(SheetName)
-    sheet['D130'] = Config['Logging_Verbosity']
-    sheet['D131'] = Config['Include_REStrategy_FabYieldImprovement']
-    sheet['D132'] = Config['Include_REStrategy_FabScrapDiversion']
-    sheet['D133'] = Config['Include_REStrategy_EoL_RR_Improvement']
-    sheet['D134'] = Config['ScrapExport']
-    sheet['D135'] = Config['ScrapExportRecyclingCredit']
-    sheet['D136'] = Config['IncludeRecycling']
-    sheet['D137'] = Config['Include_REStrategy_MaterialSubstitution']
-    sheet['D138'] = Config['Include_REStrategy_UsingLessMaterialByDesign']
-    sheet['D139'] = Config['Include_REStrategy_ReUse']
-    sheet['D140'] = Config['Include_REStrategy_LifeTimeExtension']
-    sheet['D141'] = Config['Include_REStrategy_MoreIntenseUse']
-    sheet['D142'] = Config['Include_REStrategy_CarSharing']
-    sheet['D143'] = Config['Include_REStrategy_RideHailing']
-    sheet['D144'] = Config['Include_REStrategy_ModalSplit']
-    sheet['D145'] = Config['SectorSelect']
+    sheet['D131'] = Config['Logging_Verbosity']
+    sheet['D132'] = Config['Include_REStrategy_FabYieldImprovement']
+    sheet['D133'] = Config['Include_REStrategy_FabScrapDiversion']
+    sheet['D134'] = Config['Include_REStrategy_EoL_RR_Improvement']
+    sheet['D135'] = Config['ScrapExport']
+    sheet['D136'] = Config['ScrapExportRecyclingCredit']
+    sheet['D137'] = Config['IncludeRecycling']
+    sheet['D138'] = Config['Include_REStrategy_MaterialSubstitution']
+    sheet['D139'] = Config['Include_REStrategy_UsingLessMaterialByDesign']
+    sheet['D140'] = Config['Include_REStrategy_ReUse']
+    sheet['D141'] = Config['Include_REStrategy_LifeTimeExtension']
+    sheet['D142'] = Config['Include_REStrategy_MoreIntenseUse']
+    sheet['D143'] = Config['Include_REStrategy_CarSharing']
+    sheet['D144'] = Config['Include_REStrategy_RideSharing']
+    sheet['D145'] = Config['Include_REStrategy_ModalSplit']
+    sheet['D146'] = Config['SectorSelect']
     
     mywb.save(os.path.join(RECC_Paths.recc_path,'RECC_Config_V2_0.xlsx'))
     # run the ODYM-RECC model

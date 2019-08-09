@@ -38,6 +38,7 @@ def main(RegionalScope,ResBldList):
     CumEmsB_Sens     = np.zeros((NS,NR)) # SSP-Scenario x RCP scenario x RES scenario
     AnnEmsB2030_Sens = np.zeros((NS,NR)) # SSP-Scenario x RCP scenario x RES scenario
     AnnEmsB2050_Sens = np.zeros((NS,NR)) # SSP-Scenario x RCP scenario x RES scenario
+    AvgDecadalEms    = np.zeros((NS,NR,4)) # SSP-Scenario x RES scenario x 4 decades    
     
     for r in range(0,NR): # RE scenario
         
@@ -48,7 +49,10 @@ def main(RegionalScope,ResBldList):
                 CumEmsB_Sens[s,r] += Resultsheet.cell_value(t +2, 2*(s+1))
             AnnEmsB2030_Sens[s,r]  = Resultsheet.cell_value(16  , 2*(s+1))
             AnnEmsB2050_Sens[s,r]  = Resultsheet.cell_value(36  , 2*(s+1))
-            
+            AvgDecadalEms[s,r,0]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(7,17)])/10
+            AvgDecadalEms[s,r,1]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(17,27)])/10
+            AvgDecadalEms[s,r,2]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(27,37)])/10
+            AvgDecadalEms[s,r,3]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(37,47)])/10            
          
     
     ### Tornado plot for sensitivity
@@ -164,7 +168,7 @@ def main(RegionalScope,ResBldList):
             fig_name = 'Cum_GHG_Sens_' + Region + '_ ' + Title[0] + '_' + Scens[m] + '.png'
             fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')             
             
-    return CumEmsB_Sens, AnnEmsB2030_Sens, AnnEmsB2050_Sens
+    return CumEmsB_Sens, AnnEmsB2030_Sens, AnnEmsB2050_Sens, AvgDecadalEms
 
 
 # code for script to be run as standalone function
