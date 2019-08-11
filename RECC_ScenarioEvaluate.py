@@ -19,9 +19,10 @@ import xlrd
 import openpyxl
 
 import RECC_Paths # Import path file
-import RECC_G7IC_Compare_PassVehicles_V1_0
-import RECC_G7IC_Sensitivity_PassVehicles_V1_0
-import RECC_G7IC_Sensitivity_ResBuildings_V1_0
+import RECC_G7IC_Cascade_PassVehicles_V2_0
+import RECC_G7IC_Cascade_ResBuildings_V2_0
+import RECC_G7IC_Sensitivity_PassVehicles_V2_0
+import RECC_G7IC_Sensitivity_ResBuildings_V2_0
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
 #ScenarioSetting = 'Evaluate_Config_IRP_V1'
@@ -38,9 +39,11 @@ mywb = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'G7_RECC_Resu
 #Read control lines and execute main model script
 Row  = 1
 
-NoofCascadeSteps_pav     = 10 # 5 for vehs. and 5 for buildings
+NoofCascadeSteps_pav     = 7 # 7 for vehs. and 6 for buildings
+NoofCascadeSteps_reb     = 6 # 7 for vehs. and 6 for buildings
 NoofSensitivitySteps_pav = 11 # no of different sensitivity analysis cases for pav
 NoofSensitivitySteps_reb = 10 # no of different sensitivity analysis cases for reb
+
 # search for script config list entry
 while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
     if ModelEvalListSheet.cell_value(Row, 1) != '':
@@ -54,26 +57,37 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
         for m in range(0,int(NoofCascadeSteps_pav)):
             PassVehList.append(ModelEvalListSheet.cell_value(Row +m, 3))
         # run the ODYM-RECC scenario comparison
-        ASummaryV, ASummaryB = RECC_G7IC_Compare_PassVehicles_V1_0.main(RegionalScope,PassVehList)
+        ASummaryV, AvgDecadalEmsV = RECC_G7IC_Cascade_PassVehicles_V2_0.main(RegionalScope,PassVehList)
         # write results summary to Excel
         Vsheet = mywb[RegionalScope + '_Vehicles']
         for r in range(0,3):
-            for c in range(0,5):
-                Vsheet.cell(row = r+3, column = c+5).value  = ASummaryV[r,c]       
-                Vsheet.cell(row = r+9, column = c+5).value  = ASummaryV[r+3,c]       
-                Vsheet.cell(row = r+15, column = c+5).value = ASummaryV[r+6,c]       
+            for c in range(0,7):
+                Vsheet.cell(row = r+3,  column = c+5).value  = ASummaryV[r,c]       
+                Vsheet.cell(row = r+9,  column = c+5).value  = ASummaryV[r+3,c]       
+                Vsheet.cell(row = r+15, column = c+5).value = ASummaryV[r+6,c]
+                for d in range(0,4):
+                    Vsheet.cell(row = d*3 + r + 21,column = c+5).value  = AvgDecadalEmsV[r,c,d]
+        
+    if Setting == 'Cascade_reb':
+        for m in range(0,int(NoofCascadeSteps_reb)):
+            ResBldsList.append(ModelEvalListSheet.cell_value(Row +m, 3))
+        # run the ODYM-RECC scenario comparison
+        ASummaryB, AvgDecadalEmsB = RECC_G7IC_Cascade_ResBuildings_V2_0.main(RegionalScope,ResBldsList)
+        # write results summary to Excel
         Bsheet = mywb[RegionalScope + '_Buildings']
         for r in range(0,3):
-            for c in range(0,5):
+            for c in range(0,6):
                 Bsheet.cell(row = r+3, column = c+5).value  = ASummaryB[r,c]       
                 Bsheet.cell(row = r+9, column = c+5).value  = ASummaryB[r+3,c]       
                 Bsheet.cell(row = r+15, column = c+5).value = ASummaryB[r+6,c]     
-                
+                for d in range(0,4):
+                    Bsheet.cell(row = d*3 + r + 21,column = c+5).value  = AvgDecadalEmsB[r,c,d]
+                    
     if Setting == 'Sensitivity_pav':
         for m in range(0,int(NoofSensitivitySteps_pav)):
             PassVehList.append(ModelEvalListSheet.cell_value(Row +m, 3))
         # run the ODYM-RECC sensitivity analysis for pav
-        CumEmsV_Sens, AnnEmsV2030_Sens, AnnEmsV2050_Sens, AvgDecadalEms = RECC_G7IC_Sensitivity_PassVehicles_V1_0.main(RegionalScope,PassVehList)        
+        CumEmsV_Sens, AnnEmsV2030_Sens, AnnEmsV2050_Sens, AvgDecadalEms = RECC_G7IC_Sensitivity_PassVehicles_V2_0.main(RegionalScope,PassVehList)        
         # write results summary to Excel
         Ssheet = mywb['Sensitivity_' + RegionalScope]
         print(RegionalScope)
@@ -89,7 +103,7 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
         for m in range(0,int(NoofSensitivitySteps_reb)):
             ResBldsList.append(ModelEvalListSheet.cell_value(Row +m, 3))
         # run the ODYM-RECC sensitivity analysis for reb
-        CumEmsB_Sens, AnnEmsB2030_Sens, AnnEmsB2050_Sens, AvgDecadalEms = RECC_G7IC_Sensitivity_ResBuildings_V1_0.main(RegionalScope,ResBldsList)        
+        CumEmsB_Sens, AnnEmsB2030_Sens, AnnEmsB2050_Sens, AvgDecadalEms = RECC_G7IC_Sensitivity_ResBuildings_V2_0.main(RegionalScope,ResBldsList)        
         # write results summary to Excel
         Ssheet = mywb['Sensitivity_' + RegionalScope]
         print(RegionalScope)
@@ -104,6 +118,8 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
     # forward counter   
     if Setting == 'Cascade_pav':
         Row += NoofCascadeSteps_pav
+    if Setting == 'Cascade_reb':
+        Row += NoofCascadeSteps_reb        
     if Setting == 'Sensitivity_pav':
         Row += NoofSensitivitySteps_pav
     if Setting == 'Sensitivity_reb':
