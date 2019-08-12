@@ -25,16 +25,16 @@ import RECC_G7IC_Sensitivity_PassVehicles_V2_0
 import RECC_G7IC_Sensitivity_ResBuildings_V2_0
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-#ScenarioSetting = 'Evaluate_Config_IRP_V1'
-ScenarioSetting = 'Evaluate_GroupTestRun'
-
+#ScenarioSetting = 'Evaluate_RECC_Cascade'
+#ScenarioSetting = 'Evaluate_GroupTestRun'
+ScenarioSetting = 'Evaluate_RECC_Sensitivity'
 
 # open scenario sheet
 ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_1.xlsx'))
 ModelEvalListSheet = ModelConfigListFile.sheet_by_name(ScenarioSetting)
 
 # open result summary file
-mywb = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_Test.xlsx'))
+mywb = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_Template.xlsx'))
 
 #Read control lines and execute main model script
 Row  = 1
@@ -126,7 +126,7 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
         Row += NoofSensitivitySteps_reb
         
     
-mywb.save(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_Test.xlsx'))
+mywb.save(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_12August2019S.xlsx'))
     
     
     

@@ -282,7 +282,8 @@ def main():
     
     # 3) Determine future energy intensity and material composition of vehicles by mixing archetypes:
     # Replicate values for other countries
-    # replicate vehicle building parameter from World to all regions
+    # replicate vehicle building parameter from World to all regions, and consider post 2050 values.
+    ParameterDict['3_SHA_LightWeighting_Buildings'].Values[:,:,36::,:] = np.einsum('BoS,t->BotS',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[:,:,35,:],np.ones(10))
     ParameterDict['3_SHA_LightWeighting_Buildings'].Values     = np.einsum('BtS,r->BrtS',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[:,0,:,:],np.ones(Nr))
     
     # Check if RE strategies are active and set implementation curves to 2016 value if not.
@@ -1724,8 +1725,8 @@ def main():
     RCPScens   = ['No climate policy','2 degrees C energy mix']
     Area       = ['use phase','use phase, scope 2 (el)','use phase, other indirect','primary material product.','manufact. & recycling','total (incl. recycling credit)']     
     
-    for mS in range(0,NS): # SSP
-        for mR in range(0,NR): # RCP
+    for mS in range(1,2):#0,NS): # SSP
+        for mR in range(1,2):#(0,NR): # RCP
     
             fig  = plt.figure(figsize=(8,5))
             ax1  = plt.axes([0.08,0.08,0.85,0.9])
@@ -1767,8 +1768,8 @@ def main():
     # Area plot, for material industries:
     Area2   = ['primary material product.','waste mgt. & recycling','manufacturing']     
     
-    for mS in range(0,NS): # SSP
-        for mR in range(0,NR): # RCP
+    for mS in range(1,2):#(0,NS): # SSP
+        for mR in range(1,2):#(0,NR): # RCP
     
             fig  = plt.figure(figsize=(8,5))
             ax1  = plt.axes([0.08,0.08,0.85,0.9])
