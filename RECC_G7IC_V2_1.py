@@ -239,18 +239,26 @@ def main():
     #     Section 3)  Interpolate missing parameter values:      #
     ##############################################################
     # 0) obtain specific indices and positions:
-    m_reg_o        = 0 # reference region for GHG prices and intensities (Default: 0, which is the first region selected in the config file.)
-    LEDindex       = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('LED')
-    SSP1index      = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP1')
-    SSP2index      = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP2')
-    SectorList     = eval(ScriptConfig['SectorSelect'])
-    Sector_pav_loc = 0 # index of pass. vehs. in sector list.
-    Sector_pav_rge = np.arange(0,6,1) # index range of pass. vehs. in product list.
-    Sector_reb_loc = 1 # index of res. build. in sector list.
-    Sector_reb_rge = np.array([22,23,24,25,26,27,28,29,34]) # index range of res. builds. in product list.
-    Service_Driving= 3
-    Material_Wood  = 9
-    Service_Resbld = np.array([0,1,2])
+    m_reg_o         = 0 # reference region for GHG prices and intensities (Default: 0, which is the first region selected in the config file.)
+    LEDindex        = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('LED')
+    SSP1index       = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP1')
+    SSP2index       = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP2')
+    try:
+        ChinaRegLoc = IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items.index('R32CHN')
+    except:
+        ChinaRegLoc = None
+    try:
+        IndiaRegLoc = IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items.index('R32IND')
+    except:
+        IndiaRegLoc = None
+    SectorList      = eval(ScriptConfig['SectorSelect'])
+    Sector_pav_loc  = 0 # index of pass. vehs. in sector list.
+    Sector_pav_rge  = np.arange(0,6,1) # index range of pass. vehs. in product list.
+    Sector_reb_loc  = 1 # index of res. build. in sector list.
+    Sector_reb_rge  = np.array([22,23,24,25,26,27,28,29,34]) # index range of res. builds. in product list.
+    Service_Driving = 3
+    Material_Wood   = 9
+    Service_Resbld  = np.array([0,1,2])
     
     # 1) Material composition of vehicles, will only use historic age-cohorts.
     # Values are given every 5 years, we need all values in between.
@@ -287,12 +295,24 @@ def main():
     ParameterDict['3_SHA_LightWeighting_Buildings'].Values     = np.einsum('BtS,r->BrtS',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[:,0,:,:],np.ones(Nr))
     
     # Check if RE strategies are active and set implementation curves to 2016 value if not.
-    if ScriptConfig['Include_REStrategy_MaterialSubstitution'] == 'False': # no lightweighting trough material substitution.
+    if ScriptConfig['Include_REStrategy_MaterialSubstitution'] == 'False': # no additional lightweighting trough material substitution.
         ParameterDict['3_SHA_LightWeighting_Vehicles'].Values  = np.einsum('prS,t->prtS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[:,:,0,:],np.ones((Nt)))
         ParameterDict['3_SHA_LightWeighting_Buildings'].Values = np.einsum('BrS,t->BrtS',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[:,:,0,:],np.ones((Nt)))
         
     if ScriptConfig['Include_REStrategy_UsingLessMaterialByDesign'] == 'False': # no lightweighting trough UsingLessMaterialByDesign.
+        # use 2016 as reference, except for China and India, where we use the SSP1-LED and SSP2-SSP1 difference:
+        DownSizingBuffer = ParameterDict['3_SHA_DownSizing_Vehicles'].Values.copy()
+        # for all countries except for India and China: Set downsizing to 2016 levels.
         ParameterDict['3_SHA_DownSizing_Vehicles'].Values  = np.einsum('srS,t->srtS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,:,0,:],np.ones((Nt)))
+        if ChinaRegLoc is not None:
+            ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,ChinaRegLoc,:,LEDindex]  = DownSizingBuffer[:,ChinaRegLoc,:,SSP1index].copy()
+            ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,ChinaRegLoc,:,SSP1index] = DownSizingBuffer[:,ChinaRegLoc,:,SSP2index].copy()
+            ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,ChinaRegLoc,:,SSP2index] = DownSizingBuffer[:,ChinaRegLoc,:,SSP2index].copy()
+        if IndiaRegLoc is not None:
+            ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,IndiaRegLoc,:,LEDindex]  = DownSizingBuffer[:,IndiaRegLoc,:,SSP1index].copy()
+            ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,IndiaRegLoc,:,SSP1index] = DownSizingBuffer[:,IndiaRegLoc,:,SSP2index].copy()
+            ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,IndiaRegLoc,:,SSP2index] = DownSizingBuffer[:,IndiaRegLoc,:,SSP2index].copy()
+        
         ParameterDict['3_SHA_DownSizing_Buildings'].Values = np.einsum('urS,t->urtS',ParameterDict['3_SHA_DownSizing_Buildings'].Values[:,:,0,:],np.ones((Nt)))
     
     ParameterDict['3_MC_RECC_Vehicles_RECC'] = msc.Parameter(Name='3_MC_RECC_Vehicles_RECC', ID='3_MC_RECC_Vehicles_RECC',
@@ -301,24 +321,24 @@ def main():
                                                Unit='kg/unit')
     ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[0:115,:,:,:,:] = np.einsum('cmpr,S->cmprS',ParameterDict['3_MC_RECC_Vehicles'].Values[0:115,:,:,:],np.ones(NS))
     ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[115::,:,:,:,:] = \
-    np.einsum('prcS,pmrcS->cmprS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[0,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[24,28,32,36,40,44],:]))/10000 +\
-    np.einsum('prcS,pmrcS->cmprS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[1,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[25,29,33,37,41,45],:]))/10000 +\
-    np.einsum('prcS,pmrcS->cmprS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[2,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[26,30,34,38,42,46],:]))/10000 +\
-    np.einsum('prcS,pmrcS->cmprS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[3,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[27,31,35,39,43,47],:]))/10000 +\
-    np.einsum('prcS,pmrcS->cmprS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[0,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[0 ,4 ,8 ,12,16,20],:]))/10000 +\
-    np.einsum('prcS,pmrcS->cmprS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[1,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[1 ,5 ,9 ,13,17,21],:]))/10000 +\
-    np.einsum('prcS,pmrcS->cmprS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[2,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[2 ,6 ,10,14,18,22],:]))/10000 +\
-    np.einsum('prcS,pmrcS->cmprS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[3,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[3 ,7 ,11,15,19,23],:]))/10000
+    np.einsum('prcS,pmrcS->cmprS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[0,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[24,28,32,36,40,44],:]))/100 +\
+    np.einsum('prcS,pmrcS->cmprS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[1,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[25,29,33,37,41,45],:]))/100 +\
+    np.einsum('prcS,pmrcS->cmprS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[2,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[26,30,34,38,42,46],:]))/100 +\
+    np.einsum('prcS,pmrcS->cmprS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[3,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[27,31,35,39,43,47],:]))/100 +\
+    np.einsum('prcS,pmrcS->cmprS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[0,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[0 ,4 ,8 ,12,16,20],:]))/100 +\
+    np.einsum('prcS,pmrcS->cmprS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[1,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[1 ,5 ,9 ,13,17,21],:]))/100 +\
+    np.einsum('prcS,pmrcS->cmprS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[2,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[2 ,6 ,10,14,18,22],:]))/100 +\
+    np.einsum('prcS,pmrcS->cmprS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[3,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[3 ,7 ,11,15,19,23],:]))/100
     
     ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[115::,:,3,:,:,:] = \
-    np.einsum('prcS,pnrcS->cpnrS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[0,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[24,28,32,36,40,44],:]))/10000 +\
-    np.einsum('prcS,pnrcS->cpnrS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[1,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[25,29,33,37,41,45],:]))/10000 +\
-    np.einsum('prcS,pnrcS->cpnrS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[2,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[26,30,34,38,42,46],:]))/10000 +\
-    np.einsum('prcS,pnrcS->cpnrS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[3,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[27,31,35,39,43,47],:]))/10000 +\
-    np.einsum('prcS,pnrcS->cpnrS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[0,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[0 ,4 ,8 ,12,16,20],:]))/10000 +\
-    np.einsum('prcS,pnrcS->cpnrS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[1,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[1 ,5 ,9 ,13,17,21],:]))/10000 +\
-    np.einsum('prcS,pnrcS->cpnrS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[2,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[2 ,6 ,10,14,18,22],:]))/10000 +\
-    np.einsum('prcS,pnrcS->cpnrS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[3,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[3 ,7 ,11,15,19,23],:]))/10000
+    np.einsum('prcS,pnrcS->cpnrS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[0,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[24,28,32,36,40,44],:]))/100 +\
+    np.einsum('prcS,pnrcS->cpnrS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[1,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[25,29,33,37,41,45],:]))/100 +\
+    np.einsum('prcS,pnrcS->cpnrS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[2,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[26,30,34,38,42,46],:]))/100 +\
+    np.einsum('prcS,pnrcS->cpnrS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values,       np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[3,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[27,31,35,39,43,47],:]))/100 +\
+    np.einsum('prcS,pnrcS->cpnrS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[0,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[0 ,4 ,8 ,12,16,20],:]))/100 +\
+    np.einsum('prcS,pnrcS->cpnrS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[1,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[1 ,5 ,9 ,13,17,21],:]))/100 +\
+    np.einsum('prcS,pnrcS->cpnrS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[2,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[2 ,6 ,10,14,18,22],:]))/100 +\
+    np.einsum('prcS,pnrcS->cpnrS',100 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values, np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[3,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[3 ,7 ,11,15,19,23],:]))/100
     
     # 4) Determine future energy intensity and material composition of buildings by mixing archetypes:
     ParameterDict['3_MC_RECC_Buildings_RECC'] = msc.Parameter(Name='3_MC_RECC_Buildings_RECC', ID='3_MC_RECC_Buildings_RECC',
@@ -1229,16 +1249,16 @@ def main():
             # Unit: Mt/yr.
             
             # H) Calculate emissions from energy supply
-            SysVar_IndirectGHGEms_EnergySupply_UsePhase_Buildings      = 0.001 * np.einsum('Xnrt,trpn->Xt',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
-            SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles       = 0.001 * np.einsum('Xnrt,trBn->Xt',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
+            SysVar_IndirectGHGEms_EnergySupply_UsePhase_Buildings      = 0.001 * np.einsum('Xnrt,trBn->Xt',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
+            SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles       = 0.001 * np.einsum('Xnrt,trpn->Xt',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
             SysVar_IndirectGHGEms_EnergySupply_PrimaryProd             = 0.001 * np.einsum('Xnt,tmn->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_PrimaryProd)
             SysVar_IndirectGHGEms_EnergySupply_PrimaryProd_m           = 0.001 * np.einsum('Xnt,tmn->Xtm', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_PrimaryProd)
             SysVar_IndirectGHGEms_EnergySupply_Manufacturing           = 0.001 * np.einsum('Xnt,tn->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Manufacturing)
             SysVar_IndirectGHGEms_EnergySupply_WasteMgt                = 0.001 * np.einsum('Xnt,tn->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_WasteMgt)
             SysVar_IndirectGHGEms_EnergySupply_Remelting               = 0.001 * np.einsum('Xnt,tn->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Remelting)
             SysVar_IndirectGHGEms_EnergySupply_Remelting_m             = 0.001 * np.einsum('Xnt,tnm->Xtm',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Remelting_m)
-            SysVar_IndirectGHGEms_EnergySupply_UsePhase_Buildings_EL   = 0.001 * np.einsum('Xrt,trg->Xt', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,0,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,0]) # electricity only
-            SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_EL    = 0.001 * np.einsum('Xrt,trg->Xt', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,0,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,0])  # electricity only
+            SysVar_IndirectGHGEms_EnergySupply_UsePhase_Buildings_EL   = 0.001 * np.einsum('Xrt,trg->Xt', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,0,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,0]) # electricity only
+            SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_EL    = 0.001 * np.einsum('Xrt,trg->Xt', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,0,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,0])  # electricity only
             
             # Unit: Mt/yr.
             
@@ -1438,7 +1458,7 @@ def main():
     # a) pass. vehicles:
     for mr in range(0,Nr):
         for ms in range(0,Ns):
-            newrowoffset = msf.ExcelExportAdd_tAB(Sheet,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[ms,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of newly registered pass. vehicles in segment ' +IndexTable.Classification[IndexTable.index.get_loc('Car_segments')].Items[ms],'%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.ExcelExportAdd_tAB(Sheet,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[ms,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of newly registered pass. vehicles in segment ' +IndexTable.Classification[IndexTable.index.get_loc('Car_segments')].Items[ms],'1',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
         for mp in range(0,len(Sector_pav_rge)):
             newrowoffset = msf.ExcelExportAdd_tAB(Sheet,np.einsum('tS,R->tSR',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[mp,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels), 'Share of newly registered light-weighted ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_pav_rge[mp]],'%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)      
     # b) res. buildings        
