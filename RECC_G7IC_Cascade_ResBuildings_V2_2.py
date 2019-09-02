@@ -4,7 +4,7 @@ Created on Wed Oct 17 10:37:00 2018
 
 @author: spauliuk
 """
-def main(RegionalScope,PassVehList):
+def main(RegionalScope,ResBldgsList):
     
     import xlrd
     import numpy as np
@@ -18,27 +18,32 @@ def main(RegionalScope,PassVehList):
     # 2) + EoL + FSD + FYI
     # 3) + EoL + FSD + FYI + ReU +LTE
     # 4) + EoL + FSD + FYI + ReU +LTE + MSu
-    # 5) + EoL + FSD + FYI + ReU +LTE + MSu + LWE
-    # 6) + EoL + FSD + FYI + ReU +LTE + MSu + LWE + CaS 
-    # 7) + EoL + FSD + FYI + ReU +LTE + MSu + LWE + CaS + RiS = ALL 
+    # 5) + EoL + FSD + FYI + ReU +LTE + MSu + LWE 
+    # 6) + EoL + FSD + FYI + ReU +LTE + MSu + LWE + MIU = ALL 
     
     Region      = RegionalScope
-    FolderlistV = PassVehList
+    FolderlistB = ResBldgsList
     
     # Waterfall plots.
     
     NS = 3 # no of SSP scenarios
     NR = 2 # no of RCP scenarios
-    NE = 7 # no of Res. eff. scenarios
+    NE = 6 # no of Res. eff. scenarios
     
     CumEmsV        = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     AnnEmsV2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     AnnEmsV2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     ASummaryV      = np.zeros((9,NE)) # For direct copy-paste to Excel
-    AvgDecadalEmsV = np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario
+    AvgDecadalEmsV = np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario, RCP fixed to RCP2.6
+    # for materials:
+    MatCumEmsV        = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    MatAnnEmsV2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    MatAnnEmsV2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
+    MatSummaryV       = np.zeros((9,NE)) # For direct copy-paste to Excel
+    AvgDecadalMatEmsV = np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario, RCP is fixed: RCP2.6
     
     for r in range(0,NE): # RE scenario
-        Path = os.path.join(RECC_Paths.results_path,FolderlistV[r],'SysVar_TotalGHGFootprint.xls')
+        Path = os.path.join(RECC_Paths.results_path,FolderlistB[r],'SysVar_TotalGHGFootprint.xls')
         Resultfile = xlrd.open_workbook(Path)
         Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
         for s in range(0,NS): # SSP scenario
@@ -59,10 +64,10 @@ def main(RegionalScope,PassVehList):
     # Waterfall plot            
     MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.            
     
-    Sector = ['Passenger vehicles']
+    Sector = ['Residential_buildings']
     Title  = ['Cum_GHG_2016_2050','Cum_GHG_2040_2050','Annual_GHG_2050']
     Scens  = ['LED','SSP1','SSP2']
-    LWE    = ['No RE','higher yields', 're-use/longer use','material subst.','down-sizing','car-sharing','ride-sharing','All RE stratgs.']
+    LWE    = ['No RE','higher yields', 're-use/longer use','material subst.','light design','more intense use','All RE stratgs.']
     
     for nn in range(0,3):
         for m in range(0,NS): # SSP
@@ -73,10 +78,10 @@ def main(RegionalScope,PassVehList):
             if nn == 2:
                 Data = np.einsum('SE->ES',AnnEmsV2050[:,1,:])
                 
-            inc = -100 * (Data[0,m] - Data[6,m])/Data[0,m]
+            inc = -100 * (Data[0,m] - Data[5,m])/Data[0,m]
         
             Left  = Data[0,m]
-            Right = Data[6,m]
+            Right = Data[5,m]
             # plot results
             bw = 0.5
             ga = 0.3
@@ -92,8 +97,7 @@ def main(RegionalScope,PassVehList):
             ax1.fill_between([3,3+bw], [Data[3,m],Data[3,m]],[Data[2,m],Data[2,m]],linestyle = '--', facecolor =MyColorCycle[3,:], linewidth = 0.0)
             ax1.fill_between([4,4+bw], [Data[4,m],Data[4,m]],[Data[3,m],Data[3,m]],linestyle = '--', facecolor =MyColorCycle[4,:], linewidth = 0.0)
             ax1.fill_between([5,5+bw], [Data[5,m],Data[5,m]],[Data[4,m],Data[4,m]],linestyle = '--', facecolor =MyColorCycle[5,:], linewidth = 0.0)
-            ax1.fill_between([6,6+bw], [Data[6,m],Data[6,m]],[Data[5,m],Data[5,m]],linestyle = '--', facecolor =MyColorCycle[6,:], linewidth = 0.0)
-            ax1.fill_between([7,7+bw], [0,0],[Data[6,m],Data[6,m]],linestyle = '--', facecolor =MyColorCycle[7,:], linewidth = 0.0)
+            ax1.fill_between([6,6+bw], [0,0],[Data[5,m],Data[5,m]],linestyle = '--', facecolor =MyColorCycle[6,:], linewidth = 0.0)
             
             ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[0,:])) # create proxy artist for legend
             ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[1,:])) # create proxy artist for legend
@@ -102,7 +106,6 @@ def main(RegionalScope,PassVehList):
             ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend
             ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[5,:])) # create proxy artist for legend
             ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[6,:])) # create proxy artist for legend
-            ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[7,:])) # create proxy artist for legend
             
             # plot lines:
             plt.plot([0,7.5],[Left,Left],linestyle = '-', linewidth = 0.5, color = 'k')
@@ -111,24 +114,23 @@ def main(RegionalScope,PassVehList):
             plt.plot([3,4.5],[Data[3,m],Data[3,m]],linestyle = '-', linewidth = 0.5, color = 'k')
             plt.plot([4,5.5],[Data[4,m],Data[4,m]],linestyle = '-', linewidth = 0.5, color = 'k')
             plt.plot([5,6.5],[Data[5,m],Data[5,m]],linestyle = '-', linewidth = 0.5, color = 'k')
-            plt.plot([6,7.5],[Data[6,m],Data[6,m]],linestyle = '-', linewidth = 0.5, color = 'k')
     
-            plt.arrow(7.25, Data[6,m],0, Data[0,m]-Data[6,m], lw = 0.8, ls = '-', shape = 'full',
+            plt.arrow(6.25, Data[5,m],0, Data[0,m]-Data[5,m], lw = 0.8, ls = '-', shape = 'full',
                   length_includes_head = True, head_width =0.1, head_length =0.01*Left, ec = 'k', fc = 'k')
-            plt.arrow(7.25,Data[0,m],0,Data[6,m]-Data[0,m], lw = 0.8, ls = '-', shape = 'full',
+            plt.arrow(6.25,Data[0,m],0,Data[5,m]-Data[0,m], lw = 0.8, ls = '-', shape = 'full',
                   length_includes_head = True, head_width =0.1, head_length =0.01*Left, ec = 'k', fc = 'k')
     
             # plot text and labels
-            plt.text(5.85, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
-            plt.text(3.3, 0.94  *Right, Scens[m],fontsize=18,fontweight='bold') 
+            plt.text(5.00, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
+            plt.text(2.8, 0.94  *Right, Scens[m],fontsize=18,fontweight='bold') 
             plt.title('RE strategies and GHG emissions, ' + Sector[0] + '.', fontsize = 18)
             plt.ylabel(Title[nn] + ', Mt.', fontsize = 18)
-            plt.xticks([0.25,1.25,2.25,3.25,4.25,5.25,6.25,7.25])
+            plt.xticks([0.25,1.25,2.25,3.25,4.25,5.25,6.25])
             plt.yticks(fontsize =18)
             ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
             plt_lgd  = plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':12},ncol=1, loc = 'upper right' ,bbox_to_anchor=(1.91, 1)) 
             #plt.axis([-0.2, 7.7, 0.9*Right, 1.02*Left])
-            plt.axis([-0.2, 7.7, 0, 1.02*Left])
+            plt.axis([-0.2, 6.7, 0, 1.02*Left])
         
             plt.show()
             fig_name = Title[nn] + Region + '_ ' + Sector[0] + '_' + Scens[m] + '.png'
@@ -139,7 +141,7 @@ def main(RegionalScope,PassVehList):
             
     NS = 3
     NR = 2
-    NE = 7
+    NE = 6
     Nt = 45
     
     AnnEmsV = np.zeros((Nt,NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
@@ -149,34 +151,49 @@ def main(RegionalScope,PassVehList):
     
     
     for r in range(0,NE): # RE scenario
-        Path = os.path.join(RECC_Paths.results_path,FolderlistV[r],'SysVar_TotalGHGFootprint.xls')
+        Path = os.path.join(RECC_Paths.results_path,FolderlistB[r],'SysVar_TotalGHGFootprint.xls')
         Resultfile   = xlrd.open_workbook(Path)
         Resultsheet  = Resultfile.sheet_by_name('TotalGHGFootprint')
         Resultsheet1 = Resultfile.sheet_by_name('Cover')
         UUID         = Resultsheet1.cell_value(3,2)
-        Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderlistV[r],'ODYM_RECC_ModelResults_' + UUID + '.xls'))
+        Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderlistB[r],'ODYM_RECC_ModelResults_' + UUID + '.xls'))
         Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR):
                 for t in range(0,45): # time
                     AnnEmsV[t,s,c,r] = Resultsheet.cell_value(t +2, 1 + c + NR*s)
                     MatEmsV[t,s,c,r] = Resultsheet2.cell_value(229+ 2*s +c,t+8)
+        # Material results export
+        for s in range(0,NS): # SSP scenario
+            for c in range(0,NR):
+                for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
+                    MatCumEmsV[s,c,r] += Resultsheet2.cell_value(229+ 2*s +c,t+8)
+                MatAnnEmsV2030[s,c,r]  = Resultsheet2.cell_value(229+ 2*s +c,22)
+                MatAnnEmsV2050[s,c,r]  = Resultsheet2.cell_value(229+ 2*s +c,42)
+            AvgDecadalMatEmsV[s,r,0]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(12,22)])/10
+            AvgDecadalMatEmsV[s,r,1]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(22,32)])/10
+            AvgDecadalMatEmsV[s,r,2]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(32,42)])/10
+            AvgDecadalMatEmsV[s,r,3]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(42,52)])/10    
+
+    MatSummaryV[0:3,:] = MatAnnEmsV2030[:,1,:].copy() # RCP is fixed: RCP2.6
+    MatSummaryV[3:6,:] = MatAnnEmsV2050[:,1,:].copy() # RCP is fixed: RCP2.6
+    MatSummaryV[6::,:] = MatCumEmsV[:,1,:].copy()     # RCP is fixed: RCP2.6                    
     
     # Area plot, stacked, GHG emissions, system
     MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select colors from the 'Paired' color map.            
     grey0_9      = np.array([0.9,0.9,0.9,1])
     
     Title      = ['GHG_System_RES_stack','GHG_material_cycles_RES_stack']
-    Sector     = ['Passenger vehicles']
+    Sector     = ['residential_buildings']
     Scens      = ['LED','SSP1','SSP2']
-    LWE_area   = ['higher yields', 're-use & LTE','material subst.','down-sizing','car-sharing','ride-sharing']     
+    LWE_area   = ['higher yields', 're-use & LTE','material subst.','light design','more intense use']     
     
     for nn in range(0,len(Title)):
         #mS = 1
         #mR = 1
         mRCP = 1 # select RCP2.6, which has full implementation of RE strategies by 2050.
         for mS in range(0,NS): # SSP
-            for mR in range(0,1): # Vehs
+            for mR in range(0,1): # Blds
                 
                 if nn == 0 and mR == 0:
                     Data = AnnEmsV[:,mS,mRCP,:]
@@ -192,7 +209,7 @@ def main(RegionalScope,PassVehList):
                 # plot area
                 ax1.fill_between(np.arange(2016,2061),np.zeros((Nt)), Data[:,-1], linestyle = '-', facecolor = grey0_9, linewidth = 1.0, alpha=0.75)
                 ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=grey0_9)) # create proxy artist for legend
-                for m in range(6,0,-1):
+                for m in range(5,0,-1):
                     ax1.fill_between(np.arange(2016,2061),Data[:,m], Data[:,m-1], linestyle = '-', facecolor = MyColorCycle[m,:], linewidth = 1.0, alpha=0.75)
                     ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:], alpha=0.75)) # create proxy artist for legend
                     ax1.plot(np.arange(2016,2061),Data[:,m],linestyle = '--', color = 'k', linewidth = 0.3,)                
@@ -205,8 +222,8 @@ def main(RegionalScope,PassVehList):
                 plt.xlabel('Year', fontsize = 18)
                 plt.xticks(fontsize=18)
                 plt.yticks(fontsize=18)
-                if mR == 0: # vehicles, legend lower left
-                    plt_lgd  = plt.legend(handles = reversed(ProxyHandlesList),labels = LWE_area, shadow = False, prop={'size':12},ncol=1, loc = 'lower left')# ,bbox_to_anchor=(1.91, 1)) 
+                if mR == 0: # buildings, upper right
+                    plt_lgd  = plt.legend(handles = reversed(ProxyHandlesList),labels = LWE_area, shadow = False, prop={'size':12},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
                 ax1.set_xlim([2015, 2061])
                 
                 plt.show()
@@ -227,7 +244,7 @@ def main(RegionalScope,PassVehList):
             
     NS = 3
     NR = 2
-    NE = 7
+    NE = 6
     Nt = 45
     
     # Primary steel
@@ -235,11 +252,11 @@ def main(RegionalScope,PassVehList):
     AnnEmsV_SecondarySteel = np.zeros((Nt,NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     
     for r in range(0,NE): # RE scenario
-        Path         = os.path.join(RECC_Paths.results_path,FolderlistV[r],'SysVar_TotalGHGFootprint.xls')
+        Path         = os.path.join(RECC_Paths.results_path,FolderlistB[r],'SysVar_TotalGHGFootprint.xls')
         Resultfile1  = xlrd.open_workbook(Path)
         Resultsheet1 = Resultfile1.sheet_by_name('Cover')
         UUID         = Resultsheet1.cell_value(3,2)
-        Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderlistV[r],'ODYM_RECC_ModelResults_' + UUID + '.xls'))
+        Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderlistB[r],'ODYM_RECC_ModelResults_' + UUID + '.xls'))
         Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR):
@@ -248,7 +265,7 @@ def main(RegionalScope,PassVehList):
                     AnnEmsV_SecondarySteel[t,s,c,r] = Resultsheet2.cell_value(151+ 2*s +c,t+8)
                     
     Title      = ['primary_steel','secondary_steel']            
-    Sector     = ['Passenger vehicles']
+    Sector     = ['Residential_Buildings']
     ScensL     = ['SSP2, no REFs','SSP2, full REF spectrum','SSP1, no REFs','SSP1, full REF spectrum','LED, no REFs','LED, full REF spectrum']
     
     #mS = 1
@@ -287,7 +304,7 @@ def main(RegionalScope,PassVehList):
             fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')             
         
     
-    return ASummaryV, AvgDecadalEmsV
+    return ASummaryV, AvgDecadalEmsV, MatSummaryV, AvgDecadalMatEmsV
 
 # code for script to be run as standalone function
 if __name__ == "__main__":

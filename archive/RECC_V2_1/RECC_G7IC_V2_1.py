@@ -851,7 +851,7 @@ def main():
                 # Here so far: Units: Buildings: million m2. for stocks, X/yr for flows.
                 StockCurves_Totl[:,Sector_reb_loc,mS,mR] = TotalStockCurves_UsePhase_B.sum(axis =1)
                 StockCurves_Prod[:,Sector_reb_rge,mS,mR] = np.einsum('tcBr->tB',Stock_Detail_UsePhase_B)
-                pCStocksCurves[:,Sector_reb_loc,:,mS,mR] = ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'].Values[mS,:,Sector_reb_loc,:]
+                pCStocksCurves[:,Sector_reb_loc,:,mS,mR] = ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[mS,:,Sector_reb_loc,:]
                 Population[:,:,mS,mR]                    = ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]
                 Inflow_Prod[:,Sector_reb_rge,mS,mR]      = np.einsum('tBr->tB',Inflow_Detail_UsePhase_B)
                 Outflow_Prod[:,Sector_reb_rge,mS,mR]     = np.einsum('tcBr->tB',Outflow_Detail_UsePhase_B)

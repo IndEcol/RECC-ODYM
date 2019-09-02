@@ -40,6 +40,11 @@ def main(RegionalScope,PassVehList):
     AnnEmsV2030_Sens = np.zeros((NS,NR)) # SSP-Scenario x RES scenario
     AnnEmsV2050_Sens = np.zeros((NS,NR)) # SSP-Scenario x RES scenario
     AvgDecadalEms    = np.zeros((NS,NR,4)) # SSP-Scenario x RES scenario x 4 decades
+    # for materials:
+    MatCumEmsV_Sens     = np.zeros((NS,NR)) # SSP-Scenario x RES scenarioß
+    MatAnnEmsV2030_Sens = np.zeros((NS,NR)) # SSP-Scenario x RES scenario
+    MatAnnEmsV2050_Sens = np.zeros((NS,NR)) # SSP-Scenario x RES scenario
+    MatAvgDecadalEms    = np.zeros((NS,NR,4)) # SSP-Scenario x RES scenario x 4 decades
     
     for r in range(0,NR): # RE scenario
         
@@ -54,6 +59,22 @@ def main(RegionalScope,PassVehList):
             AvgDecadalEms[s,r,1]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(17,27)])/10
             AvgDecadalEms[s,r,2]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(27,37)])/10
             AvgDecadalEms[s,r,3]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(37,47)])/10
+        # export material-related emissions
+        Resultsheet1 = Resultfile.sheet_by_name('Cover')
+        UUID         = Resultsheet1.cell_value(3,2)
+        Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderlistV_Sens[r],'ODYM_RECC_ModelResults_' + UUID + '.xls'))
+        Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
+        # Material results export
+        for s in range(0,NS): # SSP scenario
+            for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
+                MatCumEmsV_Sens[s,r] += Resultsheet2.cell_value(229+ 2*s +1,t+8)
+            MatAnnEmsV2030_Sens[s,r]  = Resultsheet2.cell_value(229+ 2*s +1,22)
+            MatAnnEmsV2050_Sens[s,r]  = Resultsheet2.cell_value(229+ 2*s +1,42)
+            MatAvgDecadalEms[s,r,0]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(12,22)])/10
+            MatAvgDecadalEms[s,r,1]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(22,32)])/10
+            MatAvgDecadalEms[s,r,2]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(32,42)])/10
+            MatAvgDecadalEms[s,r,3]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(42,52)])/10               
+            
     
     ### Tornado plot for sensitivity
             
@@ -168,7 +189,7 @@ def main(RegionalScope,PassVehList):
             fig_name = 'Cum_GHG_Sens_' + Region + '_ ' + Title[0] + '_' + Scens[m] + '.png'
             fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')             
             
-    return CumEmsV_Sens, AnnEmsV2030_Sens, AnnEmsV2050_Sens, AvgDecadalEms
+    return CumEmsV_Sens, AnnEmsV2030_Sens, AnnEmsV2050_Sens, AvgDecadalEms, MatCumEmsV_Sens, MatAnnEmsV2030_Sens, MatAnnEmsV2050_Sens, MatAvgDecadalEms
 
 
 # code for script to be run as standalone function

@@ -34,7 +34,13 @@ def main(RegionalScope,ResBldgsList):
     AnnEmsV2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     AnnEmsV2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     ASummaryV      = np.zeros((9,NE)) # For direct copy-paste to Excel
-    AvgDecadalEmsV = np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario
+    AvgDecadalEmsV = np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario, RCP fixed to RCP2.6
+    # for materials:
+    MatCumEmsV        = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    MatAnnEmsV2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    MatAnnEmsV2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
+    MatSummaryV       = np.zeros((9,NE)) # For direct copy-paste to Excel
+    AvgDecadalMatEmsV = np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario, RCP is fixed: RCP2.6
     
     for r in range(0,NE): # RE scenario
         Path = os.path.join(RECC_Paths.results_path,FolderlistB[r],'SysVar_TotalGHGFootprint.xls')
@@ -157,6 +163,21 @@ def main(RegionalScope,ResBldgsList):
                 for t in range(0,45): # time
                     AnnEmsV[t,s,c,r] = Resultsheet.cell_value(t +2, 1 + c + NR*s)
                     MatEmsV[t,s,c,r] = Resultsheet2.cell_value(229+ 2*s +c,t+8)
+        # Material results export
+        for s in range(0,NS): # SSP scenario
+            for c in range(0,NR):
+                for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
+                    MatCumEmsV[s,c,r] += Resultsheet2.cell_value(229+ 2*s +c,t+8)
+                MatAnnEmsV2030[s,c,r]  = Resultsheet2.cell_value(229+ 2*s +c,22)
+                MatAnnEmsV2050[s,c,r]  = Resultsheet2.cell_value(229+ 2*s +c,42)
+            AvgDecadalMatEmsV[s,r,0]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(12,22)])/10
+            AvgDecadalMatEmsV[s,r,1]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(22,32)])/10
+            AvgDecadalMatEmsV[s,r,2]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(32,42)])/10
+            AvgDecadalMatEmsV[s,r,3]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(42,52)])/10    
+
+    MatSummaryV[0:3,:] = MatAnnEmsV2030[:,1,:].copy() # RCP is fixed: RCP2.6
+    MatSummaryV[3:6,:] = MatAnnEmsV2050[:,1,:].copy() # RCP is fixed: RCP2.6
+    MatSummaryV[6::,:] = MatCumEmsV[:,1,:].copy()     # RCP is fixed: RCP2.6                    
     
     # Area plot, stacked, GHG emissions, system
     MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select colors from the 'Paired' color map.            
@@ -283,7 +304,7 @@ def main(RegionalScope,ResBldgsList):
             fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')             
         
     
-    return ASummaryV, AvgDecadalEmsV
+    return ASummaryV, AvgDecadalEmsV, MatSummaryV, AvgDecadalMatEmsV
 
 # code for script to be run as standalone function
 if __name__ == "__main__":
