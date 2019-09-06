@@ -672,32 +672,40 @@ for mS in range(0,NS):
             TotalStock_UsePhase_Hist_cpr = RECC_System.ParameterDict['2_S_RECC_FinalProducts_2015_passvehicles'].Values[0,:,:,:]
             
             # Determine total future stock, product level. Units: Vehicles: million.
-            # Option: By service curve.
-            Total_Service_pav_tr    = np.einsum('rt,tr->tr',RECC_System.ParameterDict['1_F_ServiceFlows_Future'].Values[Sector_pav_loc,:,:,mS],RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS])
+            # Option implemented: By service curve.
+            Total_Service_pav_tr_pC                     = np.einsum('rt->tr',RECC_System.ParameterDict['1_F_ServiceFlows_Future'].Values[Sector_pav_loc,:,:,mS])
             if ScriptConfig['Include_REStrategy_CarSharing'] == 'False': # set carsharing to zero.
                 RECC_System.ParameterDict['6_PR_CarSharingShare'].Values  = np.zeros(RECC_System.ParameterDict['6_PR_CarSharingShare'].Values.shape)
             if ScriptConfig['Include_REStrategy_RideSharing'] == 'False': # set ride-sharing to zero.                
                 RECC_System.ParameterDict['6_PR_RideSharingShare'].Values = np.zeros(RECC_System.ParameterDict['6_PR_RideSharingShare'].Values.shape)
-            # i) convert passenger-km to vehicle-km:
-            Total_Vehicle_km_pav_tr = np.zeros((Nt,Nr))
+            # i) convert passenger-km to vehicle-km per capita (pC):
+            Total_Vehicle_km_pav_tr_pC = np.zeros((Nt,Nr))
             for nrr in range(0,Nr):
                 for ntt in range(0,Nt):
                     Divisor = 1 + (RECC_System.ParameterDict['6_MIP_RideSharing_Occupancy'].Values[mS,nrr] - 1) * RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100
                     if Divisor != 0:
-                        Total_Vehicle_km_pav_tr[ntt,nrr] = Total_Service_pav_tr[ntt,nrr] / (RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,0,mS] * Divisor)
+                        Total_Vehicle_km_pav_tr_pC[ntt,nrr] = Total_Service_pav_tr_pC[ntt,nrr] / (RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,0,mS] * Divisor)
                         # !!! Here: take vehicle occupancy rate of first year (2015)
             # ii) convert vehicle-km to stock:
-            TotalStockCurves_UsePhase_p_test = np.zeros((Nt,Nr))
+            TotalStockCurves_UsePhase_p_pC_test = np.zeros((Nt,Nr))
             for nrr in range(0,Nr):
                 for ntt in range(0,Nt):
                     Divisor = 1 + (1 / RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr] - 1) * RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100
                     if Divisor != 0:
-                        TotalStockCurves_UsePhase_p_test[ntt,nrr] = Total_Vehicle_km_pav_tr[ntt,nrr] / (RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Driving,nrr,0,mS] * Divisor)
+                        TotalStockCurves_UsePhase_p_pC_test[ntt,nrr] = Total_Vehicle_km_pav_tr_pC[ntt,nrr] / (RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Driving,nrr,0,mS] * Divisor)
                         # !!! Here: take vehicle kilometrage of first year (2015)
-            # iii) Make sure that for no scenario, stock values are below LED values, which is assumed to be the lowest possible stock level.
-            TotalStockCurves_UsePhase_p_LED_ref = np.einsum('tr,tr->tr',RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'].Values[LEDindex,:,Sector_pav_loc,:],RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,LEDindex])         
-            TotalStockCurves_UsePhase_p         = np.maximum(TotalStockCurves_UsePhase_p_test,TotalStockCurves_UsePhase_p_LED_ref)
-            TotalStockCurves_UsePhase_p_pC      = np.einsum('tr,tr->tr',TotalStockCurves_UsePhase_p, 1 / ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS])
+            # iii) Make sure that for no scenario, stock values are below LED values, which is assumed to be the lowest possible stock level.           
+            if SName == 'LED':
+                RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'].Values[mS,:,Sector_pav_loc,:] = TotalStockCurves_UsePhase_p_pC_test.copy()
+            else:
+                TotalStockCurves_UsePhase_p_pC   = np.maximum(TotalStockCurves_UsePhase_p_pC_test,RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'].Values[LEDindex,:,Sector_pav_loc,:])
+#                # Cubic interpolation to demonstrate effect of stock smoothing.
+#                xnew = np.linspace(0, 45, num=46, endpoint=True)
+#                f2 = interp1d([0,5,10,15,20,25,30,35,40,45], TotalStockCurves_UsePhase_p_pC[[0,5,10,15,20,25,30,35,40,45],0], kind='cubic')
+#                TotalStockCurves_UsePhase_p_pC = f2(xnew).copy().reshape(Nt,Nr)
+                TotalStockCurves_UsePhase_p      = np.einsum('tr,tr->tr',TotalStockCurves_UsePhase_p_pC, ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS])
+                RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'].Values[mS,:,Sector_pav_loc,:] = TotalStockCurves_UsePhase_p_pC_test.copy()
+            
             # iv) adjust vehicle lifetime to new effective value to reflect impact of car-sharing:
             # First, replicate lifetimes for all age-cohorts
             Par_RECC_ProductLifetime_p = np.einsum('c,pr->prc',np.ones((Nc)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_passvehicles'].Values)
@@ -751,12 +759,12 @@ for mS in range(0,NS):
                     NegInflowFlags[Sector_pav_loc,mS,mR] = 1 # flag this scenario
     
             # Here so far: Units: Vehicles: million. for stocks, X/yr for flows.
-            StockCurves_Totl[:,Sector_pav_loc,mS,mR] = TotalStockCurves_UsePhase_p.sum(axis =1)
-            StockCurves_Prod[:,Sector_pav_rge,mS,mR] = np.einsum('tcpr->tp',Stock_Detail_UsePhase_p)
-            pCStocksCurves[:,Sector_pav_loc,:,mS,mR] = TotalStockCurves_UsePhase_p_pC
+            StockCurves_Totl[:,Sector_pav_loc,mS,mR] = TotalStockCurves_UsePhase_p.sum(axis =1).copy()
+            StockCurves_Prod[:,Sector_pav_rge,mS,mR] = np.einsum('tcpr->tp',Stock_Detail_UsePhase_p).copy()
+            pCStocksCurves[:,Sector_pav_loc,:,mS,mR] = TotalStockCurves_UsePhase_p_pC.copy()
             Population[:,:,mS,mR]                    = ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]
-            Inflow_Prod[:,Sector_pav_rge,mS,mR]      = np.einsum('tpr->tp',Inflow_Detail_UsePhase_p)
-            Outflow_Prod[:,Sector_pav_rge,mS,mR]     = np.einsum('tcpr->tp',Outflow_Detail_UsePhase_p)
+            Inflow_Prod[:,Sector_pav_rge,mS,mR]      = np.einsum('tpr->tp',Inflow_Detail_UsePhase_p).copy()
+            Outflow_Prod[:,Sector_pav_rge,mS,mR]     = np.einsum('tcpr->tp',Outflow_Detail_UsePhase_p).copy()
 
         # Sector: Residential buildings
         if 'reb' in SectorList:
@@ -785,6 +793,7 @@ for mS in range(0,NS):
             TotalStockCurves_UsePhase_B_pC_LED_ref = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[LEDindex,:,Sector_reb_loc,:]
             TotalStockCurves_UsePhase_B_pC         = np.maximum(TotalStockCurves_UsePhase_B_pC_test,TotalStockCurves_UsePhase_B_pC_LED_ref)
             TotalStockCurves_UsePhase_B            = np.einsum('tr,tr->tr',TotalStockCurves_UsePhase_B_pC,RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]) 
+            RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[mS,:,Sector_reb_loc,:] = TotalStockCurves_UsePhase_B_pC.copy()
             
             # Include_REStrategy_LifeTimeExtension: Product lifetime extension.
             # First, replicate lifetimes for all age-cohorts
@@ -831,12 +840,12 @@ for mS in range(0,NS):
                     NegInflowFlags[Sector_reb_loc,mS,mR] = 1 # flag this scenario
     
             # Here so far: Units: Buildings: million m2. for stocks, X/yr for flows.
-            StockCurves_Totl[:,Sector_reb_loc,mS,mR] = TotalStockCurves_UsePhase_B.sum(axis =1)
-            StockCurves_Prod[:,Sector_reb_rge,mS,mR] = np.einsum('tcBr->tB',Stock_Detail_UsePhase_B)
-            pCStocksCurves[:,Sector_reb_loc,:,mS,mR] = ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[mS,:,Sector_reb_loc,:]
+            StockCurves_Totl[:,Sector_reb_loc,mS,mR] = TotalStockCurves_UsePhase_B.sum(axis =1).copy()
+            StockCurves_Prod[:,Sector_reb_rge,mS,mR] = np.einsum('tcBr->tB',Stock_Detail_UsePhase_B).copy()
+            pCStocksCurves[:,Sector_reb_loc,:,mS,mR] = ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[mS,:,Sector_reb_loc,:].copy()
             Population[:,:,mS,mR]                    = ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]
-            Inflow_Prod[:,Sector_reb_rge,mS,mR]      = np.einsum('tBr->tB',Inflow_Detail_UsePhase_B)
-            Outflow_Prod[:,Sector_reb_rge,mS,mR]     = np.einsum('tcBr->tB',Outflow_Detail_UsePhase_B)
+            Inflow_Prod[:,Sector_reb_rge,mS,mR]      = np.einsum('tBr->tB',Inflow_Detail_UsePhase_B).copy()
+            Outflow_Prod[:,Sector_reb_rge,mS,mR]     = np.einsum('tcBr->tB',Outflow_Detail_UsePhase_B).copy()
 
         # Sector: Nonresidential buildings
         if 'nrb' in SectorList:
@@ -1727,8 +1736,8 @@ SSPScens   = ['LED','SSP1','SSP2']
 RCPScens   = ['No climate policy','2 degrees C energy mix']
 Area       = ['use phase','use phase, scope 2 (el)','use phase, other indirect','primary material product.','manufact. & recycling','total (incl. recycling credit)']     
 
-for mS in range(1,2):#0,NS): # SSP
-    for mR in range(1,2):#(0,NR): # RCP
+for mS in range(0,NS): # SSP
+    for mR in range(0,NR): # RCP
 
         fig  = plt.figure(figsize=(8,5))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
@@ -1770,8 +1779,8 @@ for mS in range(1,2):#0,NS): # SSP
 # Area plot, for material industries:
 Area2   = ['primary material product.','waste mgt. & recycling','manufacturing']     
 
-for mS in range(1,2):#(0,NS): # SSP
-    for mR in range(1,2):#(0,NR): # RCP
+for mS in range(0,NS): # SSP
+    for mR in range(0,NR): # RCP
 
         fig  = plt.figure(figsize=(8,5))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
