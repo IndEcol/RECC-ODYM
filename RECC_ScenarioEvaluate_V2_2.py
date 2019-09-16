@@ -70,6 +70,8 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
                     Vsheet.cell(row = d*3 + r + 21,column = c+5).value  = AvgDecadalEmsV[r,c,d]
         Vsheet2 = mywb2[RegionalScope + '_Vehicles']
         for r in range(0,3):
+            Vsheet2.cell(row = r+3,  column = 4).value  = 0       
+            Vsheet2.cell(row = r+9,  column = 4).value  = 0       
             for c in range(0,7):
                 Vsheet2.cell(row = r+3,  column = c+5).value  = MatSummaryV[r,c]       
                 Vsheet2.cell(row = r+9,  column = c+5).value  = MatSummaryV[r+3,c]       
@@ -93,6 +95,8 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
                     Bsheet.cell(row = d*3 + r + 21,column = c+5).value  = AvgDecadalEmsB[r,c,d]
         Bsheet2 = mywb2[RegionalScope + '_Buildings']
         for r in range(0,3):
+            Bsheet2.cell(row = r+3,  column = 4).value  = 0       
+            Bsheet2.cell(row = r+9,  column = 4).value  = 0                   
             for c in range(0,6):
                 Bsheet2.cell(row = r+3,  column = c+5).value  = MatSummaryB[r,c]       
                 Bsheet2.cell(row = r+9,  column = c+5).value  = MatSummaryB[r+3,c]       

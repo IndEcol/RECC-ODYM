@@ -71,8 +71,8 @@ while True:
     
     mywb.save(os.path.join(RECC_Paths.recc_path,'RECC_Config_V2_2.xlsx'))
     # run the ODYM-RECC model
-    ResultFolder = RECC_G7IC_V2_2.main()
-    ResultFolders.append(ResultFolder)
+    OutputDict = RECC_G7IC_V2_2.main()
+    ResultFolders.append(OutputDict['Name_Scenario'])
 
 
 
