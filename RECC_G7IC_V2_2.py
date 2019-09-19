@@ -36,6 +36,7 @@ def main():
     from copy import deepcopy
     from tqdm import tqdm
     from scipy.interpolate import interp1d
+    from scipy.interpolate import make_interp_spline
     import pylab
     import pickle
     
@@ -291,6 +292,8 @@ def main():
     ParameterDict[PL_Names[index]].Values = MC_Bld_New.copy()
     
     # 3) Determine future energy intensity and material composition of vehicles by mixing archetypes:
+    # Expand building light-weighting split to all building types:
+    ParameterDict['3_SHA_LightWeighting_Buildings'].Values = np.einsum('B,rtS->BrtS',np.ones(NB),ParameterDict['3_SHA_LightWeighting_Buildings'].Values[Sector_reb_loc,:,:,:]).copy()
     
     # Check if RE strategies are active and set implementation curves to 2016 value if not.
     if ScriptConfig['Include_REStrategy_MaterialSubstitution'] == 'False': # no additional lightweighting trough material substitution.
@@ -425,7 +428,14 @@ def main():
         ParameterDict['4_PY_EoL_RecoveryRate'].Values            = np.zeros(ParameterDict['4_PY_EoL_RecoveryRate'].Values.shape)
         ParameterDict['4_PY_MaterialProductionRemelting'].Values = np.zeros(ParameterDict['4_PY_MaterialProductionRemelting'].Values.shape)
         
-    # 14) GWP_bio factor interpolation
+    # 14) Define parameter for future vehicle stock:
+    ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_passvehicles', ID='2_S_RECC_FinalProducts_Future_passvehicles',
+                                                UUID=None, P_Res=None, MetaData=None,
+                                                Indices='StGr', Values=np.zeros((NS,Nt,NG,Nr)), Uncert=None,
+                                                Unit='cars per person')
+    
+        
+    # 15) GWP_bio factor interpolation
     Idx_Time = [1900,1910,1920,1930,1940,1950,1960,1970,1980,1990,2000]
     Idx_Time_Rel = [i -1900 for i in Idx_Time]
     tnew = np.linspace(0, 100, num=101, endpoint=True)
@@ -434,7 +444,7 @@ def main():
     ParameterDict['6_MIP_GWP_Bio'].Values[0:101] = f2(tnew).copy()    
     ParameterDict['6_MIP_GWP_Bio'].Values[101::] = -1
         
-    # 15) calculate Stocks on 1. Jan 2016:    
+    # 16) calculate Stocks on 1. Jan 2016:    
     pC_AgeCohortHist           = np.zeros((NG,Nr))
     pC_FutureStock             = np.zeros((NS,NG,Nr))
     # a) from historic data:
@@ -704,10 +714,6 @@ def main():
                     TotalStockCurves_UsePhase_p      = np.einsum('tr,tr->tr',TotalStockCurves_UsePhase_p_pC_test.copy(), ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS])
                 else:
                     TotalStockCurves_UsePhase_p_pC   = np.maximum(TotalStockCurves_UsePhase_p_pC_test,RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'].Values[LEDindex,:,Sector_pav_loc,:])
-    #                # Cubic interpolation to demonstrate effect of stock smoothing.
-    #                xnew = np.linspace(0, 45, num=46, endpoint=True)
-    #                f2 = interp1d([0,5,10,15,20,25,30,35,40,45], TotalStockCurves_UsePhase_p_pC[[0,5,10,15,20,25,30,35,40,45],0], kind='cubic')
-    #                TotalStockCurves_UsePhase_p_pC = f2(xnew).copy().reshape(Nt,Nr)
                     TotalStockCurves_UsePhase_p      = np.einsum('tr,tr->tr',TotalStockCurves_UsePhase_p_pC, ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS])
                     RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'].Values[mS,:,Sector_pav_loc,:] = TotalStockCurves_UsePhase_p_pC.copy()
                 
@@ -782,24 +788,33 @@ def main():
                 
                 # Determine total future stock, product level. Units: Buildings: million m2.
                 TotalStockCurves_UsePhase_B_pC_test = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[mS,:,Sector_reb_loc,:]
-                # Here, the population model M is set to its default and does not appear in the summation.
-                
+                    
                 # 2) Include (or not) the RE strategies for the use phase:
                 # Include_REStrategy_MoreIntenseUse:
                 if ScriptConfig['Include_REStrategy_MoreIntenseUse'] == 'True': 
-                    # quick fix: calculate counter-factual scenario: 20% decrease of stock levels by 2050 compared to scenario reference
+                    # Calculate counter-factual scenario: X% decrease of stock levels by 2050 compared to scenario reference. X coded in parameter ..._MIUPotential
                     if SName != 'LED':
-                        MIURamp       = np.ones((Nt+7))
-                        MIURamp[8:38] = np.arange(1,0.8,-0.00667)
-                        MIURamp[38::] = 0.8
-                        MIURamp       = np.convolve(MIURamp, np.ones((8,))/8, mode='valid')
-                        TotalStockCurves_UsePhase_B_pC_test    = TotalStockCurves_UsePhase_B_pC_test * np.einsum('t,r->tr',MIURamp,np.ones((Nr)))
+                        RemainingFraction = 1-RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_MIUPotential'].Values[Sector_reb_loc,0,mS] / 100
+                    
+                        #MIURamp       = np.ones((Nt))
+                        #MIURamp[10:42] = np.arange(1,RemainingFraction,-RemainingFraction/128)
+                        #MIURamp[42::] = RemainingFraction
+                        #MIURamp       = np.convolve(MIURamp, np.ones((10,))/10, mode='valid')
+                        
+                        
+                        #clamped_spline = make_interp_spline(np.arange(0,Nt,1), MIURamp, bc_type=([(2, 0)], [(1, 0)]))
+                        clamped_spline = make_interp_spline([0,2,Nt-5,Nt], [1,1,RemainingFraction,RemainingFraction], bc_type=([(2, 0)], [(1, 0)]))
+                        MIURamp_Spline = clamped_spline(np.arange(0,Nt,1))
+                        MIURamp_Spline[MIURamp_Spline>1]=1
+                        MIURamp_Spline[MIURamp_Spline<RemainingFraction]=RemainingFraction
+                        
+                        TotalStockCurves_UsePhase_B_pC_test    = TotalStockCurves_UsePhase_B_pC_test * np.einsum('t,r->tr',MIURamp_Spline,np.ones((Nr)))
                 # Make sure that for no scenario, stock values are below LED values, which is assumed to be the lowest possible stock level.
                 TotalStockCurves_UsePhase_B_pC_LED_ref = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[LEDindex,:,Sector_reb_loc,:]
                 TotalStockCurves_UsePhase_B_pC         = np.maximum(TotalStockCurves_UsePhase_B_pC_test,TotalStockCurves_UsePhase_B_pC_LED_ref)
                 TotalStockCurves_UsePhase_B            = np.einsum('tr,tr->tr',TotalStockCurves_UsePhase_B_pC,RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]) 
                 RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[mS,:,Sector_reb_loc,:] = TotalStockCurves_UsePhase_B_pC.copy()
-                
+            
                 # Include_REStrategy_LifeTimeExtension: Product lifetime extension.
                 # First, replicate lifetimes for all age-cohorts
                 Par_RECC_ProductLifetime_B = np.einsum('c,Br->Brc',np.ones((Nc)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values)
