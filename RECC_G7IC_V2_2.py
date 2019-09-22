@@ -795,13 +795,6 @@ def main():
                     # Calculate counter-factual scenario: X% decrease of stock levels by 2050 compared to scenario reference. X coded in parameter ..._MIUPotential
                     if SName != 'LED':
                         RemainingFraction = 1-RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_MIUPotential'].Values[Sector_reb_loc,0,mS] / 100
-                    
-                        #MIURamp       = np.ones((Nt))
-                        #MIURamp[10:42] = np.arange(1,RemainingFraction,-RemainingFraction/128)
-                        #MIURamp[42::] = RemainingFraction
-                        #MIURamp       = np.convolve(MIURamp, np.ones((10,))/10, mode='valid')
-                        
-                        
                         #clamped_spline = make_interp_spline(np.arange(0,Nt,1), MIURamp, bc_type=([(2, 0)], [(1, 0)]))
                         clamped_spline = make_interp_spline([0,2,Nt-5,Nt], [1,1,RemainingFraction,RemainingFraction], bc_type=([(2, 0)], [(1, 0)]))
                         MIURamp_Spline = clamped_spline(np.arange(0,Nt,1))
@@ -816,8 +809,9 @@ def main():
                 RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[mS,:,Sector_reb_loc,:] = TotalStockCurves_UsePhase_B_pC.copy()
             
                 # Include_REStrategy_LifeTimeExtension: Product lifetime extension.
-                # First, replicate lifetimes for all age-cohorts
-                Par_RECC_ProductLifetime_B = np.einsum('c,Br->Brc',np.ones((Nc)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values)
+                # First, replicate lifetimes for post 2020 age-cohorts from 2020 values:
+                RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values[:,:,120::] = np.einsum('c,Br->Brc',np.ones((41)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values[:,:,120]).copy()
+                Par_RECC_ProductLifetime_B = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values.copy()
                 # Second, change lifetime of future age-cohorts according to lifetime extension parameter
                 # This is equation 10 of the paper:
                 if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True':
@@ -972,7 +966,7 @@ def main():
             # Units: Mt and Mt/yr.
             # This calculation is done year-by-year, and the elemental composition of the materials is in part determined by the scrap flow metal composition
             
-            for t in tqdm(range(1, Nt), unit=' years'): # 1: 2016
+            for t in tqdm(range(1,Nt), unit=' years'): # 1: 2016
             #for t in tqdm(range(1, 5), unit=' years'): # 1: 2016
                 CohortOffset = t +Nc -Nt # index of current age-cohort.   
                 # First, before going down to the material layer, we consider obsolete stock formation and re-use.
@@ -1317,7 +1311,8 @@ def main():
                 SysVar_ProcessEmissions_RecyclingCredit            = np.zeros((NX,Nt))
                 SysVar_IndirectGHGEms_EnergySupply_RecyclingCredit = np.zeros((NX,Nt))
                 
-            # GWP_bio calculation:
+            # GWP_bio calculation, using the original RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values
+            # and NOT the extended lifetime.
             SysVar_GHGEms_GWP_bio_r = np.zeros((NX,Nt,Nr))
             if 'reb' in SectorList:
                 for ntt in range(0,Nt):
@@ -1325,7 +1320,7 @@ def main():
                         for nBB in range(0,NB):
                             #total carbon in wood (carbon content ca. 0.5)
                             mass_C  = 0.5 * RECC_System.FlowDict['F_6_7'].Values[ntt,nrr,Sector_reb_rge[nBB],9,0]
-                            GWP_bio = ParameterDict['6_MIP_GWP_Bio'].Values[int(np.floor(Par_RECC_ProductLifetime_B[nBB,nrr,ntt+SwitchTime-1]))]
+                            GWP_bio = ParameterDict['6_MIP_GWP_Bio'].Values[int(np.floor(RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values[nBB,nrr,ntt+SwitchTime-1]))]
                             SysVar_GHGEms_GWP_bio_r[0,ntt,nrr] += 3.666 * mass_C * GWP_bio # convert from C to CO2
             SysVar_GHGEms_GWP_bio = np.einsum('Xtr->Xt',SysVar_GHGEms_GWP_bio_r)                    
             
@@ -1888,7 +1883,6 @@ def main():
     msf.ExcelSheetFill(Result_workbook, 'TotalGHGFootprint', ResultArray, topcornerlabel = 'System-wide GHG emissions, Mt/yr', rowlabels = RECC_System.IndexTable.set_index('IndexLetter').loc['t'].Classification.Items, collabels = MyLabels, Style = mystyle, rowselect = None, colselect = None)
     
     Result_workbook.save(os.path.join(ProjectSpecs_Path_Result,'SysVar_TotalGHGFootprint.xls'))
-    
     ## 5.3) Export as .mat file
     #Mylog.info('### 5.4 - Export to Matlab')
     #Mylog.info('Saving stock data to Matlab.')
@@ -1956,10 +1950,10 @@ def main():
     OutputDict['Name_Scenario'] = Name_Scenario + '_' + TimeString + DescrString # return new scenario folder name to ScenarioControl script
         
     return OutputDict
-        
+            
 # code for script to be run as standalone function
-if __name__ == "__main__":
-    main()
+#if __name__ == "__main__":
+#    main()
 
 
 # The End.
