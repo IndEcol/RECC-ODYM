@@ -36,6 +36,7 @@ ModelEvalListSheet = ModelConfigListFile.sheet_by_name(ScenarioSetting)
 # open result summary file
 mywb  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_Template.xlsx')) # for total emissions
 mywb2 = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_Template.xlsx')) # for material-related emissions
+mywb3 = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_Template.xlsx')) # for material-related emissions with recycling credit
 
 #Read control lines and execute main model script
 Row  = 1
@@ -58,7 +59,7 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
         for m in range(0,int(NoofCascadeSteps_pav)):
             PassVehList.append(ModelEvalListSheet.cell_value(Row +m, 3))
         # run the ODYM-RECC scenario comparison
-        ASummaryV, AvgDecadalEmsV, MatSummaryV, AvgDecadalMatEmsV = RECC_G7IC_Cascade_PassVehicles_V2_2.main(RegionalScope,PassVehList)
+        ASummaryV, AvgDecadalEmsV, MatSummaryV, AvgDecadalMatEmsV, MatSummaryVC, AvgDecadalMatEmsVC = RECC_G7IC_Cascade_PassVehicles_V2_2.main(RegionalScope,PassVehList)
         # write results summary to Excel
         Vsheet = mywb[RegionalScope + '_Vehicles']
         for r in range(0,3):
@@ -78,12 +79,22 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
                 Vsheet2.cell(row = r+15, column = c+5).value  = MatSummaryV[r+6,c]
                 for d in range(0,4):
                     Vsheet2.cell(row = d*3 + r + 21,column = c+5).value  = AvgDecadalMatEmsV[r,c,d]                    
+        Vsheet3 = mywb3[RegionalScope + '_Vehicles']
+        for r in range(0,3):
+            Vsheet3.cell(row = r+3,  column = 4).value  = 0       
+            Vsheet3.cell(row = r+9,  column = 4).value  = 0       
+            for c in range(0,7):
+                Vsheet3.cell(row = r+3,  column = c+5).value  = MatSummaryVC[r,c]       
+                Vsheet3.cell(row = r+9,  column = c+5).value  = MatSummaryVC[r+3,c]       
+                Vsheet3.cell(row = r+15, column = c+5).value  = MatSummaryVC[r+6,c]
+                for d in range(0,4):
+                    Vsheet3.cell(row = d*3 + r + 21,column = c+5).value  = AvgDecadalMatEmsVC[r,c,d]          
         
     if Setting == 'Cascade_reb':
         for m in range(0,int(NoofCascadeSteps_reb)):
             ResBldsList.append(ModelEvalListSheet.cell_value(Row +m, 3))
         # run the ODYM-RECC scenario comparison
-        ASummaryB, AvgDecadalEmsB, MatSummaryB, AvgDecadalMatEmsB = RECC_G7IC_Cascade_ResBuildings_V2_2.main(RegionalScope,ResBldsList)
+        ASummaryB, AvgDecadalEmsB, MatSummaryB, AvgDecadalMatEmsB, MatSummaryBC, AvgDecadalMatEmsBC = RECC_G7IC_Cascade_ResBuildings_V2_2.main(RegionalScope,ResBldsList)
         # write results summary to Excel
         Bsheet = mywb[RegionalScope + '_Buildings']
         for r in range(0,3):
@@ -102,13 +113,23 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
                 Bsheet2.cell(row = r+9,  column = c+5).value  = MatSummaryB[r+3,c]       
                 Bsheet2.cell(row = r+15, column = c+5).value  = MatSummaryB[r+6,c]
                 for d in range(0,4):
-                    Bsheet2.cell(row = d*3 + r + 21,column = c+5).value  = AvgDecadalMatEmsB[r,c,d]                      
+                    Bsheet2.cell(row = d*3 + r + 21,column = c+5).value  = AvgDecadalMatEmsB[r,c,d]    
+        Bsheet3 = mywb3[RegionalScope + '_Buildings']
+        for r in range(0,3):
+            Bsheet3.cell(row = r+3,  column = 4).value  = 0       
+            Bsheet3.cell(row = r+9,  column = 4).value  = 0                   
+            for c in range(0,6):
+                Bsheet3.cell(row = r+3,  column = c+5).value  = MatSummaryBC[r,c]       
+                Bsheet3.cell(row = r+9,  column = c+5).value  = MatSummaryBC[r+3,c]       
+                Bsheet3.cell(row = r+15, column = c+5).value  = MatSummaryBC[r+6,c]
+                for d in range(0,4):
+                    Bsheet3.cell(row = d*3 + r + 21,column = c+5).value  = AvgDecadalMatEmsBC[r,c,d]                      
                     
     if Setting == 'Sensitivity_pav':
         for m in range(0,int(NoofSensitivitySteps_pav)):
             PassVehList.append(ModelEvalListSheet.cell_value(Row +m, 3))
         # run the ODYM-RECC sensitivity analysis for pav
-        CumEmsV_Sens, AnnEmsV2030_Sens, AnnEmsV2050_Sens, AvgDecadalEms, MatCumEmsV_Sens, MatAnnEmsV2030_Sens, MatAnnEmsV2050_Sens, MatAvgDecadalEmsV = RECC_G7IC_Sensitivity_PassVehicles_V2_2.main(RegionalScope,PassVehList)        
+        CumEmsV_Sens, AnnEmsV2030_Sens, AnnEmsV2050_Sens, AvgDecadalEms, MatCumEmsV_Sens, MatAnnEmsV2030_Sens, MatAnnEmsV2050_Sens, MatAvgDecadalEmsV, MatCumEmsV_SensC, MatAnnEmsV2030_SensC, MatAnnEmsV2050_SensC, MatAvgDecadalEmsC = RECC_G7IC_Sensitivity_PassVehicles_V2_2.main(RegionalScope,PassVehList)        
         # write results summary to Excel
         Ssheet = mywb['Sensitivity_' + RegionalScope]
         print(RegionalScope)
@@ -133,7 +154,7 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
         for m in range(0,int(NoofSensitivitySteps_reb)):
             ResBldsList.append(ModelEvalListSheet.cell_value(Row +m, 3))
         # run the ODYM-RECC sensitivity analysis for reb
-        CumEmsB_Sens, AnnEmsB2030_Sens, AnnEmsB2050_Sens, AvgDecadalEms, MatCumEmsB_Sens, MatAnnEmsB2030_Sens, MatAnnEmsB2050_Sens, MatAvgDecadalEmsB = RECC_G7IC_Sensitivity_ResBuildings_V2_2.main(RegionalScope,ResBldsList)        
+        CumEmsB_Sens, AnnEmsB2030_Sens, AnnEmsB2050_Sens, AvgDecadalEms, MatCumEmsB_Sens, MatAnnEmsB2030_Sens, MatAnnEmsB2050_Sens, MatAvgDecadalEmsB, MatCumEmsV_SensC, MatAnnEmsV2030_SensC, MatAnnEmsV2050_SensC, MatAvgDecadalEmsC = RECC_G7IC_Sensitivity_ResBuildings_V2_2.main(RegionalScope,ResBldsList)        
         # write results summary to Excel
         Ssheet = mywb['Sensitivity_' + RegionalScope]
         print(RegionalScope)
@@ -165,9 +186,9 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
         Row += NoofSensitivitySteps_reb
         
     
-mywb.save(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_SystemGHG_13August2019.xlsx'))
-mywb2.save(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_MaterialGHG_13August2019.xlsx'))    
-    
+mywb.save(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_SystemGHG_26September2019.xlsx'))
+mywb2.save(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_MaterialGHG_26September2019.xlsx'))    
+mywb3.save(os.path.join(RECC_Paths.results_path,'G7_RECC_Results_MaterialGHG_inclRecyclingCredit_26September2019.xlsx'))        
     
     
 #

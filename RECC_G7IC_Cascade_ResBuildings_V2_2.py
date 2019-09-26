@@ -41,6 +41,12 @@ def main(RegionalScope,ResBldgsList):
     MatAnnEmsV2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
     MatSummaryV       = np.zeros((9,NE)) # For direct copy-paste to Excel
     AvgDecadalMatEmsV = np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario, RCP is fixed: RCP2.6
+    # for materials incl. recycling credit:
+    MatCumEmsVC       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    MatAnnEmsV2030C   = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    MatAnnEmsV2050C   = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
+    MatSummaryVC      = np.zeros((9,NE)) # For direct copy-paste to Excel
+    AvgDecadalMatEmsVC= np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario, RCP is fixed: RCP2.6
     
     for r in range(0,NE): # RE scenario
         Path = os.path.join(RECC_Paths.results_path,FolderlistB[r],'SysVar_TotalGHGFootprint.xls')
@@ -158,26 +164,53 @@ def main(RegionalScope,ResBldgsList):
         UUID         = Resultsheet1.cell_value(3,2)
         Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderlistB[r],'ODYM_RECC_ModelResults_' + UUID + '.xls'))
         Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
+        # Find the index for the recycling credit and others:
+        rci = 1
+        while True:
+            if Resultsheet2.cell_value(rci, 0) == 'GHG emissions, recycling credits':
+                break # that gives us the right index to read the recycling credit from the result table.
+            rci += 1
+        mci = 1
+        while True:
+            if Resultsheet2.cell_value(mci, 0) == 'GHG emissions, material cycle industries and their energy supply':
+                break # that gives us the right index to read the recycling credit from the result table.
+            mci += 1
+                    
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR):
                 for t in range(0,45): # time
                     AnnEmsV[t,s,c,r] = Resultsheet.cell_value(t +2, 1 + c + NR*s)
-                    MatEmsV[t,s,c,r] = Resultsheet2.cell_value(229+ 2*s +c,t+8)
+                    MatEmsV[t,s,c,r] = Resultsheet2.cell_value(mci+ 2*s +c,t+8)
         # Material results export
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR):
                 for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
-                    MatCumEmsV[s,c,r] += Resultsheet2.cell_value(229+ 2*s +c,t+8)
-                MatAnnEmsV2030[s,c,r]  = Resultsheet2.cell_value(229+ 2*s +c,22)
-                MatAnnEmsV2050[s,c,r]  = Resultsheet2.cell_value(229+ 2*s +c,42)
-            AvgDecadalMatEmsV[s,r,0]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(12,22)])/10
-            AvgDecadalMatEmsV[s,r,1]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(22,32)])/10
-            AvgDecadalMatEmsV[s,r,2]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(32,42)])/10
-            AvgDecadalMatEmsV[s,r,3]   = sum([Resultsheet2.cell_value(229+ 2*s +1,t) for i in range(42,52)])/10    
-
+                    MatCumEmsV[s,c,r] += Resultsheet2.cell_value(mci+ 2*s +c,t+8)
+                MatAnnEmsV2030[s,c,r]  = Resultsheet2.cell_value(mci+ 2*s +c,22)
+                MatAnnEmsV2050[s,c,r]  = Resultsheet2.cell_value(mci+ 2*s +c,42)
+            AvgDecadalMatEmsV[s,r,0]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(12,22)])/10
+            AvgDecadalMatEmsV[s,r,1]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(22,32)])/10
+            AvgDecadalMatEmsV[s,r,2]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(32,42)])/10
+            AvgDecadalMatEmsV[s,r,3]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(42,52)])/10    
+        # Material results export, including recycling credit
+        for s in range(0,NS): # SSP scenario
+            for c in range(0,NR):
+                for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
+                    MatCumEmsVC[s,c,r]+= Resultsheet2.cell_value(mci+ 2*s +c,t+8) + Resultsheet2.cell_value(rci+ 2*s +c,t+8)
+                MatAnnEmsV2030C[s,c,r] = Resultsheet2.cell_value(mci+ 2*s +c,22)  + Resultsheet2.cell_value(rci+ 2*s +c,22)
+                MatAnnEmsV2050C[s,c,r] = Resultsheet2.cell_value(mci+ 2*s +c,42)  + Resultsheet2.cell_value(rci+ 2*s +c,42)
+            AvgDecadalMatEmsVC[s,r,0]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(12,22)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for i in range(12,22)])/10
+            AvgDecadalMatEmsVC[s,r,1]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(22,32)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for i in range(22,32)])/10
+            AvgDecadalMatEmsVC[s,r,2]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(32,42)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for i in range(32,42)])/10
+            AvgDecadalMatEmsVC[s,r,3]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(42,52)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for i in range(42,52)])/10                       
+    
     MatSummaryV[0:3,:] = MatAnnEmsV2030[:,1,:].copy() # RCP is fixed: RCP2.6
     MatSummaryV[3:6,:] = MatAnnEmsV2050[:,1,:].copy() # RCP is fixed: RCP2.6
     MatSummaryV[6::,:] = MatCumEmsV[:,1,:].copy()     # RCP is fixed: RCP2.6                    
+    
+    MatSummaryVC[0:3,:]= MatAnnEmsV2030C[:,1,:].copy() # RCP is fixed: RCP2.6
+    MatSummaryVC[3:6,:]= MatAnnEmsV2050C[:,1,:].copy() # RCP is fixed: RCP2.6
+    MatSummaryVC[6::,:]= MatCumEmsVC[:,1,:].copy()     # RCP is fixed: RCP2.6
     
     # Area plot, stacked, GHG emissions, system
     MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select colors from the 'Paired' color map.            
@@ -304,7 +337,7 @@ def main(RegionalScope,ResBldgsList):
             fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')             
         
     
-    return ASummaryV, AvgDecadalEmsV, MatSummaryV, AvgDecadalMatEmsV
+    return ASummaryV, AvgDecadalEmsV, MatSummaryV, AvgDecadalMatEmsV, MatSummaryVC, AvgDecadalMatEmsVC
 
 # code for script to be run as standalone function
 if __name__ == "__main__":
