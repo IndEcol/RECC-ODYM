@@ -86,20 +86,20 @@ def main(RegionalScope,ResBldList):
                 MatCumEmsV_Sens[s,r] += Resultsheet2.cell_value(mci+ 2*s +1,t+8)
             MatAnnEmsV2030_Sens[s,r]  = Resultsheet2.cell_value(mci+ 2*s +1,22)
             MatAnnEmsV2050_Sens[s,r]  = Resultsheet2.cell_value(mci+ 2*s +1,42)
-            MatAvgDecadalEms[s,r,0]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(12,22)])/10
-            MatAvgDecadalEms[s,r,1]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(22,32)])/10
-            MatAvgDecadalEms[s,r,2]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(32,42)])/10
-            MatAvgDecadalEms[s,r,3]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(42,52)])/10             
+            MatAvgDecadalEms[s,r,0]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(13,23)])/10
+            MatAvgDecadalEms[s,r,1]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(23,33)])/10
+            MatAvgDecadalEms[s,r,2]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(33,43)])/10
+            MatAvgDecadalEms[s,r,3]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(43,53)])/10             
         # Material results export, including recycling credit
         for s in range(0,NS): # SSP scenario
             for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
                 MatCumEmsV_SensC[s,r]+= Resultsheet2.cell_value(mci+ 2*s +1,t+8) + Resultsheet2.cell_value(rci+ 2*s +1,t+8)
             MatAnnEmsV2030_SensC[s,r] = Resultsheet2.cell_value(mci+ 2*s +1,22)  + Resultsheet2.cell_value(rci+ 2*s +1,22)
             MatAnnEmsV2050_SensC[s,r] = Resultsheet2.cell_value(mci+ 2*s +1,42)  + Resultsheet2.cell_value(rci+ 2*s +1,42)
-            MatAvgDecadalEmsC[s,r,0]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(12,22)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for i in range(12,22)])/10
-            MatAvgDecadalEmsC[s,r,1]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(22,32)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for i in range(22,32)])/10
-            MatAvgDecadalEmsC[s,r,2]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(32,42)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for i in range(32,42)])/10
-            MatAvgDecadalEmsC[s,r,3]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(42,52)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for i in range(42,52)])/10            
+            MatAvgDecadalEmsC[s,r,0]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(13,23)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(13,23)])/10
+            MatAvgDecadalEmsC[s,r,1]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(23,33)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(23,33)])/10
+            MatAvgDecadalEmsC[s,r,2]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(33,43)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(33,43)])/10
+            MatAvgDecadalEmsC[s,r,3]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(43,53)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(43,53)])/10            
     
     
     ### Tornado plot for sensitivity

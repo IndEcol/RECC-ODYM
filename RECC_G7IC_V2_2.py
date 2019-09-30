@@ -511,6 +511,7 @@ def main():
     StockCurves_Totl                 = np.zeros((Nt,NG,NS,NR))
     StockCurves_Prod                 = np.zeros((Nt,Ng,NS,NR))
     Inflow_Prod                      = np.zeros((Nt,Ng,NS,NR))
+    Inflow_Prod_r                    = np.zeros((Nt,Nr,Ng,NS,NR))
     Outflow_Prod                     = np.zeros((Nt,Ng,NS,NR))
     EoL_Products_for_WasteMgt        = np.zeros((Nt,Ng,NS,NR))
     Outflow_Materials_Usephase_all   = np.zeros((Nt,Nm,NS,NR))
@@ -710,15 +711,21 @@ def main():
                             # !! Here: take vehicle occupancy rate of first year (2015)
                 # ii) convert vehicle-km to stock:
                 TotalStockCurves_UsePhase_p_pC_test = np.zeros((Nt,Nr))    
+                
                 for nrr in range(0,Nr):
                     for ntt in range(0,Nt):
                         Divisor = 1 + (1 / RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr] - 1) * RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100
                         if Divisor != 0:
-                            if JapanRegLoc is not None or ItalyRegLoc is not None: # use country-specific km curve to reflect increase in vehicle-km/yr
+                            # !! Here: take vehicle kilometrage of first year (2015)
+                            # overwrite above result for Japan and Italy:
+                            # use country-specific km curve to reflect increase in vehicle-km/yr:
+                            if IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[nrr] == 'R32JPN':
+                                TotalStockCurves_UsePhase_p_pC_test[ntt,nrr] = Total_Vehicle_km_pav_tr_pC[ntt,nrr] / (RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Driving,nrr,ntt,mS] * Divisor)
+                            elif IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[nrr] == 'Italy':
                                 TotalStockCurves_UsePhase_p_pC_test[ntt,nrr] = Total_Vehicle_km_pav_tr_pC[ntt,nrr] / (RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Driving,nrr,ntt,mS] * Divisor)
                             else:
                                 TotalStockCurves_UsePhase_p_pC_test[ntt,nrr] = Total_Vehicle_km_pav_tr_pC[ntt,nrr] / (RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Driving,nrr,0,mS] * Divisor)
-                            # !! Here: take vehicle kilometrage of first year (2015)
+                                
                 # iii) Make sure that for no scenario, stock values are below LED values, which is assumed to be the lowest possible stock level.           
                 if SName == 'LED':
                     RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'].Values[mS,:,Sector_pav_loc,:] = TotalStockCurves_UsePhase_p_pC_test.copy()
@@ -777,6 +784,7 @@ def main():
                     Stock_Detail_UsePhase_p[1::,:,:,r]   += Var_S[SwitchTime::,:,:].copy() # tcpr
                     Outflow_Detail_UsePhase_p[1::,:,:,r] += Var_O[SwitchTime::,:,:].copy() # tcpr
                     Inflow_Detail_UsePhase_p[1::,:,r]    += Var_I[SwitchTime::,:].copy() # tpr
+                    Inflow_Prod_r[1::,r,Sector_pav_rge,mS,mR] = Var_I[SwitchTime::,:].copy()
                     # Check for negative inflows:
                     if IFlags.sum() != 0:
                         NegInflowFlags[Sector_pav_loc,mS,mR] = 1 # flag this scenario
@@ -1830,7 +1838,7 @@ def main():
             fig_name = 'GHG_TimeSeries_AllProcesses_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
             # include figure in logfile:
             fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-            fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=300, bbox_inches='tight')
+            #fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=300, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1
     
@@ -1866,7 +1874,7 @@ def main():
             fig_name = 'GHG_TimeSeries_Materials_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
             # include figure in logfile:
             fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-            fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=300, bbox_inches='tight')
+            #fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=300, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1
     
@@ -1962,7 +1970,7 @@ def main():
     OutputDict['Name_Scenario'] = Name_Scenario + '_' + TimeString + DescrString # return new scenario folder name to ScenarioControl script
         
     return OutputDict
-            
+                
 # code for script to be run as standalone function
 #if __name__ == "__main__":
 #    main()

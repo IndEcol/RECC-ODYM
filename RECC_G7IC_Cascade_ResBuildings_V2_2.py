@@ -188,10 +188,10 @@ def main(RegionalScope,ResBldgsList):
                     MatCumEmsV[s,c,r] += Resultsheet2.cell_value(mci+ 2*s +c,t+8)
                 MatAnnEmsV2030[s,c,r]  = Resultsheet2.cell_value(mci+ 2*s +c,22)
                 MatAnnEmsV2050[s,c,r]  = Resultsheet2.cell_value(mci+ 2*s +c,42)
-            AvgDecadalMatEmsV[s,r,0]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(12,22)])/10
-            AvgDecadalMatEmsV[s,r,1]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(22,32)])/10
-            AvgDecadalMatEmsV[s,r,2]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(32,42)])/10
-            AvgDecadalMatEmsV[s,r,3]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(42,52)])/10    
+            AvgDecadalMatEmsV[s,r,0]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(13,23)])/10
+            AvgDecadalMatEmsV[s,r,1]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(23,33)])/10
+            AvgDecadalMatEmsV[s,r,2]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(33,43)])/10
+            AvgDecadalMatEmsV[s,r,3]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(43,53)])/10    
         # Material results export, including recycling credit
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR):
@@ -199,10 +199,10 @@ def main(RegionalScope,ResBldgsList):
                     MatCumEmsVC[s,c,r]+= Resultsheet2.cell_value(mci+ 2*s +c,t+8) + Resultsheet2.cell_value(rci+ 2*s +c,t+8)
                 MatAnnEmsV2030C[s,c,r] = Resultsheet2.cell_value(mci+ 2*s +c,22)  + Resultsheet2.cell_value(rci+ 2*s +c,22)
                 MatAnnEmsV2050C[s,c,r] = Resultsheet2.cell_value(mci+ 2*s +c,42)  + Resultsheet2.cell_value(rci+ 2*s +c,42)
-            AvgDecadalMatEmsVC[s,r,0]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(12,22)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for i in range(12,22)])/10
-            AvgDecadalMatEmsVC[s,r,1]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(22,32)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for i in range(22,32)])/10
-            AvgDecadalMatEmsVC[s,r,2]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(32,42)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for i in range(32,42)])/10
-            AvgDecadalMatEmsVC[s,r,3]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for i in range(42,52)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for i in range(42,52)])/10                       
+            AvgDecadalMatEmsVC[s,r,0]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(13,23)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(13,23)])/10
+            AvgDecadalMatEmsVC[s,r,1]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(23,33)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(23,33)])/10
+            AvgDecadalMatEmsVC[s,r,2]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(33,43)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(33,43)])/10
+            AvgDecadalMatEmsVC[s,r,3]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(43,53)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(43,53)])/10                       
     
     MatSummaryV[0:3,:] = MatAnnEmsV2030[:,1,:].copy() # RCP is fixed: RCP2.6
     MatSummaryV[3:6,:] = MatAnnEmsV2050[:,1,:].copy() # RCP is fixed: RCP2.6
