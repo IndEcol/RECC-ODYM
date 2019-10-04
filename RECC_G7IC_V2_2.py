@@ -1838,6 +1838,7 @@ def main():
             fig_name = 'GHG_TimeSeries_AllProcesses_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
             # include figure in logfile:
             fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+            # comment out to save disk space in archive:
             #fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=300, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1
@@ -1874,6 +1875,7 @@ def main():
             fig_name = 'GHG_TimeSeries_Materials_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
             # include figure in logfile:
             fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+            # comment out to save disk space in archive:
             #fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=300, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1

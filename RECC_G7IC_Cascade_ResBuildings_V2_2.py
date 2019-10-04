@@ -31,21 +31,24 @@ def main(RegionalScope,ResBldgsList):
     NE = 6 # no of Res. eff. scenarios
     
     CumEmsV        = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    CumEmsV2060    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     AnnEmsV2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     AnnEmsV2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
-    ASummaryV      = np.zeros((9,NE)) # For direct copy-paste to Excel
+    ASummaryV      = np.zeros((12,NE)) # For direct copy-paste to Excel
     AvgDecadalEmsV = np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario, RCP fixed to RCP2.6
     # for materials:
     MatCumEmsV        = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    MatCumEmsV2060    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     MatAnnEmsV2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     MatAnnEmsV2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
-    MatSummaryV       = np.zeros((9,NE)) # For direct copy-paste to Excel
+    MatSummaryV       = np.zeros((12,NE)) # For direct copy-paste to Excel
     AvgDecadalMatEmsV = np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario, RCP is fixed: RCP2.6
     # for materials incl. recycling credit:
     MatCumEmsVC       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    MatCumEmsVC2060   = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     MatAnnEmsV2030C   = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     MatAnnEmsV2050C   = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
-    MatSummaryVC      = np.zeros((9,NE)) # For direct copy-paste to Excel
+    MatSummaryVC      = np.zeros((12,NE)) # For direct copy-paste to Excel
     AvgDecadalMatEmsVC= np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario, RCP is fixed: RCP2.6
     
     for r in range(0,NE): # RE scenario
@@ -56,6 +59,8 @@ def main(RegionalScope,ResBldgsList):
             for c in range(0,NR):
                 for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
                     CumEmsV[s,c,r] += Resultsheet.cell_value(t +2, 1 + c + NR*s)
+                for t in range(0,45): # time until 2060.
+                    CumEmsV2060[s,c,r] += Resultsheet.cell_value(t +2, 1 + c + NR*s)                    
                 AnnEmsV2030[s,c,r]  = Resultsheet.cell_value(16  , 1 + c + NR*s)
                 AnnEmsV2050[s,c,r]  = Resultsheet.cell_value(36  , 1 + c + NR*s)
             AvgDecadalEmsV[s,r,0]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(7,17)])/10
@@ -65,7 +70,8 @@ def main(RegionalScope,ResBldgsList):
                 
     ASummaryV[0:3,:] = AnnEmsV2030[:,1,:].copy()
     ASummaryV[3:6,:] = AnnEmsV2050[:,1,:].copy()
-    ASummaryV[6::,:] = CumEmsV[:,1,:].copy()
+    ASummaryV[6:9,:] = CumEmsV[:,1,:].copy()
+    ASummaryV[9::,:] = CumEmsV2060[:,1,:].copy()
                         
     # Waterfall plot            
     MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.            
@@ -186,6 +192,8 @@ def main(RegionalScope,ResBldgsList):
             for c in range(0,NR):
                 for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
                     MatCumEmsV[s,c,r] += Resultsheet2.cell_value(mci+ 2*s +c,t+8)
+                for t in range(0,45): # time until 2060.
+                    MatCumEmsV2060[s,c,r] += Resultsheet2.cell_value(mci+ 2*s +c,t+8)                    
                 MatAnnEmsV2030[s,c,r]  = Resultsheet2.cell_value(mci+ 2*s +c,22)
                 MatAnnEmsV2050[s,c,r]  = Resultsheet2.cell_value(mci+ 2*s +c,42)
             AvgDecadalMatEmsV[s,r,0]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(13,23)])/10
@@ -197,6 +205,8 @@ def main(RegionalScope,ResBldgsList):
             for c in range(0,NR):
                 for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
                     MatCumEmsVC[s,c,r]+= Resultsheet2.cell_value(mci+ 2*s +c,t+8) + Resultsheet2.cell_value(rci+ 2*s +c,t+8)
+                for t in range(0,45): # time until 2060.
+                    MatCumEmsVC2060[s,c,r]+= Resultsheet2.cell_value(mci+ 2*s +c,t+8) + Resultsheet2.cell_value(rci+ 2*s +c,t+8)
                 MatAnnEmsV2030C[s,c,r] = Resultsheet2.cell_value(mci+ 2*s +c,22)  + Resultsheet2.cell_value(rci+ 2*s +c,22)
                 MatAnnEmsV2050C[s,c,r] = Resultsheet2.cell_value(mci+ 2*s +c,42)  + Resultsheet2.cell_value(rci+ 2*s +c,42)
             AvgDecadalMatEmsVC[s,r,0]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(13,23)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(13,23)])/10
@@ -206,11 +216,13 @@ def main(RegionalScope,ResBldgsList):
     
     MatSummaryV[0:3,:] = MatAnnEmsV2030[:,1,:].copy() # RCP is fixed: RCP2.6
     MatSummaryV[3:6,:] = MatAnnEmsV2050[:,1,:].copy() # RCP is fixed: RCP2.6
-    MatSummaryV[6::,:] = MatCumEmsV[:,1,:].copy()     # RCP is fixed: RCP2.6                    
+    MatSummaryV[6:9,:] = MatCumEmsV[:,1,:].copy()     # RCP is fixed: RCP2.6                    
+    MatSummaryV[9::,:] = MatCumEmsV2060[:,1,:].copy() # RCP is fixed: RCP2.6                    
     
     MatSummaryVC[0:3,:]= MatAnnEmsV2030C[:,1,:].copy() # RCP is fixed: RCP2.6
     MatSummaryVC[3:6,:]= MatAnnEmsV2050C[:,1,:].copy() # RCP is fixed: RCP2.6
-    MatSummaryVC[6::,:]= MatCumEmsVC[:,1,:].copy()     # RCP is fixed: RCP2.6
+    MatSummaryVC[6:9,:]= MatCumEmsVC[:,1,:].copy()     # RCP is fixed: RCP2.6
+    MatSummaryVC[9::,:]= MatCumEmsVC2060[:,1,:].copy() # RCP is fixed: RCP2.6
     
     # Area plot, stacked, GHG emissions, system
     MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select colors from the 'Paired' color map.            
@@ -295,7 +307,7 @@ def main(RegionalScope,ResBldgsList):
             for c in range(0,NR):
                 for t in range(0,45): # timeAnnEmsV_SecondarySteel[t,s,c,r] = Resultsheet2.cell_value(151+ 2*s +c,t+8)
                     AnnEmsV_PrimarySteel[t,s,c,r] = Resultsheet2.cell_value(19+ 2*s +c,t+8)
-                    AnnEmsV_SecondarySteel[t,s,c,r] = Resultsheet2.cell_value(151+ 2*s +c,t+8)
+                    AnnEmsV_SecondarySteel[t,s,c,r] = Resultsheet2.cell_value(163+ 2*s +c,t+8)
                     
     Title      = ['primary_steel','secondary_steel']            
     Sector     = ['Residential_Buildings']

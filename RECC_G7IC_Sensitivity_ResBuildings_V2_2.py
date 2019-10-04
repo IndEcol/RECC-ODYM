@@ -36,16 +36,19 @@ def main(RegionalScope,ResBldList):
     NR = 10
     
     CumEmsB_Sens     = np.zeros((NS,NR)) # SSP-Scenario x RCP scenario x RES scenario
+    CumEmsB_Sens2060 = np.zeros((NS,NR)) # SSP-Scenario x RCP scenario x RES scenario
     AnnEmsB2030_Sens = np.zeros((NS,NR)) # SSP-Scenario x RCP scenario x RES scenario
     AnnEmsB2050_Sens = np.zeros((NS,NR)) # SSP-Scenario x RCP scenario x RES scenario
     AvgDecadalEms    = np.zeros((NS,NR,4)) # SSP-Scenario x RES scenario x 4 decades    
     # for materials:
-    MatCumEmsV_Sens     = np.zeros((NS,NR)) # SSP-Scenario x RES scenarioß
+    MatCumEmsV_Sens     = np.zeros((NS,NR)) # SSP-Scenario x RES scenario
+    MatCumEmsV_Sens2060 = np.zeros((NS,NR)) # SSP-Scenario x RES scenario
     MatAnnEmsV2030_Sens = np.zeros((NS,NR)) # SSP-Scenario x RES scenario
     MatAnnEmsV2050_Sens = np.zeros((NS,NR)) # SSP-Scenario x RES scenario
     MatAvgDecadalEms    = np.zeros((NS,NR,4)) # SSP-Scenario x RES scenario x 4 decades    
     # for materials incl. recycling credit:
     MatCumEmsV_SensC     = np.zeros((NS,NR)) # SSP-Scenario x RES scenario
+    MatCumEmsV_SensC2060 = np.zeros((NS,NR)) # SSP-Scenario x RES scenario
     MatAnnEmsV2030_SensC = np.zeros((NS,NR)) # SSP-Scenario x RES scenario
     MatAnnEmsV2050_SensC = np.zeros((NS,NR)) # SSP-Scenario x RES scenario
     MatAvgDecadalEmsC    = np.zeros((NS,NR,4)) # SSP-Scenario x RES scenario x 4 decades  
@@ -57,6 +60,8 @@ def main(RegionalScope,ResBldList):
         for s in range(0,NS): # SSP scenario
             for t in range(0,35): # time
                 CumEmsB_Sens[s,r] += Resultsheet.cell_value(t +2, 2*(s+1))
+            for t in range(0,45): # time
+                CumEmsB_Sens2060[s,r] += Resultsheet.cell_value(t +2, 2*(s+1))    
             AnnEmsB2030_Sens[s,r]  = Resultsheet.cell_value(16  , 2*(s+1))
             AnnEmsB2050_Sens[s,r]  = Resultsheet.cell_value(36  , 2*(s+1))
             AvgDecadalEms[s,r,0]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(7,17)])/10
@@ -84,6 +89,8 @@ def main(RegionalScope,ResBldList):
         for s in range(0,NS): # SSP scenario
             for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
                 MatCumEmsV_Sens[s,r] += Resultsheet2.cell_value(mci+ 2*s +1,t+8)
+            for t in range(0,45): # time until 2060.
+                MatCumEmsV_Sens2060[s,r] += Resultsheet2.cell_value(mci+ 2*s +1,t+8)    
             MatAnnEmsV2030_Sens[s,r]  = Resultsheet2.cell_value(mci+ 2*s +1,22)
             MatAnnEmsV2050_Sens[s,r]  = Resultsheet2.cell_value(mci+ 2*s +1,42)
             MatAvgDecadalEms[s,r,0]   = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(13,23)])/10
@@ -94,6 +101,8 @@ def main(RegionalScope,ResBldList):
         for s in range(0,NS): # SSP scenario
             for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
                 MatCumEmsV_SensC[s,r]+= Resultsheet2.cell_value(mci+ 2*s +1,t+8) + Resultsheet2.cell_value(rci+ 2*s +1,t+8)
+            for t in range(0,45): # time until 2060.
+                MatCumEmsV_SensC2060[s,r]+= Resultsheet2.cell_value(mci+ 2*s +1,t+8) + Resultsheet2.cell_value(rci+ 2*s +1,t+8)    
             MatAnnEmsV2030_SensC[s,r] = Resultsheet2.cell_value(mci+ 2*s +1,22)  + Resultsheet2.cell_value(rci+ 2*s +1,22)
             MatAnnEmsV2050_SensC[s,r] = Resultsheet2.cell_value(mci+ 2*s +1,42)  + Resultsheet2.cell_value(rci+ 2*s +1,42)
             MatAvgDecadalEmsC[s,r,0]  = sum([Resultsheet2.cell_value(mci+ 2*s +1,t) for t in range(13,23)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(13,23)])/10
@@ -215,7 +224,7 @@ def main(RegionalScope,ResBldList):
             fig_name = 'Cum_GHG_Sens_' + Region + '_ ' + Title[0] + '_' + Scens[m] + '.png'
             fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')             
             
-    return CumEmsB_Sens, AnnEmsB2030_Sens, AnnEmsB2050_Sens, AvgDecadalEms, MatCumEmsV_Sens, MatAnnEmsV2030_Sens, MatAnnEmsV2050_Sens, MatAvgDecadalEms, MatCumEmsV_SensC, MatAnnEmsV2030_SensC, MatAnnEmsV2050_SensC, MatAvgDecadalEmsC
+    return CumEmsB_Sens, AnnEmsB2030_Sens, AnnEmsB2050_Sens, AvgDecadalEms, MatCumEmsV_Sens, MatAnnEmsV2030_Sens, MatAnnEmsV2050_Sens, MatAvgDecadalEms, MatCumEmsV_SensC, MatAnnEmsV2030_SensC, MatAnnEmsV2050_SensC, MatAvgDecadalEmsC, CumEmsB_Sens2060, MatCumEmsV_Sens2060, MatCumEmsV_SensC2060
 
 
 # code for script to be run as standalone function
