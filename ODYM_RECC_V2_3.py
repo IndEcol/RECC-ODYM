@@ -202,7 +202,7 @@ def main():
     # 2.4) Read model data and parameters.
     Mylog.info('Read model data and parameters.')
     
-    ParFileName = os.path.join(RECC_Paths.data_path,'RECC_ParameterDict_' + ScriptConfig['Model Setting'] + '_V1.dat')
+    ParFileName = os.path.join(RECC_Paths.data_path,'RECC_ParameterDict_' + ScriptConfig['Model Setting'] + '_V_2_3.dat')
     try: # Load Pickle parameter dict to save processing time
         ParFileObject = open(ParFileName,'rb')  
         ParameterDict = pickle.load(ParFileObject)  
@@ -1829,9 +1829,9 @@ def main():
     newrowoffset = msf.ExcelExportAdd_tAB(Sheet,SecondaryProduct[:,11,:,:], newrowoffset,len(ColLabels),'Recycled concrete','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # GHG of primary and secondary material production
     for mm in range(0,Nm):
-        newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_PrimaryMaterial_3di_m[:,mm,:,:],newrowoffset,len(ColLabels),'GHG emissions, production of primary _3di' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'E_3_0 (part) and associated em. in E_15_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_PrimaryMaterial_3di_m[:,mm,:,:],newrowoffset,len(ColLabels),'GHG emissions, production of primary _3di_' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'E_3_0 (part) and associated em. in E_15_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     for mm in range(0,Nm):
-        newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_SecondaryMetal_di_m[:,mm,:,:],newrowoffset,len(ColLabels),'GHG emissions, production of secondary _di' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'E_9_0 (part) and associated em. in E_15_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.ExcelExportAdd_tAB(Sheet,GHG_SecondaryMetal_di_m[:,mm,:,:],newrowoffset,len(ColLabels),'GHG emissions, production of secondary _di_' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'E_9_0 (part) and associated em. in E_15_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # inflow and outflow of commodities
     for mg in range(0,Ng):
         newrowoffset = msf.ExcelExportAdd_tAB(Sheet,Inflow_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'final consumption (use phase inflow), ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
