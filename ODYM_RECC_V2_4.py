@@ -219,7 +219,7 @@ except:
     ParameterDict = {}
     mo_start = 0 # set mo for re-reading a certain parameter
     for mo in range(mo_start,len(PL_Names)):
-        # mo = 6 # set mo for re-reading a certain parameter
+        #mo = 76 # set mo for re-reading a certain parameter
         #ParPath = os.path.join(os.path.abspath(os.path.join(ProjectSpecs_Path_Main, '.')), 'ODYM_RECC_Database', PL_Version[mo])
         ParPath = os.path.join(RECC_Paths.data_path, PL_Names[mo] + '_' + PL_Version[mo])
         Mylog.info('Reading parameter ' + PL_Names[mo])
@@ -1484,8 +1484,8 @@ for mS in range(0,NS):
             Par_RECC_EoL_RR =  np.einsum('t,grmw->trmgw',np.ones((Nt)),RECC_System.ParameterDict['4_PY_EoL_RecoveryRate'].Values[:,:,:,:,0] *0.01)
         
         # For regional dimension 11 and 1
-        Par_RECC_EoL_RR_Nl = np.einsum('t,Llmw->tlmLw',np.ones((Nt)),RECC_System.ParameterDict['4_PY_EoL_RecoveryRate'].Values[Sector_11reg_rge,:,:,:,0] *0.01)
-        Par_RECC_EoL_RR_No = np.einsum('t,Oomw->tomOw',np.ones((Nt)),RECC_System.ParameterDict['4_PY_EoL_RecoveryRate'].Values[Sector_1reg_rge,:,:,:,0] *0.01)
+        Par_RECC_EoL_RR_Nl = np.einsum('l,t,Lmw->tlmLw',np.ones((Nl)),np.ones((Nt)),RECC_System.ParameterDict['4_PY_EoL_RecoveryRate'].Values[Sector_11reg_rge,0,:,:,0] *0.01)
+        Par_RECC_EoL_RR_No = np.einsum('o,t,Omw->tomOw',np.ones((No)),np.ones((Nt)),RECC_System.ParameterDict['4_PY_EoL_RecoveryRate'].Values[Sector_1reg_rge,0,:,:,0] *0.01)
         
         # Calculate reuse factor
         # For vehicles, scenarios already included in target table output!
