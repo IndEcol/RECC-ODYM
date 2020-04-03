@@ -608,8 +608,11 @@ if ScriptConfig['No_EE_Improvements'] == 'True':
     ParameterDict['3_SHA_TypeSplit_Buildings'].Values[:,:,4::,:]                         = np.einsum('BrS,t->BrtS',ParameterDict['3_SHA_TypeSplit_Buildings'].Values[:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
     ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[:,:,4::,:]                   = np.einsum('NrS,t->NrtS',ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
     
-# 14) Currently not used.
-
+# 14) Define parameter for future vehicle stock:
+ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_passvehicles', ID='2_S_RECC_FinalProducts_Future_passvehicles',
+                                            UUID=None, P_Res=None, MetaData=None,
+                                            Indices='StGr', Values=np.zeros((NS,Nt,NG,Nr)), Uncert=None,
+                                            Unit='cars per person')
 # 15) Extrapolate appliances beyond 2050:
 for noS in range(0,NS):
     for noR in range(0,NR):
@@ -1021,7 +1024,7 @@ for mS in range(0,NS):
                 for ntt in range(0,Nt):
                     Divisor = 1 + (RECC_System.ParameterDict['6_MIP_RideSharing_Occupancy'].Values[mS,nrr] - 1) * RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100
                     if Divisor != 0:
-                        Total_Vehicle_km_pav_tr_pC[ntt,nrr] = Total_Service_pav_tr_pC[ntt,nrr] / (RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,0,mS] * Divisor)
+                        Total_Vehicle_km_pav_tr_pC[ntt,nrr] = Total_Service_pav_tr_pC[ntt,nrr] / (RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * Divisor)
                         # !! Here: take vehicle occupancy rate of first year (2015)
             # ii) convert vehicle-km to stock:
             TotalStockCurves_UsePhase_p_pC_test = np.zeros((Nt,Nr))    
@@ -1031,7 +1034,7 @@ for mS in range(0,NS):
                     Divisor = 1 + (1 / RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr] - 1) * RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100
                     if Divisor != 0:
                         # use country-specific km curve to reflect increase in vehicle-km/yr:
-                        TotalStockCurves_UsePhase_p_pC_test[ntt,nrr] = Total_Vehicle_km_pav_tr_pC[ntt,nrr] / (RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Driving,nrr,0,mS] * Divisor)
+                        TotalStockCurves_UsePhase_p_pC_test[ntt,nrr] = Total_Vehicle_km_pav_tr_pC[ntt,nrr] / (RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Driving,nrr,ntt,mS] * Divisor)
                             
             # iii) Make sure that for no scenario, stock values are below LED values, which is assumed to be the lowest possible stock level.           
             if SName == 'LED':
