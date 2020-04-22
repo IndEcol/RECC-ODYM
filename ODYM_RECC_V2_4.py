@@ -1034,7 +1034,7 @@ for mS in range(0,NS):
                     s_RiS     = (1 - RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100)*(RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100) \
                               * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Driving,nrr,ntt,mS]) \
                               / (RECC_System.ParameterDict['6_MIP_RideSharing_Occupancy'].Values[mS,nrr])
-                    s_CaS_RiS = (1 - RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100)*(1 - RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100) \
+                    s_CaS_RiS = (RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100)*(RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100) \
                               * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Driving,nrr,ntt,mS]) \
                               / (RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr] * RECC_System.ParameterDict['6_MIP_RideSharing_Occupancy'].Values[mS,nrr])
 
@@ -1042,10 +1042,11 @@ for mS in range(0,NS):
                     TotalStockCurves_UsePhase_p_pC_test[ntt,nrr] = s_total.copy()
                     TotalStockCurves_UsePhase_p_pC_test[np.isnan(TotalStockCurves_UsePhase_p_pC_test)] = 0 # ignore drive technologies where there is no stock.
 
-                    # ii) Calculate averalge vehicle kilometrage and average occupancy rate:
+                    # ii) Calculate average vehicle kilometrage and average occupancy rate:
                     vkm       = ((s0 + s_RiS) + RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr] * (s_CaS + s_CaS_RiS)) * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Driving,nrr,ntt,mS].copy() / s_total
                     Total_Vehicle_km_pav_tr_pC[ntt,nrr] = vkm.copy()
                     Total_Vehicle_km_pav_tr_pC[np.isnan(Total_Vehicle_km_pav_tr_pC)] = 0 # ignore drive technologies where there is no stock.
+                    # Overwrite predefined values by internally calculated vehicle-km:
                     RECC_System.ParameterDict['3_IO_Vehicles_UsePhase' ].Values[Service_Driving,nrr,ntt,mS] = Total_Vehicle_km_pav_tr_pC[ntt,nrr]
                     ocr       = Total_Service_pav_tr_pC[ntt,nrr] / (s_total * vkm)
                     
@@ -1935,14 +1936,16 @@ for mS in range(0,NS):
         ##########################################################            
                     
         # A) Calculate intensity of operation, by sector
-        SysVar_StockServiceProvision_UsePhase_pav = np.einsum('Vrt,tcpr->tcprV', RECC_System.ParameterDict['3_IO_Vehicles_UsePhase' ].Values[:,:,:,mS],   Stock_Detail_UsePhase_p)
-        SysVar_StockServiceProvision_UsePhase_reb = np.einsum('cBVr,tcBr->tcBrV',RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,mS], Stock_Detail_UsePhase_B)
+        # Hop over to save computation time:
+        # SysVar_StockServiceProvision_UsePhase_pav = np.einsum('Vrt,tcpr->tcprV', RECC_System.ParameterDict['3_IO_Vehicles_UsePhase' ].Values[:,:,:,mS],   Stock_Detail_UsePhase_p)
+        # SysVar_StockServiceProvision_UsePhase_reb = np.einsum('cBVr,tcBr->tcBrV',RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,mS], Stock_Detail_UsePhase_B)
         SysVar_StockServiceProvision_UsePhase_nrb = np.einsum('cNVr,tcNr->tcNrV',RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS], Stock_Detail_UsePhase_N)
         # Unit: million km/yr for vehicles, million m2 for buildings by three use types: heating, cooling, and DHW.
         
         # B) Calculate total operational energy use, by sector
-        SysVar_EnergyDemand_UsePhase_Total_pav  = np.einsum('cpVnr,tcprV->tcprnV', RECC_System.ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[:,:,:,:,:,mS], SysVar_StockServiceProvision_UsePhase_pav)
-        SysVar_EnergyDemand_UsePhase_Total_reb  = np.einsum('cBVnrt,tcBrV->tcBrnV',ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values, SysVar_StockServiceProvision_UsePhase_reb)
+        # Hop over to save computation time:
+        # SysVar_EnergyDemand_UsePhase_Total_pav  = np.einsum('cpVnr,tcprV->tcprnV', RECC_System.ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[:,:,:,:,:,mS], SysVar_StockServiceProvision_UsePhase_pav)
+        # SysVar_EnergyDemand_UsePhase_Total_reb  = np.einsum('cBVnrt,tcBrV->tcBrnV',ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values, SysVar_StockServiceProvision_UsePhase_reb)
         if 'nrb' in SectorList: 
             SysVar_EnergyDemand_UsePhase_Total_nrb  = np.einsum('cNVnrt,tcNrV->tcNrnV',ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values, SysVar_StockServiceProvision_UsePhase_nrb)
         if 'nrbg' in SectorList: 
@@ -1950,8 +1953,12 @@ for mS in range(0,NS):
         # Unit: TJ/yr for both vehicles and buildings.
         
         # C) Translate 'all' energy carriers to specific ones, use phase, by sector
-        SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav = np.einsum('cprVn,tcprV->trpn',RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles' ].Values[:,:,:,:,:,mS] ,SysVar_EnergyDemand_UsePhase_Total_pav[:,:,:,:,-1,:].copy())
-        SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb = np.einsum('Vrnt,tcBrV->trBn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:],   SysVar_EnergyDemand_UsePhase_Total_reb[:,:,:,:,-1,:].copy())
+        # Hop over to save computation time:
+        # SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav = np.einsum('cprVn,tcprV->trpn',RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles' ].Values[:,:,:,:,:,mS] ,SysVar_EnergyDemand_UsePhase_Total_pav[:,:,:,:,-1,:].copy())
+        # SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb = np.einsum('Vrnt,tcBrV->trBn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:],   SysVar_EnergyDemand_UsePhase_Total_reb[:,:,:,:,-1,:].copy())
+        SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav = np.einsum('cprVn,cpVr,Vrt,tcpr->trpn',RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles' ].Values[:,:,:,:,:,mS],RECC_System.ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[:,:,:,-1,:,mS],RECC_System.ParameterDict['3_IO_Vehicles_UsePhase' ].Values[:,:,:,mS],Stock_Detail_UsePhase_p, optimize = True).copy()
+        SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb = np.einsum('Vrnt,cBVrt,cBVr,tcBr->trBn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[:,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,mS],Stock_Detail_UsePhase_B, optimize = True).copy()
+
         if 'nrb' in SectorList: 
             SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.einsum('Vrnt,tcNrV->trNn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:],   SysVar_EnergyDemand_UsePhase_Total_nrb[:,:,:,:,-1,:].copy())
         else:
@@ -2025,8 +2032,10 @@ for mS in range(0,NS):
         RECC_System.Consistency_Check() 
     
         # G) Determine Mass Balance
-        Bal = RECC_System.MassBalance()
-        BalAbs = np.abs(Bal).sum()
+        # Commment out to save computation time:
+        BalAbs = -1 # means that mass bal. computation was commented out to save computation time.
+        #Bal = RECC_System.MassBalance()
+        #BalAbs = np.abs(Bal).sum()
         Mylog.info('Total mass balance deviation (np.abs(Bal).sum() for socioeconomic scenario ' + SName + ' and RE scenario ' + RName + ': ' + str(BalAbs) + ' Mt.')                    
 
         # H) Calculate direct emissions
@@ -2190,7 +2199,9 @@ for mS in range(0,NS):
         EnergyCons_UP_Mn[:,mS,mR]                   = SysVar_EnergyDemand_Manufacturing.sum(axis =1).copy()
         EnergyCons_UP_Wm[:,mS,mR]                   = SysVar_EnergyDemand_WasteMgt.sum(axis =1).copy() +  SysVar_EnergyDemand_Remelting.sum(axis =1).copy()
         # Service flows
-        Vehicle_km[:,mS,mR]                         = np.einsum('tcpr->t',SysVar_StockServiceProvision_UsePhase_pav[:,:,:,:,Service_Driving])
+        # Hop over to save memory:
+        # Vehicle_km[:,mS,mR]                         = np.einsum('tcpr->t',SysVar_StockServiceProvision_UsePhase_pav[:,:,:,:,Service_Driving])
+        Vehicle_km[:,mS,mR]                         = np.einsum('rt,tcpr->t', RECC_System.ParameterDict['3_IO_Vehicles_UsePhase' ].Values[Service_Driving,:,:,mS],   Stock_Detail_UsePhase_p)
         # Parameters        
         Vehicle_FuelEff[:,:,:,mS,mR]                = np.einsum('tpnr->tpr',RECC_System.ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[SwitchTime-1::,:,Service_Driving,:,:,mS])
         ResBuildng_EnergyCons[:,:,:,mS,mR]             = np.einsum('VtBnr->tBr',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchTime-1::,:,Service_Resbld,:,:,mS])
@@ -2429,9 +2440,57 @@ for mm in range(0,Nm):
 for me in range(0,Ne):    
     newrowoffset = msf.ExcelExportAdd_tAB(Sheet,WasteMgtLosses_To_Landfill[:,me,:,:],newrowoffset,len(ColLabels),'Waste mgt and remelting losses, ' + IndexTable.Classification[IndexTable.index.get_loc('Element')].Items[me],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 
+# Post calibration 2015 parameter values
+Calib_Result_workbook = xlwt.Workbook(encoding = 'ascii') # Export file
+if 'pav' in SectorList:
+    pav_Sheet = Calib_Result_workbook.add_sheet('passenger vehicles')
+    pav_Sheet.write(0,1,label = '2015 post calibration values, by model region', style = mystyle)
+    pav_Sheet.write(1,1,label = 'region', style = mystyle)
+    m=2
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+        pav_Sheet.write(m,1,label = Rname, style = mystyle)
+        m+=1
+    # pC stock values
+    pav_Sheet.write(1,2,label = '2015 per capita stock values, total (all segments and drive technologies), by model region. Unit: 1 (veh. per person).', style = mystyle)
+    m=2
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+        pav_Sheet.write(m,2,label = TotalStockCurves_UsePhase_p_pC[0,m-2])
+        m+=1
+    # passenger-km
+    pav_Sheet.write(1,3,label = '2015 annual passenger kilometrage, by model region. Unit: km/yr.', style = mystyle)
+    m=2
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+        pav_Sheet.write(m,3,label = Total_Service_pav_tr_pC[0,m-2])
+        m+=1
+    # vehicle km
+    pav_Sheet.write(1,4,label = '2015 annual vehicle kilometrage, by model region. Unit: km/yr. Value for SSP1.', style = mystyle)
+    m=2
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+        pav_Sheet.write(m,4,label = RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Driving,m-2,0,1])
+        m+=1
+    # vehicle occupancy rate
+    pav_Sheet.write(1,5,label = '2015 average vehicle occupancy rate, across all segments and drive technologies, by model region. Unit: km/yr. Value for SSP1.', style = mystyle)
+    m=2
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+        pav_Sheet.write(m,5,label = ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,m-2,0,1])
+        m+=1
+                
+if 'reb' in SectorList:
+    reb_Sheet = Calib_Result_workbook.add_sheet('residential buildings')
+    reb_Sheet.write(0,1,label = '2015 post calibration values, by model region', style = mystyle)
+    reb_Sheet.write(1,1,label = 'region', style = mystyle)
+    m=2
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+        reb_Sheet.write(m,1,label = Rname, style = mystyle)
+        m+=1
+    # pC stock values
+    reb_Sheet.write(1,2,label = '2015 per capita stock values, total (all building types and energy standars), by model region. Unit: m2 per person.', style = mystyle)
+    m=2
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+        reb_Sheet.write(m,2,label = TotalStockCurves_UsePhase_B_pC[0,m-2])
+        m+=1
 
-
-
+# PLOT
 MyColorCycle = pylab.cm.Paired(np.arange(0,1,0.2))
 #linewidth = [1.2,2.4,1.2,1.2,1.2]
 linewidth  = [1.2,2,1.2]
@@ -2698,9 +2757,9 @@ Mylog.info('### 5.2 - Export to Excel')
 Result_workbook.save(os.path.join(ProjectSpecs_Path_Result,'ODYM_RECC_ModelResults_'+ ScriptConfig['Current_UUID'] + '.xls'))
 
 # Export table data
-Result_workbook = xlwt.Workbook(encoding = 'ascii') # Export element stock by region
+Result_workbook_GHG = xlwt.Workbook(encoding = 'ascii') # Export element stock by region
 
-Sheet = Result_workbook.add_sheet('Cover')
+Sheet = Result_workbook_GHG.add_sheet('Cover')
 Sheet.write(2,1,label = 'ScriptConfig', style = mystyle)
 m = 3
 for x in sorted(ScriptConfig.keys()):
@@ -2714,9 +2773,10 @@ for S in range(0,NS):
         MyLabels.append(RECC_System.IndexTable.set_index('IndexLetter').loc['S'].Classification.Items[S] + ', ' + RECC_System.IndexTable.set_index('IndexLetter').loc['R'].Classification.Items[R])
     
 ResultArray = GWP_System_3579di.reshape(Nt,NS * NR)    
-msf.ExcelSheetFill(Result_workbook, 'TotalGHGFootprint', ResultArray, topcornerlabel = 'System-wide GHG emissions, Mt/yr', rowlabels = RECC_System.IndexTable.set_index('IndexLetter').loc['t'].Classification.Items, collabels = MyLabels, Style = mystyle, rowselect = None, colselect = None)
+msf.ExcelSheetFill(Result_workbook_GHG, 'TotalGHGFootprint', ResultArray, topcornerlabel = 'System-wide GHG emissions, Mt/yr', rowlabels = RECC_System.IndexTable.set_index('IndexLetter').loc['t'].Classification.Items, collabels = MyLabels, Style = mystyle, rowselect = None, colselect = None)
 
-Result_workbook.save(os.path.join(ProjectSpecs_Path_Result,'SysVar_TotalGHGFootprint.xls'))
+Result_workbook_GHG.save(os.path.join(ProjectSpecs_Path_Result,'SysVar_TotalGHGFootprint.xls'))
+Calib_Result_workbook.save(os.path.join(ProjectSpecs_Path_Result,'CalibResults.xls'))
 ## 5.3) Export as .mat file
 #Mylog.info('### 5.4 - Export to Matlab')
 #Mylog.info('Saving stock data to Matlab.')
