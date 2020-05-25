@@ -7,7 +7,7 @@ Created on Fri Jun 14 05:18:48 2019
 
 """
 
-File RECC_ScenarioEvaluate_V2_3.py
+File RECC_ScenarioEvaluate_V2_4.py
 
 Script that runs the sensitivity and scnenario comparison scripts for different settings.
 
@@ -26,7 +26,7 @@ import ODYM_RECC_Sensitivity_PassVehicles_V2_3
 import ODYM_RECC_Sensitivity_ResBuildings_V2_3
 import ODYM_RECC_v2_3_Table_Extract
 import ODYM_RECC_Cascade_PAV_REB_NRB_V2_3
-import ODYM_RECC_Cascade_Efficiency_Sufficiency_V2_3
+#import ODYM_RECC_Cascade_Efficiency_Sufficiency_V2_3
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
 ScenarioSetting = 'Evaluate_RECC_Cascade'
@@ -34,14 +34,14 @@ ScenarioSetting = 'Evaluate_RECC_Cascade'
 #ScenarioSetting = 'Evaluate_RECC_Sensitivity'
 
 # open scenario sheet
-ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_3.xlsx'))
+ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'))
 ModelEvalListSheet = ModelConfigListFile.sheet_by_name(ScenarioSetting)
 
 # open result summary file
-mywb  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'RECC_Germany_Results_Template.xlsx')) # for total emissions
-mywb2 = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'RECC_Germany_Results_Template.xlsx')) # for material-related emissions
-mywb3 = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'RECC_Germany_Results_Template.xlsx')) # for material-related emissions with recycling credit
-mywb4 = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'RECC_Germany_Results_Tables_Template.xlsx')) # for emissions to be reported in Table 2.
+mywb  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_Template.xlsx')) # for total emissions
+mywb2 = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_Template.xlsx')) # for material-related emissions
+mywb3 = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_Template.xlsx')) # for material-related emissions with recycling credit
+mywb4 = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_Tables_Template.xlsx')) # for emissions to be reported in Table 2.
 
 #Read control lines and execute main model script
 Row  = 1
@@ -166,15 +166,15 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
         Table2_Annual[7,1]   = AnnEmsV2050[1,1,-1].copy()
         Table2_CumEms[0:5,1] = CumEmsV[1,1,0:-1].copy()                    
         Table2_CumEms[7,1]   = CumEmsV[1,1,-1].copy()        
-        MatStocksTab1[3,:]    = MatStocks[4,:,0,1,0].copy()
-        MatStocksTab1[4,:]    = MatStocks[34,:,0,1,0].copy()
-        MatStocksTab1[5,:]    = MatStocks[34,:,0,1,-1].copy()            
-        MatStocksTab2[3,:]    = MatStocks[4,:,1,1,0].copy()
-        MatStocksTab2[4,:]    = MatStocks[34,:,1,1,0].copy()
-        MatStocksTab2[5,:]    = MatStocks[34,:,1,1,-1].copy()            
-        MatStocksTab3[3,:]    = MatStocks[4,:,2,1,0].copy()
-        MatStocksTab3[4,:]    = MatStocks[34,:,2,1,0].copy()
-        MatStocksTab3[5,:]    = MatStocks[34,:,2,1,-1].copy()            
+        MatStocksTab1[3,:]   = MatStocks[4,:,0,1,0].copy()
+        MatStocksTab1[4,:]   = MatStocks[34,:,0,1,0].copy()
+        MatStocksTab1[5,:]   = MatStocks[34,:,0,1,-1].copy()            
+        MatStocksTab2[3,:]   = MatStocks[4,:,1,1,0].copy()
+        MatStocksTab2[4,:]   = MatStocks[34,:,1,1,0].copy()
+        MatStocksTab2[5,:]   = MatStocks[34,:,1,1,-1].copy()            
+        MatStocksTab3[3,:]   = MatStocks[4,:,2,1,0].copy()
+        MatStocksTab3[4,:]   = MatStocks[34,:,2,1,0].copy()
+        MatStocksTab3[5,:]   = MatStocks[34,:,2,1,-1].copy()            
 
     if Setting == 'Cascade_nrb':
         for m in range(0,int(NoofCascadeSteps_reb)):
@@ -379,7 +379,7 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
         
                          
 # run the efficieny_sufficieny plots (Fig. 6)
-ODYM_RECC_Cascade_Efficiency_Sufficiency_V2_3.main(RegionalScope,ThreeSectoList_Export,SingleSectList)      
+#ODYM_RECC_Cascade_Efficiency_Sufficiency_V2_3.main(RegionalScope,ThreeSectoList_Export,SingleSectList)      
 
 # store table 2:
 WFsheet = mywb4['Table_2']
@@ -395,10 +395,10 @@ for u in range(0,9):
         WFsheet.cell(row = u+14, column = v+6).value  = MatStocksTab2[u,v]     
         WFsheet.cell(row = u+25, column = v+6).value  = MatStocksTab3[u,v]     
     
-mywb.save(os.path.join(RECC_Paths.results_path,'RECC_Germany_Results_SystemGHG_06_January_2020.xlsx'))
-mywb2.save(os.path.join(RECC_Paths.results_path,'RECC_Germany_Results_MaterialGHG_06_January_2020.xlsx'))    
-mywb3.save(os.path.join(RECC_Paths.results_path,'RECC_Germany_Results_MaterialGHG_inclRecyclingCredit_06_January_2020.xlsx'))        
-mywb4.save(os.path.join(RECC_Paths.results_path,'RECC_Germany_Results_Tables.xlsx'))      
+mywb.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_SystemGHG_V2_4.xlsx'))
+mywb2.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_MaterialGHG_V2_4.xlsx'))    
+mywb3.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_MaterialGHG_inclRecyclingCredit_V2_4.xlsx'))        
+mywb4.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_Tables_V2_4.xlsx'))      
     
 #
 #
