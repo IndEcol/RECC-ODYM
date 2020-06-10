@@ -1676,16 +1676,19 @@ for mS in range(0,NS):
         
         Mylog.info('Translate total flows into individual materials and elements, for 2015 and historic age-cohorts.')
         if 'pav' in SectorList:
-            # 1) Inflow, outflow, and stock first year
-            RECC_System.FlowDict['F_6_7'].Values[0,:,Sector_pav_rge,:,:]   = \
-            np.einsum('prme,pr->prme',Par_3_MC_Stock_ByElement_Nr[SwitchTime-1,:,Sector_pav_rge,:,:],Inflow_Detail_UsePhase_p[0,:,:])/1000 # all elements, Indices='t,r,p,m,e'  
-            RECC_System.FlowDict['F_7_8'].Values[0,0:SwitchTime,:,Sector_pav_rge,:,:] = \
-            np.einsum('crpme,cpr->pcrme',Par_3_MC_Stock_ByElement_Nr[0:SwitchTime,:,Sector_pav_rge,:,:],Outflow_Detail_UsePhase_p[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,r,p,m,e'
-            RECC_System.StockDict['S_7'].Values[0,0:SwitchTime,:,Sector_pav_rge,:,:] = \
-            np.einsum('crpme,cpr->pcrme',Par_3_MC_Stock_ByElement_Nr[0:SwitchTime,:,Sector_pav_rge,:,:],Stock_Detail_UsePhase_p[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,r,p,m,e'
-            # 2) Inflow, future years, all elements only
+            # convert product stocks and flows to material stocks and flows, only for chemical element position 'all':
+            # Stock elemental composition, historic for each element and for future years: 'all' elements only
+            RECC_System.StockDict['S_7'].Values[:,:,:,Sector_pav_rge,:,:] = \
+            np.einsum('tcrpme,tcpr->tcrpme',Par_3_MC_Stock_ByElement_Nr[:,:,:,Sector_pav_rge,:,:],Stock_Detail_UsePhase_p)/1000   # Indices='t,c,r,p,m,e'
+            # Outflow, 'all' elements only:
+            RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_pav_rge,:,0] = \
+            np.einsum('pcmrt,tcpr->ptcrm',Par_RECC_MC_Nr[:,:,Sector_pav_rge,:,mS,:],Outflow_Detail_UsePhase_p)/1000 # all elements, Indices='t,c,r,p,m'
+            # Inflow of renovation material as stock multiplied with change in material composition:
+            F_6_7_ren[1::,:,:,Sector_pav_rge,:,0] = np.einsum('ptcrm,cmpr->ptcrm',RECC_System.StockDict['S_7'].Values[1::,:,:,Sector_pav_rge,:,0],RECC_System.ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[:,:,:,:,mS])
+            # Inflow as mass balance, to account for renovation material inflows to other age-cohorts than the current one (t=c).
+            # Add also renovation inflow:
             RECC_System.FlowDict['F_6_7'].Values[1::,:,Sector_pav_rge,:,0]   = \
-            np.einsum('ptrm,tpr->ptrm',Par_3_MC_Stock_ByElement_Nr[SwitchTime::,:,Sector_pav_rge,:,0],Inflow_Detail_UsePhase_p[1::,:,:])/1000 # all elements, Indices='t,r,p,m'  
+            np.einsum('ptcrm->ptrm',np.diff(RECC_System.StockDict['S_7'].Values[:,:,:,Sector_pav_rge,:,0],1,axis=1)) + np.einsum('ptcrm->ptrm',RECC_System.FlowDict['F_7_8'].Values[1::,:,:,Sector_pav_rge,:,0])
         
         if 'reb' in SectorList:        
             # convert product stocks and flows to material stocks and flows, only for chemical element position 'all':
@@ -1761,13 +1764,13 @@ for mS in range(0,NS):
             # ObsStockFormation = ObsStockFormationFactor(t,g,r) * Outflow_Detail_UsePhase(t,c,g,r), currently not implemented. 
             if 'pav' in SectorList:
                 RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_pav_rge,:,:] = \
-                np.einsum('crpme,cpr->pcrme',Par_3_MC_Stock_ByElement_Nr[0:CohortOffset,:,Sector_pav_rge,:,:],Outflow_Detail_UsePhase_p[t,0:CohortOffset,:,:])/1000 # All elements.
+                np.einsum('pcrme,cpr->pcrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset,:,Sector_pav_rge,:,:],Outflow_Detail_UsePhase_p[t,0:CohortOffset,:,:])/1000 # All elements.
             if 'reb' in SectorList:
                 RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_reb_rge,:,:] = \
                 np.einsum('Bcrme,cBr->Bcrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset,:,Sector_reb_rge,:,:],Outflow_Detail_UsePhase_B[t,0:CohortOffset,:,:])/1000 # All elements.
             if 'nrb' in SectorList:
                 RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_nrb_rge,:,:] = \
-                np.einsum('crNme,cNr->Ncrme',Par_3_MC_Stock_ByElement_Nr[0:CohortOffset,:,Sector_nrb_rge,:,:],Outflow_Detail_UsePhase_N[t,0:CohortOffset,:,:])/1000 # All elements.
+                np.einsum('Ncrme,cNr->Ncrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset,:,Sector_nrb_rge,:,:],Outflow_Detail_UsePhase_N[t,0:CohortOffset,:,:])/1000 # All elements.
 
             # 1_Nl_No)
             RECC_System.FlowDict['F_7_8_Nl'].Values[t,0:CohortOffset,:,Sector_ind_rge_reg,:,:] = \
@@ -1979,7 +1982,7 @@ for mS in range(0,NS):
             # 12) Calculate element composition of final consumption and latest age-cohort in in-use stock
             if 'pav' in SectorList:
                 RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_pav_rge,:,:]   = \
-                np.einsum('prme,pr->prme',Par_3_MC_Stock_ByElement_Nr[CohortOffset,:,Sector_pav_rge,:,:],Inflow_Detail_UsePhase_p[t,:,:])/1000 # all elements, Indices='t,r,p,m,e'
+                np.einsum('prme,pr->prme',Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_pav_rge,:,:],Inflow_Detail_UsePhase_p[t,:,:])/1000 # all elements, Indices='t,r,p,m,e'
             if 'reb' in SectorList:
                 # Determine element breakdown of inflow and renovation material
                 RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_reb_rge,:,:]   = \
@@ -1998,10 +2001,10 @@ for mS in range(0,NS):
                 # Update stock: break down material into elements:                
                 RECC_System.StockDict['S_7'].Values[t,0:CohortOffset +1,:,Sector_reb_rge,:,:] = \
                 np.einsum('Bcrme,cBr->Bcrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset +1,:,Sector_reb_rge,:,:],Stock_Detail_UsePhase_B[t,0:CohortOffset +1,:,:])/1000
-                
             if 'nrb' in SectorList:
                 RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_nrb_rge,:,:]   = \
-                np.einsum('Nrme,Nr->Nrme',Par_3_MC_Stock_ByElement_Nr[CohortOffset,:,Sector_nrb_rge,:,:],Inflow_Detail_UsePhase_N[t,:,:])/1000 # all elements, Indices='t,r,N,m,e'
+                np.einsum('Nrme,Nr->Nrme',Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_nrb_rge,:,:],Inflow_Detail_UsePhase_N[t,:,:])/1000 # all elements, Indices='t,r,N,m,e'
+                
             RECC_System.FlowDict['F_6_7_Nl'].Values[t,:,:,:,:]   = \
             np.einsum('lIme,Il->lIme',Par_3_MC_Stock_ByElement_Nl[CohortOffset,:,:,:,:],Inflow_Detail_UsePhase_I[t,:,:])/1000 # all elements, Indices='t,l,I,m,e'                
             RECC_System.FlowDict['F_6_7_No'].Values[t,:,Sector_app_rge_reg,:,:]   = \
@@ -2009,14 +2012,12 @@ for mS in range(0,NS):
             if 'nrbg' in SectorList: # results for global region o are on position 0 of r index.
                 RECC_System.FlowDict['F_6_7_No'].Values[t,:,Sector_nrbg_rge_reg,:,:]   = \
                 np.einsum('Nome,No->Nome',Par_3_MC_Stock_ByElement_No[CohortOffset,:,Sector_nrbg_rge_reg,:,:],Inflow_Detail_UsePhase_Ng[t,:,:])/1000 # all elements, Indices='t,o,N,m,e'                
-
             if 'pav' in SectorList:
                 RECC_System.StockDict['S_7'].Values[t,0:CohortOffset +1,:,Sector_pav_rge,:,:] = \
-                np.einsum('crpme,cpr->pcrme',Par_3_MC_Stock_ByElement_Nr[0:CohortOffset +1,:,Sector_pav_rge,:,:],Stock_Detail_UsePhase_p[t,0:CohortOffset +1,:,:])/1000 # All elements.
-
+                np.einsum('pcrme,cpr->pcrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset +1,:,Sector_pav_rge,:,:],Stock_Detail_UsePhase_p[t,0:CohortOffset +1,:,:])/1000 # All elements.
             if 'nrb' in SectorList:
                 RECC_System.StockDict['S_7'].Values[t,0:CohortOffset +1,:,Sector_nrb_rge,:,:] = \
-                np.einsum('crNme,cNr->Ncrme',Par_3_MC_Stock_ByElement_Nr[0:CohortOffset +1,:,Sector_nrb_rge,:,:],Stock_Detail_UsePhase_N[t,0:CohortOffset +1,:,:])/1000 # All elements.
+                np.einsum('Ncrme,cNr->Ncrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset +1,:,Sector_nrb_rge,:,:],Stock_Detail_UsePhase_N[t,0:CohortOffset +1,:,:])/1000 # All elements.
             RECC_System.StockDict['S_7_Nl'].Values[t,0:CohortOffset +1,:,Sector_ind_rge_reg,:,:] = \
             np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:CohortOffset +1,:,Sector_ind_rge_reg,:,:],Stock_Detail_UsePhase_I[t,0:CohortOffset +1,:,:])/1000 # All elements. In Mt
             RECC_System.StockDict['S_7_No'].Values[t,0:CohortOffset +1,:,Sector_app_rge_reg,:,:] = \
