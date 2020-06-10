@@ -360,6 +360,9 @@ Carbon_loc    = IndexTable.Classification[IndexTable.index.get_loc('Element')].I
 ClimPolScen   = IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items.index('Baseline(unmitigated)')
 CO2_loc       = IndexTable.Classification[IndexTable.index.get_loc('Extensions')].Items.index('CO2 emisisons per main output')
 GWP100_loc    = IndexTable.Classification[IndexTable.index.get_loc('Environmental impact/pressure category')].Items.index('GWP100')
+Heating_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Heating')
+Cooling_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Cooling')
+DomstHW_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('DHW')
     
 # Determine location of the indices of individual sectors in the region-specific list and in the list of all goods
 # indices of sectors with same regional scope in complete goods list
@@ -400,10 +403,12 @@ if 'pav' in SectorList:
 # 1b) Material composition of res buildings, will only use historic age-cohorts.
 # Values are given every 5 years, we need all values in between.
 if 'reb' in SectorList:
-    index     = PL_Names.index('3_MC_RECC_Buildings')
-    index_Ren = PL_Names.index('3_MC_RECC_Buildings_Renovation')
+    index       = PL_Names.index('3_MC_RECC_Buildings')
+    index_Ren_A = PL_Names.index('3_MC_RECC_Buildings_Renovation_Absolute')
+    index_Ren_R = PL_Names.index('3_MC_RECC_Buildings_Renovation_Relative')
     MC_Bld_New     = np.zeros(ParameterDict[PL_Names[index]].Values.shape)
-    MC_Bld_New_Ren = np.zeros(ParameterDict[PL_Names[index_Ren]].Values.shape)
+    MC_Bld_New_Ren_A = np.zeros(ParameterDict[PL_Names[index_Ren_A]].Values.shape)
+    MC_Bld_New_Ren_R = np.zeros(ParameterDict[PL_Names[index_Ren_R]].Values.shape)
     Idx_Time = [1900,1910,1920,1930,1940,1950,1960,1970,1980,1985,1990,1995,2000,2005,2010,2015,2020,2025,2030,2035,2040,2045,2050,2055,2060]
     Idx_Time_Rel = [i -1900 for i in Idx_Time]
     tnew = np.linspace(0, 160, num=161, endpoint=True)
@@ -411,11 +416,14 @@ if 'reb' in SectorList:
         for o in range(0,NB):
             for p in range(0,Nr):
                 f2 = interp1d(Idx_Time_Rel, ParameterDict[PL_Names[index]].Values[Idx_Time_Rel,n,o,p], kind='linear')
-                MC_Bld_New[:,n,o,p]     = f2(tnew).copy()
-                f3 = interp1d(Idx_Time_Rel, ParameterDict[PL_Names[index_Ren]].Values[Idx_Time_Rel,n,o,p], kind='linear')
-                MC_Bld_New_Ren[:,n,o,p] = f3(tnew).copy()
-    ParameterDict[PL_Names[index]].Values     = MC_Bld_New.copy()
-    ParameterDict[PL_Names[index_Ren]].Values = MC_Bld_New_Ren.copy()
+                MC_Bld_New[:,n,o,p]       = f2(tnew).copy()
+                fA = interp1d(Idx_Time_Rel, ParameterDict[PL_Names[index_Ren_A]].Values[Idx_Time_Rel,n,o,p], kind='linear')
+                MC_Bld_New_Ren_A[:,n,o,p] = fA(tnew).copy()
+                fR = interp1d(Idx_Time_Rel, ParameterDict[PL_Names[index_Ren_R]].Values[Idx_Time_Rel,n,o,p], kind='linear')
+                MC_Bld_New_Ren_R[:,n,o,p] = fR(tnew).copy()
+    ParameterDict[PL_Names[index]].Values       = MC_Bld_New.copy()
+    ParameterDict[PL_Names[index_Ren_A]].Values = MC_Bld_New_Ren_A.copy()
+    ParameterDict[PL_Names[index_Ren_R]].Values = MC_Bld_New_Ren_R.copy()
 
 # 1c) Material composition of nonres buildings, will only use historic age-cohorts.
 # Values are given every 5 years, we need all values in between.
@@ -497,6 +505,11 @@ if 'reb' in SectorList:
     ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,Cement_loc,:,:,:]  = ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,Cement_loc,:,:,:] + ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc] * ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,11,:,:,:].copy()
     ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,12,:,:,:] = (1 - ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]) * ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,11,:,:,:].copy()
     ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,11,:,:,:] = 0
+    
+    ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values[:,Cement_loc,:,:]  = ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values[:,Cement_loc,:,:] + ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc] * ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values[:,11,:,:].copy()
+    ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values[:,12,:,:] = (1 - ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]) * ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values[:,11,:,:].copy()
+    ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values[:,11,:,:] = 0
+    
     ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[115::,:,:,:,:,:] = \
     np.einsum('BrcS,BnrVcS->cBVnrS',ParameterDict['3_SHA_LightWeighting_Buildings'].Values,     np.einsum('urcS,BrVn->BnrVcS',ParameterDict['3_SHA_DownSizing_Buildings'].Values,    ParameterDict['3_EI_BuildingArchetypes'].Values[[87,88,89,90,91,92,93,94,95,96,97,98,99],:,:,:])) +\
     np.einsum('BrcS,BnrVcS->cBVnrS',ParameterDict['3_SHA_LightWeighting_Buildings'].Values,     np.einsum('urcS,BrVn->BnrVcS',1 - ParameterDict['3_SHA_DownSizing_Buildings'].Values,ParameterDict['3_EI_BuildingArchetypes'].Values[[61,62,63,64,65,66,67,68,69,70,71,72,73],:,:,:])) +\
@@ -655,16 +668,32 @@ ParameterDict['3_IO_Buildings_UsePhase'] = msc.Parameter(Name='3_IO_Buildings_Us
                                             UUID=None, P_Res=None, MetaData=None,
                                             Indices='tcBVrS', Values=np.zeros((Nt,Nc,NB,NV,Nr,NS)), Uncert=None,
                                             Unit='1')
-ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,:] = np.einsum('cBVrS,t->tcBVrS',ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:SwitchTime,:,:,:,:],np.ones(Nt))
-ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,:,:,:] = np.einsum('rtS,cBV->tcBVrS',ParameterDict['3_IO_Buildings_UsePhase_Future'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB,NV)))
+# Historic age-cohorts:
+# ParameterDict['3_IO_Buildings_UsePhase_Historic'] is a combination of climate and socioeconomic 3_IO determinants.
+# We single out the former and keep them constant and let the socioeconomic factors change according to the '3_IO_Buildings_UsePhase_Future_...' parameters.
+Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:Nc-Nt+1,:,Heating_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,0,:],np.ones((Nc-Nt+1,NB))) * 100
+Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating[np.isnan(Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating)] = 0
+ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,Heating_loc,:,:]  = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating,np.ones(Nt))
+Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW     = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:Nc-Nt+1,:,DomstHW_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,0,:],np.ones((Nc-Nt+1,NB))) * 100
+Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW[np.isnan(Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW)] = 0
+ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,DomstHW_loc,:,:]  = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW,np.ones(Nt))
+Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:Nc-Nt+1,:,Cooling_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Cooling'].Values[Sector_reb_loc,:,0,:],np.ones((Nc-Nt+1,NB))) * 100
+Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling[np.isnan(Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling)] = 0
+ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,Cooling_loc,:,:]  = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling,np.ones(Nt))
+# Future age-cohorts:
+ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,Heating_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
+ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,DomstHW_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
+ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,Cooling_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Cooling'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
 
 # 16) Compile parameter for building energy conversion efficiency:
 ParameterDict['4_TC_ResidentialEnergyEfficiency'] = msc.Parameter(Name='4_TC_ResidentialEnergyEfficiency', ID='4_TC_ResidentialEnergyEfficiency',
                                             UUID=None, P_Res=None, MetaData=None,
                                             Indices='VRrntS', Values=np.zeros((NV,NR,Nr,Nn,Nt,NS)), Uncert=None,
                                             Unit='1')
-ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values                         = np.einsum('VRrn,tS->VRrntS',ParameterDict['4_TC_ResidentialEnergyEfficiency_Default'].Values[:,:,:,:,0],np.ones((Nt,NS)))
-ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[:,:,:,Electric_loc,:,:] = ParameterDict['4_TC_ResidentialEnergyEfficiency_Scenario'].Values[:,:,:,Electric_loc,:,:] / 100
+ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values                                   = np.einsum('VRrn,tS->VRrntS',ParameterDict['4_TC_ResidentialEnergyEfficiency_Default'].Values[:,:,:,:,0],np.ones((Nt,NS)))
+ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[Heating_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_ResidentialEnergyEfficiency_Scenario_Heating'].Values[Heating_loc,:,:,Electric_loc,:,:] / 100
+ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[Cooling_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_ResidentialEnergyEfficiency_Scenario_Cooling'].Values[Cooling_loc,:,:,Electric_loc,:,:] / 100
+ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[DomstHW_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_ResidentialEnergyEfficiency_Scenario_Heating'].Values[DomstHW_loc,:,:,Electric_loc,:,:] / 100
 
 # 17) Derive energy supply multipliers for buildings for future age-cohorts
 # From energy carrier split and conversion efficiency, the multipliers converting 1 MJ of final building energy demand into different energy carriers are determined.
@@ -679,7 +708,12 @@ Divisor = np.einsum('VRrtS,n->VRrntS',SHA_EnergySupply_Buildings_Sum_n,np.ones(N
 ParameterDict['3_SHA_EnergySupply_Buildings'].Values = np.divide(ParameterDict['3_SHA_EnergySupply_Buildings'].Values, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)
 ParameterDict['3_SHA_EnergySupply_Buildings'].Values = np.divide(ParameterDict['3_SHA_EnergySupply_Buildings'].Values, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)
 
-# 18) Extrapolate appliances beyond 2050:
+# 18) Make sure that all share parameters are non-negative and add up to 100%:
+ParameterDict['3_SHA_TypeSplit_Buildings'].Values[ParameterDict['3_SHA_TypeSplit_Buildings'].Values < 0] = 0
+ParameterDict['3_SHA_TypeSplit_Buildings'].Values = ParameterDict['3_SHA_TypeSplit_Buildings'].Values / np.einsum('rtS,B->BrtS',ParameterDict['3_SHA_TypeSplit_Buildings'].Values.sum(axis=0),np.ones(NB))
+ParameterDict['3_SHA_TypeSplit_Buildings'].Values[np.isnan(ParameterDict['3_SHA_TypeSplit_Buildings'].Values)] = 0
+
+# 19) Extrapolate appliances beyond 2050:
 for noS in range(0,NS):
     for noR in range(0,NR):
         for noa in range(0,Na):
@@ -690,7 +724,7 @@ for noS in range(0,NS):
             for noT in range(151,161):
                 ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,noT,noS,noR,noa] = ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,150,noS,noR,noa] * np.power(1+growthrate,noT-150)
     
-# 19) GWP_bio factor interpolation
+# 20) GWP_bio factor interpolation
 Idx_Time = [1900,1910,1920,1930,1940,1950,1960,1970,1980,1990,2000]
 Idx_Time_Rel = [i -1900 for i in Idx_Time]
 tnew = np.linspace(0, 100, num=101, endpoint=True)
@@ -699,7 +733,7 @@ ParameterDict['6_MIP_GWP_Bio'].Values = np.zeros((300))
 ParameterDict['6_MIP_GWP_Bio'].Values[0:101] = f2(tnew).copy()    
 ParameterDict['6_MIP_GWP_Bio'].Values[101::] = -1
     
-# 20) calculate Stocks on 1. Jan 2016:    
+# 21) calculate Stocks on 1. Jan 2016:    
 pC_AgeCohortHist           = np.zeros((NG,Nr))
 pC_FutureStock             = np.zeros((NS,NG,Nr))
 # a) from historic data:
@@ -1296,7 +1330,7 @@ for mS in range(0,NS):
                 RenPot_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RenPot) # Unit: 1, Defined as share of stock crB that is renovated by year t
                 RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cBVnr,trcB->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NB))-RenPot_t)) # cBVnrt
                 # Add renovation material intensity to building material intensity:
-                MC_Ren = RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS]*RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation'].Values
+                MC_Ren = RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS]*RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Relative'].Values + RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values
                 RECC_System.ParameterDict['3_MC_RECC_Buildings_t'].Values[:,:,:,0:SwitchTime,:,mS] += np.einsum('cmBr,trcB->mBrct',MC_Ren[0:SwitchTime,:,:,:],RenPot_t)
             else:
                 RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cBVnr,trcB->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:SwitchTime,:,:,:,:,mS],np.ones((Nt,Nr,Nc-Nt+1,NB))) # cBVnrt
@@ -1603,7 +1637,7 @@ for mS in range(0,NS):
         # Manufacturing yield and other improvements
         # Reduce cement content by up to percentage indicate in 3_SHA_CementContentReduction parameter:
         if ScriptConfig['Include_REStrategy_UsingLessMaterialByDesign'] == 'True':
-            Par_RECC_MC_Nr[115::,Cement_loc,:,:,mS,:] = Par_RECC_MC_Nr[115::,Cement_loc,:,:,mS,:] * (1 - RECC_System.ParameterDict['3_SHA_CementContentReduction'].Values[Cement_loc] * np.einsum('ot,g->tgo',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[mR,:,:,mS],np.ones((Ng)))).copy()
+            Par_RECC_MC_Nr[115::,Cement_loc,:,:,mS,:] = Par_RECC_MC_Nr[115::,Cement_loc,:,:,mS,:] * (1 - RECC_System.ParameterDict['3_SHA_CementContentReduction'].Values[Cement_loc] * np.einsum('oc,gt->cgot',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[mR,:,:,mS],np.ones((Ng,Nt)))).copy()
 
         Par_FabYieldLoss = np.einsum('mwggto->mwgto',RECC_System.ParameterDict['4_PY_Manufacturing'].Values) # take diagonal of product = manufacturing process
         

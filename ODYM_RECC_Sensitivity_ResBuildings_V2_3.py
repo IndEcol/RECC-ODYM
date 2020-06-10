@@ -71,7 +71,7 @@ def main(RegionalScope,ResBldList,TitleIn):
         # export material-related emissions
         Resultsheet1 = Resultfile.sheet_by_name('Cover')
         UUID         = Resultsheet1.cell_value(3,2)
-        Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderlistB_Sens[r],'ODYM_RECC_ModelResults_' + UUID + '.xls'))
+        Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderlistB_Sens[r],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
         Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
         # Find the index for the recycling credit and others:
         rci = 1

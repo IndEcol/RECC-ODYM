@@ -174,7 +174,7 @@ def main(RegionalScope,PassVehList):
         Resultsheet  = Resultfile.sheet_by_name('TotalGHGFootprint')
         Resultsheet1 = Resultfile.sheet_by_name('Cover')
         UUID         = Resultsheet1.cell_value(3,2)
-        Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderlistV[r],'ODYM_RECC_ModelResults_' + UUID + '.xls'))
+        Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderlistV[r],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
         Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
         # Find the index for the recycling credit and others:
         rci = 1
@@ -369,7 +369,7 @@ def main(RegionalScope,PassVehList):
         Resultfile1  = xlrd.open_workbook(Path)
         Resultsheet1 = Resultfile1.sheet_by_name('Cover')
         UUID         = Resultsheet1.cell_value(3,2)
-        Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderlistV[r],'ODYM_RECC_ModelResults_' + UUID + '.xls'))
+        Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderlistV[r],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
         Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR):
