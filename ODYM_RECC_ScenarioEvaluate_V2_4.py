@@ -26,12 +26,12 @@ import ODYM_RECC_Sensitivity_PassVehicles_V2_3
 import ODYM_RECC_Sensitivity_ResBuildings_V2_3
 import ODYM_RECC_v2_3_Table_Extract
 import ODYM_RECC_Cascade_PAV_REB_NRB_V2_3
-#import ODYM_RECC_Cascade_Efficiency_Sufficiency_V2_3
+import ODYM_RECC_Cascade_Efficiency_Sufficiency_V2_3
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
 ScenarioSetting = 'Evaluate_RECC_Cascade'
 #ScenarioSetting = 'Evaluate_GroupTestRun'
-#ScenarioSetting = 'Evaluate_RECC_Sensitivity'
+#ScenarioSetting = 'Germany_detail_evaluate'
 
 # open scenario sheet
 ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'))
@@ -67,6 +67,7 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
         PassVehList    = []
         ResBldsList    = []
         NonResBldsList = []
+        TwoSectoList   = []
         ThreeSectoList = []
         RegionalScope  = ModelEvalListSheet.cell_value(Row, 1)
         Setting        = ModelEvalListSheet.cell_value(Row, 2) # cascade or sensitivity
@@ -339,6 +340,22 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
                 Ssheet3.cell(row = r+91,column = c+6).value   = MatCumEmsV_SensC2060[r,c]        
                 for d in range(0,4):
                     Ssheet3.cell(row = d*3 + r + 96,column = c+6).value  = MatAvgDecadalEmsC[r,c,d]                     
+
+    if Setting == 'Cascade_pav_reb':
+        for m in range(0,int(NoofCascadeSteps_pnr)):
+            TwoSectoList.append(ModelEvalListSheet.cell_value(Row +m, 3))
+        TwoSectoList_Export = TwoSectoList
+        # run the ODYM-RECC scenario comparison  
+        GHG_TableX = ODYM_RECC_v2_3_Table_Extract.main(RegionalScope,TwoSectoList)        
+        # write results summary as Table 2 to Excel
+        Gsheet = mywb4['Table_X']
+        print(RegionalScope)
+        for r in range(0,4):
+            for c in range(0,6):
+                Gsheet.cell(row = r+4, column = c+4).value  = GHG_TableX[r,c]        
+
+        # run the cascade plots for the three sectors
+        ASummaryV, AvgDecadalEmsV, MatSummaryV, AvgDecadalMatEmsV, MatSummaryVC, AvgDecadalMatEmsVC, MatProduction_Prim, MatProduction_Sec = ODYM_RECC_Cascade_PAV_REB_NRB_V2_3.main(RegionalScope,TwoSectoList)
                     
     if Setting == 'Cascade_pav_reb_nrb':
         for m in range(0,int(NoofCascadeSteps_pnr)):
@@ -368,6 +385,8 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
         Row += NoofCascadeSteps_nrb        
     if Setting == 'Cascade_pav_reb_nrb':
         Row += NoofCascadeSteps_pnr
+    if Setting == 'Cascade_pav_reb':
+        Row += NoofCascadeSteps_pnr        
     if Setting == 'Sensitivity_pav':
         Row += NoofSensitivitySteps_pav
     if Setting == 'Sensitivity_reb':
@@ -378,7 +397,7 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
         Row += 1    
         
                          
-# run the efficieny_sufficieny plots (Fig. 6)
+# run the efficieny_sufficieny plots, uncomment only if defined.
 #ODYM_RECC_Cascade_Efficiency_Sufficiency_V2_3.main(RegionalScope,ThreeSectoList_Export,SingleSectList)      
 
 # store table 2:
@@ -395,10 +414,15 @@ for u in range(0,9):
         WFsheet.cell(row = u+14, column = v+6).value  = MatStocksTab2[u,v]     
         WFsheet.cell(row = u+25, column = v+6).value  = MatStocksTab3[u,v]     
     
-mywb.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_SystemGHG_V2_4.xlsx'))
+mywb.save(os.path.join(RECC_Paths.results_path, 'RECC_Global_Results_SystemGHG_V2_4.xlsx'))
 mywb2.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_MaterialGHG_V2_4.xlsx'))    
 mywb3.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_MaterialGHG_inclRecyclingCredit_V2_4.xlsx'))        
 mywb4.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_Tables_V2_4.xlsx'))      
+#
+#mywb.save(os.path.join(RECC_Paths.results_path, 'RECC_DE_Detail_Results_SystemGHG_V2_4.xlsx'))
+#mywb2.save(os.path.join(RECC_Paths.results_path,'RECC_DE_Detail_Results_MaterialGHG_V2_4.xlsx'))    
+#mywb3.save(os.path.join(RECC_Paths.results_path,'RECC_DE_Detail_Results_MaterialGHG_inclRecyclingCredit_V2_4.xlsx'))        
+#mywb4.save(os.path.join(RECC_Paths.results_path,'RECC_DE_Detail_Results_Tables_V2_4.xlsx'))      
     
 #
 #
