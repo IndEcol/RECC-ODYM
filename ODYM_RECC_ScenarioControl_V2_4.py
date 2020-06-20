@@ -30,17 +30,17 @@ ScenarioSetting = 'RECC_Config_list'
 # open scenario sheet
 ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'))
 ModelConfigListSheet = ModelConfigListFile.sheet_by_name(ScenarioSetting)
-
+SheetName = 'Config_Auto'
 #Read control lines and execute main model script
 ResultFolders = []
 Row = 3
 # search for script config list entry
 while True:
     try:
-        SheetName = ModelConfigListSheet.cell_value(Row, 2)
-        print(SheetName)
+        RegionalScope = ModelConfigListSheet.cell_value(Row, 2)
+        print(RegionalScope)
         Config = {}
-        for m in range(3,22):
+        for m in range(3,25):
             Config[ModelConfigListSheet.cell_value(2, m)] = ModelConfigListSheet.cell_value(Row, m)
     except:
         break
@@ -48,9 +48,14 @@ while True:
     # rewrite RECC model config
     mywb = openpyxl.load_workbook(os.path.join(RECC_Paths.recc_path,'RECC_Config_V2_4.xlsx'))
     
-    sheet = mywb.get_sheet_by_name('Config')
+    sheet = mywb.get_sheet_by_name('Cover')
     sheet['D4'] = SheetName
     sheet = mywb.get_sheet_by_name(SheetName)
+    sheet['D7']   = RegionalScope
+    sheet['G21']  = Config['RegionSelect']
+    sheet['G27']  = Config['Products']
+    sheet['G28']  = Config['Sectors']
+    sheet['G29']  = Config['Products']
     sheet['D181'] = Config['Logging_Verbosity']
     sheet['D182'] = Config['Include_REStrategy_FabYieldImprovement']
     sheet['D183'] = Config['Include_REStrategy_FabScrapDiversion']

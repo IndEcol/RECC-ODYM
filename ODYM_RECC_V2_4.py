@@ -57,7 +57,7 @@ def main():
     # Mylog.info('### 1.1 - Read main script parameters')
     ProjectSpecs_Name_ConFile = 'RECC_Config_V2_4.xlsx'
     Model_Configfile = xlrd.open_workbook(ProjectSpecs_Name_ConFile)
-    ScriptConfig = {'Model Setting': Model_Configfile.sheet_by_name('Config').cell_value(3,3)}
+    ScriptConfig = {'Model Setting': Model_Configfile.sheet_by_name('Cover').cell_value(3,3)}
     Model_Configsheet = Model_Configfile.sheet_by_name(ScriptConfig['Model Setting'])
     #Read debug modus:   
     DebugCounter = 0
@@ -82,7 +82,7 @@ def main():
         #              Name_Script, 'ODYM_RECC_Test1')
         raise AssertionError('Fatal: The name of the current script does not match to the sript name specfied in the project configuration file. Exiting the script.')
     # the model will terminate if the name of the script that is run is not identical to the script name specified in the config file.
-    Name_Scenario            = Model_Configsheet.cell_value(3,3)
+    Name_Scenario            = Model_Configsheet.cell_value(6,3) # Regional scope as torso for scenario name
     StartTime                = datetime.datetime.now()
     TimeString               = str(StartTime.year) + '_' + str(StartTime.month) + '_' + str(StartTime.day) + '__' + str(StartTime.hour) + '_' + str(StartTime.minute) + '_' + str(StartTime.second)
     #DateString               = str(StartTime.year) + '_' + str(StartTime.month) + '_' + str(StartTime.day)
@@ -210,7 +210,7 @@ def main():
     # 2.4) Read model data and parameters.
     Mylog.info('Read model data and parameters.')
     
-    ParFileName = os.path.join(RECC_Paths.data_path,'RECC_ParameterDict_' + ScriptConfig['Model Setting'] + '_V_2_4.dat')
+    ParFileName = os.path.join(RECC_Paths.data_path,'RECC_ParameterDict_' + ScriptConfig['RegionalScope'] + '_V_2_4.dat')
     try: # Load Pickle parameter dict to save processing time
         ParFileObject = open(ParFileName,'rb')  
         ParameterDict = pickle.load(ParFileObject)  
@@ -367,7 +367,6 @@ def main():
     Sector_ind_rge_reg  = np.arange(0,18,1)
     Sector_app_rge_reg  = np.arange(0,12,1)
     Sector_nrbg_rge_reg = np.arange(12,16,1)
-    
     
     OutputDict      = {}  # Dictionary with output variables for entire model run, to export checks and analyses.
     
@@ -1112,7 +1111,7 @@ def main():
                 
                 # Determine total future stock, product level. Units: Vehicles: million.
                 # Option implemented: By service curve.
-                Total_Service_pav_tr_pC                     = np.einsum('rt->tr',RECC_System.ParameterDict['1_F_ServiceFlows_Future'].Values[Sector_pav_loc,:,:,mS])
+                Total_Service_pav_tr_pC                     = np.einsum('rt->tr',RECC_System.ParameterDict['1_F_Function_Future'].Values[Sector_pav_loc,:,:,mS])
                 if ScriptConfig['Include_REStrategy_CarSharing'] == 'False': # set carsharing to zero.
                     RECC_System.ParameterDict['6_PR_CarSharingShare'].Values  = np.zeros(RECC_System.ParameterDict['6_PR_CarSharingShare'].Values.shape)
                 if ScriptConfig['Include_REStrategy_RideSharing'] == 'False': # set ride-sharing to zero.                
@@ -1317,12 +1316,13 @@ def main():
                 # Include renovation
                 RECC_System.ParameterDict['3_MC_RECC_Buildings_t'].Values[:,:,:,:,:,mS] = np.einsum('cmBr,t->mBrct',RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS],np.ones(Nt)) # mBrctS
                 if ScriptConfig['Include_Renovation_reb'] == 'True' and ScriptConfig['No_EE_Improvements'] == 'False': 
-                    RenPot   = np.einsum('rcB,rB->rcB',RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:],RECC_System.ParameterDict['3_SHA_EnergySavingsPot_Renovation_ResBuildings'].Values[:,mS,:]) # Unit: 1
-                    RenPot_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RenPot) # Unit: 1, Defined as share of stock crB that is renovated by year t
-                    RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cBVnr,trcB->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NB))-RenPot_t)) # cBVnrt
+                    RenPot_E   = np.einsum('rcB,rB->rcB',RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:],RECC_System.ParameterDict['3_SHA_EnergySavingsPot_Renovation_ResBuildings'].Values[:,mS,:]) # Unit: 1
+                    RenPot_E_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RenPot_E) # Unit: 1, Defined as share of stock crB that is renovated by year t * energy saving potential
+                    RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cBVnr,trcB->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NB))-RenPot_E_t)) # cBVnrt
                     # Add renovation material intensity to building material intensity:
+                    RenPot_M_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crB that is renovated by year t
                     MC_Ren = RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS]*RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Relative'].Values + RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values
-                    RECC_System.ParameterDict['3_MC_RECC_Buildings_t'].Values[:,:,:,0:SwitchTime,:,mS] += np.einsum('cmBr,trcB->mBrct',MC_Ren[0:SwitchTime,:,:,:],RenPot_t)
+                    RECC_System.ParameterDict['3_MC_RECC_Buildings_t'].Values[:,:,:,0:SwitchTime,:,mS] += np.einsum('cmBr,trcB->mBrct',MC_Ren[0:SwitchTime,:,:,:],RenPot_M_t)
                 else:
                     RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cBVnr,trcB->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:SwitchTime,:,:,:,:,mS],np.ones((Nt,Nr,Nc-Nt+1,NB))) # cBVnrt
                 RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[SwitchTime-1::,:,:,:,:,:]   = np.einsum('cBVnr,t->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchTime-1::,:,:,:,:,mS],np.ones(Nt)) # future age-cohorts
