@@ -347,7 +347,7 @@ def main():
     WoodFuel_loc  = IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items.index('fuel wood')
     Hydrogen_loc  = IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items.index('hydrogen')
     Carbon_loc    = IndexTable.Classification[IndexTable.index.get_loc('Element')].Items.index('C')
-    ClimPolScen   = IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items.index('Baseline(unmitigated)')
+    ClimPolScen   = IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items.index('RCP2.6')
     CO2_loc       = IndexTable.Classification[IndexTable.index.get_loc('Extensions')].Items.index('CO2 emisisons per main output')
     GWP100_loc    = IndexTable.Classification[IndexTable.index.get_loc('Environmental impact/pressure category')].Items.index('GWP100')
     Heating_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Heating')
@@ -769,6 +769,7 @@ def main():
     GWP_UsePhase_7i_OtherIndir       = np.zeros((Nt,NS,NR))
     GWP_MaterialCycle_5di_9di        = np.zeros((Nt,NS,NR))
     GWP_RecyclingCredit              = np.zeros((Nt,NS,NR))
+    GWP_ForestCO2Uptake              = np.zeros((Nt,NS,NR))
     GWP_EnergyRecoveryWasteWood      = np.zeros((Nt,NS,NR))
     GWP_ByEnergyCarrier_UsePhase_d   = np.zeros((Nt,Nr,Nn,NS,NR))
     GWP_ByEnergyCarrier_UsePhase_i   = np.zeros((Nt,Nr,Nn,NS,NR))
@@ -1010,7 +1011,7 @@ def main():
                                                      Indices = 't,e', Values=None, Uncert=None,
                                                      ID=None, UUID=None)
             
-            RECC_System.StockDict['S_1t']    = msc.Stock(Name='Forestry carbon stock, fuel wood', P_Res=1, Type=0,
+            RECC_System.StockDict['S_1t']    = msc.Stock(Name='Forestry carbon stock, timber', P_Res=1, Type=0,
                                                      Indices = 't,c,e', Values=None, Uncert=None,
                                                      ID=None, UUID=None)
             
@@ -1018,7 +1019,7 @@ def main():
                                                      Indices = 't,e', Values=None, Uncert=None,
                                                      ID=None, UUID=None)
             
-            RECC_System.StockDict['S_1f']    = msc.Stock(Name='Forestry carbon stock, timber', P_Res=1, Type=0,
+            RECC_System.StockDict['S_1f']    = msc.Stock(Name='Forestry carbon stock, fuel wood', P_Res=1, Type=0,
                                                      Indices = 't,c,e', Values=None, Uncert=None,
                                                      ID=None, UUID=None)        
             
@@ -1950,7 +1951,7 @@ def main():
                 # Supply chain of primary materials is linked to process 3 via parameter 4_PE_ProcessExtensions instead.
                 # Only carbon in wood is passed on to process 2 (wood market)
                 RECC_System.FlowDict['F_0_3'].Values[t,Wood_loc,Carbon_loc] = 0
-                RECC_System.FlowDict['F_2_3'].Values[t,Wood_loc,Carbon_loc] = RECC_System.FlowDict['F_3_4'].Values[t,Wood_loc,Carbon_loc]
+                RECC_System.FlowDict['F_2_3'].Values[t,Wood_loc,Carbon_loc] = RECC_System.FlowDict['F_3_4'].Values[t,Wood_loc,Carbon_loc] # carbon only!
                 # Further quantification of processes 1 and 2 is done below, after energy consumption flows are calculated.
                 
                 # 10) Calculate manufacturing output, at global level only
@@ -2031,10 +2032,7 @@ def main():
                                                                    + np.einsum('oOme->e',RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:]) - np.einsum('owe->e',RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:]) \
                                                                    + np.einsum('rwe->e',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:])      - np.einsum('ome->e',RECC_System.FlowDict['F_9_12'].Values[t,:,:,:])            
                 # Wood material lost in waste mgt.
-                WoodMaterialLoss_t                                 =(np.einsum('rg->',RECC_System.FlowDict['F_8_9'].Values[t,:,:,Wood_loc,0])     \
-                                                                   + np.einsum('lL->',RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,Wood_loc,0])  \
-                                                                   + np.einsum('oO->',RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,Wood_loc,0])  \
-                                                                   + np.einsum('o->',RECC_System.StockDict['S_10'].Values[t-1,t-1,:,Woodwaste_loc,0]) - np.einsum('o->',RECC_System.FlowDict['F_9_12'].Values[t,:,Wood_loc,0])  )     
+                WoodMaterialLoss_t                                 = RECC_System.FlowDict['F_9_0'].Values[t,Carbon_loc] / (RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44)
                 
                 # Energy Recovery: in TJ/yr
                 EnergyRecovery_WoodCombustion_EL[t,mS,mR]  =  1000 * RECC_System.ParameterDict['4_PE_ElectricityFromWoodCombustion'].Values[Woodwaste_loc,0,0] * WoodMaterialLoss_t
@@ -2043,12 +2041,12 @@ def main():
                 BiogenicCO2WasteCombustion[t,mS,mR]        =     RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * WoodMaterialLoss_t
                 
                 # 14) Calculate stock changes
-                RECC_System.StockDict['dS_7'].Values[t,:,:,:,:,:]  = RECC_System.StockDict['S_7'].Values[t,:,:,:,:,:] - RECC_System.StockDict['S_7'].Values[t-1,:,:,:,:,:]
+                RECC_System.StockDict['dS_7'].Values[t,:,:,:,:,:]     = RECC_System.StockDict['S_7'].Values[t,:,:,:,:,:] - RECC_System.StockDict['S_7'].Values[t-1,:,:,:,:,:]
                 RECC_System.StockDict['dS_7_Nl'].Values[t,:,:,:,:,:]  = RECC_System.StockDict['S_7_Nl'].Values[t,:,:,:,:,:] - RECC_System.StockDict['S_7_Nl'].Values[t-1,:,:,:,:,:]
                 RECC_System.StockDict['dS_7_No'].Values[t,:,:,:,:,:]  = RECC_System.StockDict['S_7_No'].Values[t,:,:,:,:,:] - RECC_System.StockDict['S_7_No'].Values[t-1,:,:,:,:,:]            
-                RECC_System.StockDict['dS_10'].Values[t,:,:,:]     = RECC_System.StockDict['S_10'].Values[t,t,:,:,:]  - RECC_System.StockDict['S_10'].Values[t-1,t-1,:,:,:]
-                RECC_System.StockDict['dS_12'].Values[t,:,:,:]     = RECC_System.StockDict['S_12'].Values[t,:,:,:]    - RECC_System.StockDict['S_12'].Values[t-1,:,:,:]
-                RECC_System.StockDict['dS_0'].Values[t,:]          = RECC_System.FlowDict['F_9_0'].Values[t,:] + np.einsum('rme->e',RECC_System.FlowDict['F_12_0'].Values[t,:,:,:]) + np.einsum('crgme->e',RECC_System.FlowDict['F_8_0'].Values[t,:,:,:,:,:]) - np.einsum('me->e',RECC_System.FlowDict['F_0_3'].Values[t,:,:])
+                RECC_System.StockDict['dS_10'].Values[t,:,:,:]        = RECC_System.StockDict['S_10'].Values[t,t,:,:,:]  - RECC_System.StockDict['S_10'].Values[t-1,t-1,:,:,:]
+                RECC_System.StockDict['dS_12'].Values[t,:,:,:]        = RECC_System.StockDict['S_12'].Values[t,:,:,:]    - RECC_System.StockDict['S_12'].Values[t-1,:,:,:]
+                RECC_System.StockDict['dS_0'].Values[t,:]             = RECC_System.FlowDict['F_9_0'].Values[t,:] + np.einsum('rme->e',RECC_System.FlowDict['F_12_0'].Values[t,:,:,:]) + np.einsum('crgme->e',RECC_System.FlowDict['F_8_0'].Values[t,:,:,:,:,:]) - np.einsum('me->e',RECC_System.FlowDict['F_0_3'].Values[t,:,:])
                 
             # Diagnostics:
     #         Aa = np.einsum('ptcrm->trm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_pav_rge,:,0]) # VehiclesOutflowMaterials
@@ -2185,13 +2183,13 @@ def main():
             # a) energy in fuel wood in TJ/yr
             SysVar_Energy_FuelWood_t = np.einsum('trp->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,WoodFuel_loc]) + np.einsum('trB->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,WoodFuel_loc]) + np.einsum('trN->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,WoodFuel_loc]) + np.einsum('toN->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg[:,:,:,WoodFuel_loc])
             # carbon flows in Mt/yr
-            RECC_System.FlowDict['F_2_7'].Values[:,Carbon_loc] = SysVar_Energy_FuelWood_t / RECC_System.ParameterDict['3_EI_HeatingValueWoodPerCarbon'].Values[Carbon_loc,WoodFuel_loc] / 1000
-            RECC_System.FlowDict['F_7_0'].Values               = RECC_System.FlowDict['F_2_7'].Values.copy()
+            RECC_System.FlowDict['F_2_7'].Values[:,Carbon_loc] = SysVar_Energy_FuelWood_t / RECC_System.ParameterDict['3_EI_HeatingValueWoodPerCarbon'].Values[Carbon_loc,WoodFuel_loc] / 1000 # carbon only!
+            RECC_System.FlowDict['F_7_0'].Values               = RECC_System.FlowDict['F_2_7'].Values.copy() # This is for mass balance only. The CO2 emissions from burning fuel wood in the use phase are accounted for by the direct emissions already.
             RECC_System.FlowDict['F_1_2'].Values               = RECC_System.FlowDict['F_2_7'].Values + np.einsum('tme->te',RECC_System.FlowDict['F_2_3'].Values)
             # Quantify wood carbon stock change (through harvested wood and its regrowth only, no soil carbon balance, albedo, etc.)
             # only the forest carbon pool change relative to the baseline is quantified, not the total forest carbon stock.
             CarbonTimberHarvest = np.einsum('crg->c',RECC_System.StockDict['S_7'].Values[0,:,:,:,Wood_loc,Carbon_loc]) # Historic age-cohorts
-            CarbonTimberHarvest[SwitchTime-1::] = RECC_System.FlowDict['F_2_3'].Values[:,Wood_loc,Carbon_loc]
+            CarbonTimberHarvest[SwitchTime::] = RECC_System.FlowDict['F_2_3'].Values[1::,Wood_loc,Carbon_loc]
             Forest_GrowthTable_timber = np.zeros((Nc,Nc))
             np.fill_diagonal(Forest_GrowthTable_timber, -1* CarbonTimberHarvest)
             Forest_GrowthTable_fuelwd = np.zeros((Nt,Nt))
@@ -2216,6 +2214,7 @@ def main():
             RECC_System.StockDict['dS_1f'].Values[1::,Carbon_loc] = np.diff(Forest_GrowthTable_fuelwd.sum(axis=1)).copy()
     
             RECC_System.FlowDict['F_0_1'].Values[:,Carbon_loc]    = RECC_System.FlowDict['F_1_2'].Values[:,Carbon_loc] + RECC_System.StockDict['dS_1t'].Values[:,Carbon_loc] + RECC_System.StockDict['dS_1f'].Values[:,Carbon_loc]
+            # This flow has a large negative initial value due to the boundary conditions. The value for year 0 is set to 0 in the results of the calculations using this system variable, as year 0 is for initialisation only.
            
             # F) Check whether flow value arrays match their indices, etc.
             RECC_System.Consistency_Check() 
@@ -2300,26 +2299,30 @@ def main():
                     for nrr in range(0,Nr):
                         for nBB in range(0,NB):
                             #total carbon in wood (carbon content ca. 0.5)
-                            mass_C  = 0.5 * RECC_System.FlowDict['F_6_7'].Values[ntt,nrr,Sector_reb_rge[nBB],9,0]
+                            mass_C  = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] *12/44 * RECC_System.FlowDict['F_6_7'].Values[ntt,nrr,Sector_reb_rge[nBB],9,0]
                             GWP_bio = RECC_System.ParameterDict['6_MIP_GWP_Bio'].Values[int(np.floor(RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values[nBB,nrr,ntt+SwitchTime-1]))]
-                            SysVar_GHGEms_GWP_bio_r[0,ntt,nrr] += 3.666 * mass_C * GWP_bio # convert from C to CO2
+                            SysVar_GHGEms_GWP_bio_r[0,ntt,nrr] += 44/12 * mass_C * GWP_bio # convert from C to CO2
             if 'nrb' in SectorList:
                 for ntt in range(0,Nt):
                     for nrr in range(0,Nr):
                         for nNN in range(0,NN):
                             #total carbon in wood (carbon content ca. 0.5)
-                            mass_C  = 0.5 * RECC_System.FlowDict['F_6_7'].Values[ntt,nrr,Sector_nrb_rge[nNN],9,0]
+                            mass_C  = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] *12/44 * RECC_System.FlowDict['F_6_7'].Values[ntt,nrr,Sector_nrb_rge[nNN],9,0]
                             GWP_bio = RECC_System.ParameterDict['6_MIP_GWP_Bio'].Values[int(np.floor(RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_NonResbuildings'].Values[nNN,nrr,ntt+SwitchTime-1]))]
-                            SysVar_GHGEms_GWP_bio_r[0,ntt,nrr] += 3.666 * mass_C * GWP_bio # convert from C to CO2                        
+                            SysVar_GHGEms_GWP_bio_r[0,ntt,nrr] += 44/12 * mass_C * GWP_bio # convert from C to CO2                        
             if 'nrbg' in SectorList:
                 for ntt in range(0,Nt):
                     for nNN in range(0,NN):
                         #total carbon in wood (carbon content ca. 0.5)
-                        mass_C  = 0.5 * RECC_System.FlowDict['F_6_7_No'].Values[ntt,0,Sector_nrbg_rge_reg[nNN],9,0]
+                        mass_C  = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] *12/44 * RECC_System.FlowDict['F_6_7_No'].Values[ntt,0,Sector_nrbg_rge_reg[nNN],9,0]
                         GWP_bio = RECC_System.ParameterDict['6_MIP_GWP_Bio'].Values[int(np.floor(RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_nonresbuildings_g'].Values[nNN,0,ntt+SwitchTime-1]))]
-                        SysVar_GHGEms_GWP_bio_o[0,ntt] += 3.666 * mass_C * GWP_bio # convert from C to CO2                        
+                        SysVar_GHGEms_GWP_bio_o[0,ntt] += 44/12 * mass_C * GWP_bio # convert from C to CO2                        
             SysVar_GHGEms_GWP_bio = np.einsum('Xtr->Xt',SysVar_GHGEms_GWP_bio_r) + SysVar_GHGEms_GWP_bio_o
             # not used anymore! Have time and process-explicit carbon flow and stock accounting now.
+            SysVar_CO2UptakeEmissions_Forests = np.zeros((NX,Nt,Nm))
+            SysVar_CO2UptakeEmissions_Forests[CO2_loc,:,Wood_loc] = -1 * 44/12 * RECC_System.FlowDict['F_0_1'].Values[:,Carbon_loc] # negative sign because emissions are measured in X_0 direction.
+            SysVar_CO2UptakeEmissions_Forests[:,0,:] = 0
+            # F_0_1 has a large negative initial value due to the boundary conditions. The value for year 0 is set to 0 in the results of the calculations using this system variable, as year 0 is for initialisation only.
             
             # M) Calculate emissions of system, by process group, INCLUDING GWPbio and credits
             # Number indicates the process number of the ODYM-RECC system definition
@@ -2339,7 +2342,7 @@ def main():
             SysVar_GHGEms_EnergyRecoveryWaste_9di += SysVar_IndirectGHGEms_EnergySupply_WasteToEnergy
             # Calculate total emissions of system
             SysVar_GHGEms_OtherThanUsePhaseDirect  = SysVar_GHGEms_UsePhase_7i_Scope2_El + SysVar_GHGEms_UsePhase_7i_OtherIndir + SysVar_GHGEms_PrimaryMaterial_3di + SysVar_GHGEms_MaterialCycle_5di_9di
-            SysVar_TotalGHGEms_3579di              = SysVar_GHGEms_UsePhase_7d + SysVar_GHGEms_OtherThanUsePhaseDirect + SysVar_GHGEms_RecyclingCredit + SysVar_GHGEms_EnergyRecoveryWaste_9di
+            SysVar_TotalGHGEms_3579di              = SysVar_GHGEms_UsePhase_7d + SysVar_GHGEms_OtherThanUsePhaseDirect + SysVar_GHGEms_RecyclingCredit + SysVar_GHGEms_EnergyRecoveryWaste_9di + np.einsum('Xtm->Xt',SysVar_CO2UptakeEmissions_Forests)
     
             SysVar_GHGEms_Materials_3di_9di        = SysVar_GHGEms_PrimaryMaterial_3di + SysVar_GHGEms_WasteMgtRemelting_9di
             # Unit: Mt/yr.
@@ -2356,6 +2359,7 @@ def main():
             GWP_UsePhase_7i_OtherIndir[:,mS,mR]         = np.einsum('xX,Xt->xt',RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_GHGEms_UsePhase_7i_OtherIndir)[GWP100_loc,:].copy()
             GWP_MaterialCycle_5di_9di[:,mS,mR]          = np.einsum('xX,Xt->xt',RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_GHGEms_MaterialCycle_5di_9di)[GWP100_loc,:].copy()
             GWP_RecyclingCredit[:,mS,mR]                = np.einsum('xX,Xt->xt',RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_GHGEms_RecyclingCredit)[GWP100_loc,:].copy()
+            GWP_ForestCO2Uptake[:,mS,mR]                = np.einsum('xX,Xt->xt',RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,np.einsum('Xtm->Xt',SysVar_CO2UptakeEmissions_Forests))[GWP100_loc,:].copy()
             GWP_EnergyRecoveryWasteWood[:,mS,mR]        = np.einsum('xX,Xt->xt',RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_GHGEms_EnergyRecoveryWaste_9di)[GWP100_loc,:].copy()
             GWP_OtherThanUsePhaseDirect[:,mS,mR]        = np.einsum('xX,Xt->xt',RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_GHGEms_OtherThanUsePhaseDirect)[GWP100_loc,:].copy() # all non use-phase processes
             GWP_Materials_3di_9di[:,mS,mR]              = np.einsum('xX,Xt->xt',RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_GHGEms_Materials_3di_9di)[GWP100_loc,:].copy()
@@ -2386,9 +2390,9 @@ def main():
             RenovationMaterialInflow_7[:,:,mS,mR]       = np.einsum('tcrgm->tm',F_6_7_ren[:,:,:,:,:,0]).copy()
             FabricationScrap[:,:,mS,mR]                 = RECC_System.FlowDict['F_5_10'].Values[:,0,:,0].copy()
             ReUse_Materials[:,:,mS,mR]                  = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_17_6'].Values[:,:,:,:,:,0]) + np.einsum('tclLm->tm',RECC_System.FlowDict['F_17_6_Nl'].Values[:,:,:,:,:,0]) + np.einsum('tcoOm->tm',RECC_System.FlowDict['F_17_6_No'].Values[:,:,:,:,:,0])
-            Carbon_Wood_Inflow[:,mS,mR]                 = 0.5 * (np.einsum('trg->t', RECC_System.FlowDict['F_6_7'].Values[:,:,:,Wood_loc,0]).copy() + np.einsum('tlL->t', RECC_System.FlowDict['F_6_7_Nl'].Values[:,:,:,Wood_loc,0]).copy() + np.einsum('toO->t', RECC_System.FlowDict['F_6_7_No'].Values[:,:,:,Wood_loc,0]).copy())
-            Carbon_Wood_Outflow[:,mS,mR]                = 0.5 * (np.einsum('tcrg->t',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,Wood_loc,0]).copy() + np.einsum('tclL->t',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,Wood_loc,0]).copy() + np.einsum('tcoO->t',RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,Wood_loc,0]).copy())
-            Carbon_Wood_Stock[:,mS,mR]                  = 0.5 * (np.einsum('tcrg->t',RECC_System.StockDict['S_7'].Values[:,:,:,:,Wood_loc,0]).copy() + np.einsum('tclL->t',RECC_System.StockDict['S_7_Nl'].Values[:,:,:,:,Wood_loc,0]).copy() + np.einsum('tcoO->t',RECC_System.StockDict['S_7_No'].Values[:,:,:,:,Wood_loc,0]).copy())
+            Carbon_Wood_Inflow[:,mS,mR]                 = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44 * (np.einsum('trg->t', RECC_System.FlowDict['F_6_7'].Values[:,:,:,Wood_loc,0]).copy() + np.einsum('tlL->t', RECC_System.FlowDict['F_6_7_Nl'].Values[:,:,:,Wood_loc,0]).copy() + np.einsum('toO->t', RECC_System.FlowDict['F_6_7_No'].Values[:,:,:,Wood_loc,0]).copy())
+            Carbon_Wood_Outflow[:,mS,mR]                = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44 * (np.einsum('tcrg->t',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,Wood_loc,0]).copy() + np.einsum('tclL->t',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,Wood_loc,0]).copy() + np.einsum('tcoO->t',RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,Wood_loc,0]).copy())
+            Carbon_Wood_Stock[:,mS,mR]                  = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44 * (np.einsum('tcrg->t',RECC_System.StockDict['S_7'].Values[:,:,:,:,Wood_loc,0]).copy() + np.einsum('tclL->t',RECC_System.StockDict['S_7_Nl'].Values[:,:,:,:,Wood_loc,0]).copy() + np.einsum('tcoO->t',RECC_System.StockDict['S_7_No'].Values[:,:,:,:,Wood_loc,0]).copy())
             # Energy flows
             EnergyCons_UP_Vh[:,mS,mR]                   = np.einsum('trpn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav).copy()
             EnergyCons_UP_Bd[:,mS,mR]                   = np.einsum('trBn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb).copy() + np.einsum('trNn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb).copy() + np.einsum('toNn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg).copy()
@@ -2595,6 +2599,7 @@ def main():
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,GWP_PrimaryMaterial_3di,newrowoffset,len(ColLabels),'GHG emissions, primary material production (redundant) _3di','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_3_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,GWP_MaterialCycle_5di_9di,newrowoffset,len(ColLabels),'GHG emissions, manufact, wast mgt., remelting and indirect _5di_9di','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_9_0 + E_15_0 (part, for energy supply waste mgt.)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,GWP_RecyclingCredit,newrowoffset,len(ColLabels),'GHG emissions, recycling credits','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'outside system','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,GWP_ForestCO2Uptake,newrowoffset,len(ColLabels),'GHG sequestration by forests (w. neg. sign)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'Process 1','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,GWP_EnergyRecoveryWasteWood,newrowoffset,len(ColLabels),'GHG emissions, energy recovery from waste wood (biogenic C plus energy substitution within System)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'waste mgt. and energy supply','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # Primary and secondary material production, if not included above already
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,0,:,:], newrowoffset,len(ColLabels),'Primary construction grade steel production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
