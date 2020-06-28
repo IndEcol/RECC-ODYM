@@ -22,10 +22,12 @@ import RECC_Paths # Import path file
 import ODYM_RECC_V2_4
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-ScenarioSetting = 'RECC_Config_list'
+ScenarioSetting = 'pav_reb_Config_list'
+#ScenarioSetting = 'pav_reb_Config_list_all'
 #ScenarioSetting = 'Germany_detail_config'
-#ScenarioSetting = 'GroupTestRun'
-
+#ScenarioSetting = 'Germany_detail_config_all'
+#ScenarioSetting = 'Global_all'
+#ScenarioSetting = 'TestRun'
 
 # open scenario sheet
 ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'))
@@ -40,7 +42,7 @@ while True:
         RegionalScope = ModelConfigListSheet.cell_value(Row, 2)
         print(RegionalScope)
         Config = {}
-        for m in range(3,25):
+        for m in range(3,27):
             Config[ModelConfigListSheet.cell_value(2, m)] = ModelConfigListSheet.cell_value(Row, m)
     except:
         break
@@ -56,6 +58,8 @@ while True:
     sheet['G27']  = Config['Products']
     sheet['G28']  = Config['Sectors']
     sheet['G29']  = Config['Products']
+    sheet['G33']  = Config['NonresidentialBuildings']
+    sheet['G48']  = Config['Regions32goods']
     sheet['D181'] = Config['Logging_Verbosity']
     sheet['D182'] = Config['Include_REStrategy_FabYieldImprovement']
     sheet['D183'] = Config['Include_REStrategy_FabScrapDiversion']
@@ -80,8 +84,6 @@ while True:
     # run the ODYM-RECC model
     OutputDict = ODYM_RECC_V2_4.main()
     ResultFolders.append(OutputDict['Name_Scenario'])
-
-
 
 
 #

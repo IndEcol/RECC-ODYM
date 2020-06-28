@@ -29,9 +29,12 @@ import ODYM_RECC_Cascade_PAV_REB_NRB_V2_3
 import ODYM_RECC_Cascade_Efficiency_Sufficiency_V2_3
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-ScenarioSetting = 'Evaluate_RECC_Cascade'
-#ScenarioSetting = 'Evaluate_GroupTestRun'
-#ScenarioSetting = 'Germany_detail_evaluate'
+#ScenarioSetting = 'Evaluate_pav_reb_Cascade'
+#ScenarioSetting = 'Evaluate_pav_reb_Cascade_all'
+ScenarioSetting = 'Germany_detail_evaluate'
+#ScenarioSetting = 'Global_all_evaluate'
+#ScenarioSetting = 'Evaluate_TestRun'
+
 
 # open scenario sheet
 ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'))
@@ -398,7 +401,7 @@ while ModelEvalListSheet.cell_value(Row, 1) != 'ENDOFLIST':
         
                          
 # run the efficieny_sufficieny plots, uncomment only if defined.
-#ODYM_RECC_Cascade_Efficiency_Sufficiency_V2_3.main(RegionalScope,ThreeSectoList_Export,SingleSectList)      
+ODYM_RECC_Cascade_Efficiency_Sufficiency_V2_3.main(RegionalScope,ThreeSectoList_Export,SingleSectList)      
 
 # store table 2:
 WFsheet = mywb4['Table_2']
@@ -414,15 +417,15 @@ for u in range(0,9):
         WFsheet.cell(row = u+14, column = v+6).value  = MatStocksTab2[u,v]     
         WFsheet.cell(row = u+25, column = v+6).value  = MatStocksTab3[u,v]     
     
-mywb.save(os.path.join(RECC_Paths.results_path, 'RECC_Global_Results_SystemGHG_V2_4.xlsx'))
-mywb2.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_MaterialGHG_V2_4.xlsx'))    
-mywb3.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_MaterialGHG_inclRecyclingCredit_V2_4.xlsx'))        
-mywb4.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_Tables_V2_4.xlsx'))      
+#mywb.save(os.path.join(RECC_Paths.results_path, 'RECC_Global_Results_SystemGHG_V2_4.xlsx'))
+#mywb2.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_MaterialGHG_V2_4.xlsx'))    
+#mywb3.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_MaterialGHG_inclRecyclingCredit_V2_4.xlsx'))        
+#mywb4.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_Tables_V2_4.xlsx'))      
 #
-#mywb.save(os.path.join(RECC_Paths.results_path, 'RECC_DE_Detail_Results_SystemGHG_V2_4.xlsx'))
-#mywb2.save(os.path.join(RECC_Paths.results_path,'RECC_DE_Detail_Results_MaterialGHG_V2_4.xlsx'))    
-#mywb3.save(os.path.join(RECC_Paths.results_path,'RECC_DE_Detail_Results_MaterialGHG_inclRecyclingCredit_V2_4.xlsx'))        
-#mywb4.save(os.path.join(RECC_Paths.results_path,'RECC_DE_Detail_Results_Tables_V2_4.xlsx'))      
+mywb.save(os.path.join(RECC_Paths.results_path, 'RECC_DE_Detail_Results_SystemGHG_V2_4.xlsx'))
+mywb2.save(os.path.join(RECC_Paths.results_path,'RECC_DE_Detail_Results_MaterialGHG_V2_4.xlsx'))    
+mywb3.save(os.path.join(RECC_Paths.results_path,'RECC_DE_Detail_Results_MaterialGHG_inclRecyclingCredit_V2_4.xlsx'))        
+mywb4.save(os.path.join(RECC_Paths.results_path,'RECC_DE_Detail_Results_Tables_V2_4.xlsx'))      
     
 #
 #

@@ -86,14 +86,14 @@ def main():
     StartTime                = datetime.datetime.now()
     TimeString               = str(StartTime.year) + '_' + str(StartTime.month) + '_' + str(StartTime.day) + '__' + str(StartTime.hour) + '_' + str(StartTime.minute) + '_' + str(StartTime.second)
     #DateString               = str(StartTime.year) + '_' + str(StartTime.month) + '_' + str(StartTime.day)
-    ProjectSpecs_Path_Result = os.path.join(RECC_Paths.results_path, Name_Scenario + '_' + TimeString )
+    ProjectSpecs_Path_Result = os.path.join(RECC_Paths.results_path, Name_Scenario + '__' + TimeString )
     
     if not os.path.exists(ProjectSpecs_Path_Result): # Create model run results directory.
         os.makedirs(ProjectSpecs_Path_Result)
     # Initialize logger
     if ScriptConfig['Logging_Verbosity'] == 'DEBUG':
         log_verbosity = eval("log.DEBUG")  
-    log_filename = Name_Scenario + '_' + TimeString + '.md'
+    log_filename = Name_Scenario + '__' + TimeString + '.md'
     [Mylog, console_log, file_log] = msf.function_logger(log_filename, ProjectSpecs_Path_Result,
                                                          log_verbosity, log_verbosity)
     # log header and general information
@@ -792,6 +792,7 @@ def main():
     EnergyCons_UP_Mn                 = np.zeros((Nt,NS,NR))
     EnergyCons_UP_Wm                 = np.zeros((Nt,NS,NR))
     EnergyCons_UP_Service            = np.zeros((Nt,Nr,NV,NS,NR))
+    EnergyCons_total                 = np.zeros((Nt,Nn,NS,NR))
     StockCurves_Totl                 = np.zeros((Nt,NG,NS,NR))
     StockCurves_Prod                 = np.zeros((Nt,Ng,NS,NR))
     StockCurves_Mat                  = np.zeros((Nt,Nm,NS,NR))
@@ -1677,7 +1678,7 @@ def main():
                 # inflow of materials in new products, for checking:
                 for mmt in range(0,Nt):
                     F_6_7_new[mmt,:,Sector_pav_rge,:,0] = np.einsum('pr,pmr->prm',Inflow_Detail_UsePhase_p[mmt,:,:],Par_RECC_MC_Nr[SwitchTime+mmt-1,:,Sector_pav_rge,:,mS,mmt])/1000
-                Check_pav = (RECC_System.FlowDict['F_6_7'].Values[1::,0,Sector_pav_rge,:,0] - F_6_7_new[1::,0,Sector_pav_rge,:,0]).sum() # must be 0.
+                # Check_pav = (RECC_System.FlowDict['F_6_7'].Values[1::,0,Sector_pav_rge,:,0] - F_6_7_new[1::,0,Sector_pav_rge,:,0]).sum() # must be 0.
                     
             if 'reb' in SectorList:        
                 # convert product stocks and flows to material stocks and flows, only for chemical element position 'all':
@@ -1692,7 +1693,7 @@ def main():
                 # inflow of materials in new products
                 for mmt in range(0,Nt):
                     F_6_7_new[mmt,:,Sector_reb_rge,:,0] = np.einsum('Br,Brm->Brm',Inflow_Detail_UsePhase_B[mmt,:,:],Par_3_MC_Stock_ByElement_Nr[mmt,SwitchTime+mmt-1,:,Sector_reb_rge,:,0])/1000
-                Check_reb = (RECC_System.FlowDict['F_6_7'].Values[1::,0,Sector_reb_rge,:,0] - F_6_7_new[1::,0,Sector_reb_rge,:,0] - F_6_7_ren[1::,:,0,Sector_reb_rge,:,0].sum(axis=2)) # must be 0.
+                # Check_reb = (RECC_System.FlowDict['F_6_7'].Values[1::,0,Sector_reb_rge,:,0] - F_6_7_new[1::,0,Sector_reb_rge,:,0] - F_6_7_ren[1::,:,0,Sector_reb_rge,:,0].sum(axis=2)) # must be 0.
                 RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_reb_rge,:,0]   = np.einsum('Btrm->Btrm',F_6_7_new[:,:,Sector_reb_rge,:,0]) + np.einsum('Btcrm->Btrm',F_6_7_ren[:,:,:,Sector_reb_rge,:,0])
                 
             if 'nrb' in SectorList:
@@ -2157,8 +2158,10 @@ def main():
                 SysVar_EnergyDemand_Manufacturing += np.einsum('pn,tpr->tn',RECC_System.ParameterDict['4_EI_ManufacturingEnergyIntensity'].Values[Sector_pav_rge,:,110,-1],Inflow_Detail_UsePhase_p)        # conversion factor: 1, as MJ/item  = TJ/Million items.
             if 'reb' in SectorList:
                 SysVar_EnergyDemand_Manufacturing += np.einsum('Bn,tBr->tn',RECC_System.ParameterDict['4_EI_ManufacturingEnergyIntensity'].Values[Sector_reb_rge,:,110,-1],Inflow_Detail_UsePhase_B)        # conversion factor: 1, as MJ/m²    = TJ/Million m².
-            if 'nrb' in SectorList or 'nrbg' in SectorList:
+            if 'nrb' in SectorList:
                 SysVar_EnergyDemand_Manufacturing += np.einsum('Nn,tNr->tn',RECC_System.ParameterDict['4_EI_ManufacturingEnergyIntensity'].Values[Sector_nrb_rge,:,110,-1],Inflow_Detail_UsePhase_N)        # conversion factor: 1, as MJ/m²    = TJ/Million m².
+            if 'nrbg' in SectorList:
+                SysVar_EnergyDemand_Manufacturing += np.einsum('Nn,tNr->tn',RECC_System.ParameterDict['4_EI_ManufacturingEnergyIntensity'].Values[Sector_nrbg_rge,:,110,-1],Inflow_Detail_UsePhase_N)        # conversion factor: 1, as MJ/m²    = TJ/Million m².                
             if 'ind' in SectorList:
                 SysVar_EnergyDemand_Manufacturing += np.einsum('In,tIr->tn',RECC_System.ParameterDict['4_EI_ManufacturingEnergyIntensity'].Values[Sector_ind_rge,:,110,-1],Inflow_Detail_UsePhase_I) * 1e-6 # conversion factor: 1, as TJ/GW    = 10e-6 MJ/GW. 
             if 'app' in SectorList:
@@ -2221,7 +2224,7 @@ def main():
         
             # G) Determine Mass Balance
             # Commment out to save computation time:
-            # BalAbs = -1 # means that mass bal. computation was commented out to save computation time.
+            #BalAbs = -1 # means that mass bal. computation was commented out to save computation time.
             Bal = RECC_System.MassBalance()
             BalAbs = np.abs(Bal).sum()
             Mylog.info('Total mass balance deviation (np.abs(Bal).sum() for socioeconomic scenario ' + SName + ' and RE scenario ' + RName + ': ' + str(BalAbs) + ' Mt.')                    
@@ -2402,6 +2405,7 @@ def main():
             EnergyCons_UP_Service[:,:,Heating_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,Heating_loc].copy()
             EnergyCons_UP_Service[:,:,Cooling_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,Cooling_loc].copy()
             EnergyCons_UP_Service[:,:,DomstHW_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,DomstHW_loc].copy()
+            EnergyCons_total[:,:,mS,mR]                    = SysVar_TotalEnergyDemand.copy()
             # Service flows
             # Hop over to save memory:
             # Vehicle_km[:,mS,mR]                         = np.einsum('tcpr->t',SysVar_StockServiceProvision_UsePhase_pav[:,:,:,:,Service_Driving])
@@ -2443,28 +2447,29 @@ def main():
             ExitFlags['Positive_Outflow_F7_8_R32_SSP_' + str(mS) + '_RCP_' + str(mR)] = np.isclose(RECC_System.FlowDict['F_7_8'].Values.min(),0, IsClose_Remainder_Small)  
             ExitFlags['Positive_Inflow_F8_9_R32_SSP_'  + str(mS) + '_RCP_' + str(mR)] = np.isclose(RECC_System.FlowDict['F_8_9'].Values.min(),0, IsClose_Remainder_Small)
             
-    '''                
-    Emissions scopes:
-    System, all processes:                              GHG_System        
-    is composed of:
-    Use phase only:                                     GHG_UsePhase    
-    Use phase, electricity scope2:                      GHG_UsePhase_Scope2_El
-    Use phase, indirect, rest:                          GHG_UsePhase_OtherIndir
-    Primary material production:                        GHG_PrimaryMaterial    
-    Manufacturing_Recycling:                            GHG_MaterialCycle
-    RecyclingCredit                                     GHG_RecyclingCredit
-    '''        
+            # del RECC_System # Delete system when done, clear memory.
+            '''                
+            Emissions scopes:
+            System, all processes:                              GHG_System        
+            is composed of:
+            Use phase only:                                     GHG_UsePhase    
+            Use phase, electricity scope2:                      GHG_UsePhase_Scope2_El
+            Use phase, indirect, rest:                          GHG_UsePhase_OtherIndir
+            Primary material production:                        GHG_PrimaryMaterial    
+            Manufacturing_Recycling:                            GHG_MaterialCycle
+            RecyclingCredit                                     GHG_RecyclingCredit
+            '''        
             
-    # DIAGNOSTICS
-    a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_5_6',0)
-    a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_5',0)
-    a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_5_10',0)
-    a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_4_5',0)
-    a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_17_6',0)
-    
-    a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_5',0)
-    a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_0',0)
-    a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_9_12',0)
+#            # DIAGNOSTICS
+#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_5_6',0)
+#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_5',0)
+#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_5_10',0)
+#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_4_5',0)
+#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_17_6',0)
+#            
+#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_5',0)
+#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_0',0)
+#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_9_12',0)
             
     ##############################################################
     #   Section 7) Export and plot results, save, and close      #
@@ -2555,6 +2560,8 @@ def main():
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,6,:,:],newrowoffset,len(ColLabels),'Primary Cu production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,GWP_Materials_3di_9di,newrowoffset,len(ColLabels),'GHG emissions, material cycle industries and their energy supply _3di_9di','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_3_0 and related energy supply emissions','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # energy flows
+    for nn in range(0,Nn):
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_total[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, system-wide: ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'Tt / yr',ScriptConfig['RegionalScope'],'F_15_x','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Vh,newrowoffset,len(ColLabels),'Energy cons., use phase, vehicles','TJ/yr',ScriptConfig['RegionalScope'],'E_16_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Bd,newrowoffset,len(ColLabels),'Energy cons., use phase, res+non-res buildings','TJ/yr',ScriptConfig['RegionalScope'],'E_16_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Mn,newrowoffset,len(ColLabels),'Energy cons., use phase, manufacturing','TJ/yr',ScriptConfig['RegionalScope'],'E_16_5','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -3073,52 +3080,61 @@ def main():
     log.shutdown()
     
     ### 5.5) Create descriptive folder name and rename result folder
-    DescrString = ''
-    if 'pav' in ScriptConfig['SectorSelect']:
-        DescrString += '_pav'
-    if 'reb' in ScriptConfig['SectorSelect']:
-        DescrString += '_reb'
-    if 'nrb' in ScriptConfig['SectorSelect']:
-        DescrString += '_nrb'
-    if 'ind' in ScriptConfig['SectorSelect']:
-        DescrString += '_ind'
-    if 'inf' in ScriptConfig['SectorSelect']:
-        DescrString += '_inf'
-    if 'app' in ScriptConfig['SectorSelect']:
-        DescrString += '_app'
-    DescrString += '_'    
-    if ScriptConfig['Include_REStrategy_FabYieldImprovement'] == 'True':
-        DescrString += '_FYI'
-    if ScriptConfig['Include_REStrategy_FabScrapDiversion'] == 'True':
-        DescrString += '_FSD'    
-    if ScriptConfig['Include_REStrategy_EoL_RR_Improvement'] == 'True':
-        DescrString += '_EoL'
-    if ScriptConfig['Include_REStrategy_MaterialSubstitution'] == 'True':
-        DescrString += '_MSU'
-    if ScriptConfig['Include_REStrategy_UsingLessMaterialByDesign'] == 'True':
-        DescrString += '_ULD'
-    if ScriptConfig['Include_REStrategy_ReUse'] == 'True':
-        DescrString += '_RUS'
-    if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True':
-        DescrString += '_LTE'
-    if ScriptConfig['Include_REStrategy_MoreIntenseUse'] == 'True':
-        DescrString += '_MIU'
-    if ScriptConfig['Include_REStrategy_CarSharing'] == 'True':
-        DescrString += '_CaS'
-    if ScriptConfig['Include_REStrategy_RideSharing'] == 'True':
-        DescrString += '_RiS'
-    if ScriptConfig['IncludeRecycling'] == 'False':
-        DescrString += '_NoR'
+    SectList    = eval(ScriptConfig['SectorSelect'])
+    DescrString = '__'
+    FirstFlag   = True
+    for sect in SectList:
+        if FirstFlag is True:
+            DescrString += sect
+            FirstFlag = False
+        else:
+            DescrString += '_'
+            DescrString += sect
+    DescrString += '__'        
     
-    ProjectSpecs_Path_Result_New = os.path.join(RECC_Paths.results_path, Name_Scenario + '_' + TimeString + DescrString)
+    REStratList = []
+    if ScriptConfig['Include_REStrategy_FabYieldImprovement'] == 'True':
+        REStratList.append('FYI')
+    if ScriptConfig['Include_REStrategy_FabScrapDiversion'] == 'True':
+        REStratList.append('FSD')    
+    if ScriptConfig['Include_REStrategy_EoL_RR_Improvement'] == 'True':
+        REStratList.append('EoL')
+    if ScriptConfig['Include_REStrategy_MaterialSubstitution'] == 'True':
+        REStratList.append('MSU')
+    if ScriptConfig['Include_REStrategy_UsingLessMaterialByDesign'] == 'True':
+        REStratList.append('ULD')
+    if ScriptConfig['Include_REStrategy_ReUse'] == 'True':
+        REStratList.append('RUS')
+    if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True':
+        REStratList.append('LTE')
+    if ScriptConfig['Include_REStrategy_MoreIntenseUse'] == 'True':
+        REStratList.append('MIU')
+    if ScriptConfig['Include_REStrategy_CarSharing'] == 'True':
+        REStratList.append('CaS')
+    if ScriptConfig['Include_REStrategy_RideSharing'] == 'True':
+        REStratList.append('RiS')
+    if ScriptConfig['IncludeRecycling'] == 'False':
+        REStratList.append('NoR')
+        
+    FirstFlag = True
+    if len(REStratList) > 0:
+        for REStrat in REStratList:
+            if FirstFlag is True:
+                DescrString += REStrat
+                FirstFlag = False
+            else:
+                DescrString += '_'
+                DescrString += REStrat        
+        
+    ProjectSpecs_Path_Result_New = os.path.join(RECC_Paths.results_path, Name_Scenario + '__' + TimeString + DescrString)
     os.rename(ProjectSpecs_Path_Result,ProjectSpecs_Path_Result_New)
     
     print('done.')
     
-    OutputDict['Name_Scenario'] = Name_Scenario + '_' + TimeString + DescrString # return new scenario folder name to ScenarioControl script
+    OutputDict['Name_Scenario'] = Name_Scenario + '__' + TimeString + DescrString # return new scenario folder name to ScenarioControl script
         
     return OutputDict
-                
+                    
 # code for script to be run as standalone function
 #if __name__ == "__main__":
 #    main()
