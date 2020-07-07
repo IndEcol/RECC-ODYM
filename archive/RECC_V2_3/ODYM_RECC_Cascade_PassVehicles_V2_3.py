@@ -13,7 +13,7 @@ def main(RegionalScope,PassVehList):
     import os
     import RECC_Paths # Import path file   
     
-    # FileOrder:
+    # FileOrder needs to be kept:
     # 1) None
     # 2) + EoL + FSD + FYI
     # 3) + EoL + FSD + FYI + ReU +LTE
@@ -29,22 +29,23 @@ def main(RegionalScope,PassVehList):
     
     NS = 3 # no of SSP scenarios
     NR = 2 # no of RCP scenarios
-    NE = 7 # no of Res. eff. scenarios
+    NE = 7 # no of Res. eff. scenarios for pav cascade
     
-    CumEmsV           = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
-    CumEmsV2060       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
-    AnnEmsV2030       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
-    AnnEmsV2050       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    # system-wide emissions:
+    CumEmsV           = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario: cum. emissions 2016-2050.
+    CumEmsV2060       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario: cum. emissions 2016-2060.
+    AnnEmsV2030       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario: ann. emissions 2030.
+    AnnEmsV2050       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario: ann. emissions 2050.
     ASummaryV         = np.zeros((12,NE)) # For direct copy-paste to Excel
-    AvgDecadalEmsV    = np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario, RCP is fixed: RCP2.6
-    # for materials:
+    AvgDecadalEmsV    = np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario, RCP is fixed: RCP2.6: ann. emissions 2030.
+    # for material-related emissions:
     MatCumEmsV        = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     MatCumEmsV2060    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     MatAnnEmsV2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     MatAnnEmsV2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
     MatSummaryV       = np.zeros((12,NE)) # For direct copy-paste to Excel
     AvgDecadalMatEmsV = np.zeros((NS,NE,4)) # SSP-Scenario x RES scenario, RCP is fixed: RCP2.6
-    # for materials incl. recycling credit:
+    # for material-related emissions plus recycling credit:
     MatCumEmsVC       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     MatCumEmsVC2060   = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     MatAnnEmsV2030C   = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario

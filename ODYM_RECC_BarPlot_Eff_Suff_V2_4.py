@@ -122,23 +122,6 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
                 ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[3,:])) # create proxy artist for legend
                 ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[6,:])) # create proxy artist for legend
                 ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[15,:])) # create proxy artist for legend
-        
-
-    
-#            # plot lines:
-#            plt.plot([0,8.5],[Left,Left],linestyle = '-', linewidth = 0.5, color = 'k')
-#            plt.plot([1,2.5],[Data[1,m],Data[1,m]],linestyle = '-', linewidth = 0.5, color = 'k')
-#            plt.plot([2,3.5],[Data[2,m],Data[2,m]],linestyle = '-', linewidth = 0.5, color = 'k')
-#            plt.plot([3,4.5],[Data[3,m],Data[3,m]],linestyle = '-', linewidth = 0.5, color = 'k')
-#            plt.plot([4,5.5],[Data[4,m],Data[4,m]],linestyle = '-', linewidth = 0.5, color = 'k')
-#            plt.plot([5,6.5],[Data[5,m],Data[5,m]],linestyle = '-', linewidth = 0.5, color = 'k')
-#            plt.plot([6,7.5],[Data[6,m],Data[6,m]],linestyle = '-', linewidth = 0.5, color = 'k')
-#            plt.plot([7,8.5],[Data[7,m],Data[7,m]],linestyle = '-', linewidth = 0.5, color = 'k')
-#    
-#            plt.arrow(8.25, Data[7,m],0, Data[0,m]-Data[7,m], lw = 0.8, ls = '-', shape = 'full',
-#                  length_includes_head = True, head_width =0.1, head_length =0.01*Left, ec = 'k', fc = 'k')
-#            plt.arrow(8.25,Data[0,m],0,Data[7,m]-Data[0,m], lw = 0.8, ls = '-', shape = 'full',
-#                  length_includes_head = True, head_width =0.1, head_length =0.01*Left, ec = 'k', fc = 'k')
 
         # plot text and labels
         #plt.text(6.85, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
@@ -156,8 +139,6 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
         fig_name = Title[nn] + Region + '_ ' + Sector[0] + '.png'
         fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')             
         
-    
- 
     
     return None
 

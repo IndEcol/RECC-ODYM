@@ -9,13 +9,12 @@ def main(RegionalScope,ThreeSectoList):
     import xlrd
     import numpy as np
     import matplotlib.pyplot as plt  
-    import pylab
     import os
     import RECC_Paths # Import path file   
     
 
     
-    GHG_TableX       = np.zeros((4,6)) # Table X format
+    GHG_Table_Overview   = np.zeros((4,6,2)) # Table GHG overview format 4 scopes, 6 times, 2 RCP
 
     # No ME scenario
     Path = os.path.join(RECC_Paths.results_path,ThreeSectoList[0],'SysVar_TotalGHGFootprint.xls')
@@ -42,19 +41,20 @@ def main(RegionalScope,ThreeSectoList):
             break # that gives us the right index to read the recycling credit from the result table.
         mci += 1
         
-    GHG_TableX[0,0] = Resultsheet2.cell_value(tci+ 3,8)
-    GHG_TableX[0,1] = Resultsheet2.cell_value(tci+ 3,12)
-    GHG_TableX[0,2] = Resultsheet2.cell_value(tci+ 3,22)
-    GHG_TableX[0,3] = Resultsheet2.cell_value(tci+ 3,32)
-    GHG_TableX[0,4] = Resultsheet2.cell_value(tci+ 3,42)
-    GHG_TableX[0,5] = Resultsheet2.cell_value(tci+ 3,52)
-    
-    GHG_TableX[2,0] = Resultsheet2.cell_value(mci+ 3,8)
-    GHG_TableX[2,1] = Resultsheet2.cell_value(mci+ 3,12)
-    GHG_TableX[2,2] = Resultsheet2.cell_value(mci+ 3,22)
-    GHG_TableX[2,3] = Resultsheet2.cell_value(mci+ 3,32)
-    GHG_TableX[2,4] = Resultsheet2.cell_value(mci+ 3,42)
-    GHG_TableX[2,5] = Resultsheet2.cell_value(mci+ 3,52)    
+    for nnn in range(0,2):
+        GHG_Table_Overview[0,0,nnn] = Resultsheet2.cell_value(tci +2 + nnn,8)
+        GHG_Table_Overview[0,1,nnn] = Resultsheet2.cell_value(tci +2 + nnn,12)
+        GHG_Table_Overview[0,2,nnn] = Resultsheet2.cell_value(tci +2 + nnn,22)
+        GHG_Table_Overview[0,3,nnn] = Resultsheet2.cell_value(tci +2 + nnn,32)
+        GHG_Table_Overview[0,4,nnn] = Resultsheet2.cell_value(tci +2 + nnn,42)
+        GHG_Table_Overview[0,5,nnn] = Resultsheet2.cell_value(tci +2 + nnn,52)
+        
+        GHG_Table_Overview[2,0,nnn] = Resultsheet2.cell_value(mci +2 + nnn,8)
+        GHG_Table_Overview[2,1,nnn] = Resultsheet2.cell_value(mci +2 + nnn,12)
+        GHG_Table_Overview[2,2,nnn] = Resultsheet2.cell_value(mci +2 + nnn,22)
+        GHG_Table_Overview[2,3,nnn] = Resultsheet2.cell_value(mci +2 + nnn,32)
+        GHG_Table_Overview[2,4,nnn] = Resultsheet2.cell_value(mci +2 + nnn,42)
+        GHG_Table_Overview[2,5,nnn] = Resultsheet2.cell_value(mci +2 + nnn,52)    
                 
     
     # Full ME scenario
@@ -82,23 +82,23 @@ def main(RegionalScope,ThreeSectoList):
             break # that gives us the right index to read the recycling credit from the result table.
         mci += 1
         
-    GHG_TableX[1,0] = Resultsheet2.cell_value(tci+ 3,8)
-    GHG_TableX[1,1] = Resultsheet2.cell_value(tci+ 3,12)
-    GHG_TableX[1,2] = Resultsheet2.cell_value(tci+ 3,22)
-    GHG_TableX[1,3] = Resultsheet2.cell_value(tci+ 3,32)
-    GHG_TableX[1,4] = Resultsheet2.cell_value(tci+ 3,42)
-    GHG_TableX[1,5] = Resultsheet2.cell_value(tci+ 3,52)
-    
-    GHG_TableX[3,0] = Resultsheet2.cell_value(mci+ 3,8)
-    GHG_TableX[3,1] = Resultsheet2.cell_value(mci+ 3,12)
-    GHG_TableX[3,2] = Resultsheet2.cell_value(mci+ 3,22)
-    GHG_TableX[3,3] = Resultsheet2.cell_value(mci+ 3,32)
-    GHG_TableX[3,4] = Resultsheet2.cell_value(mci+ 3,42)
-    GHG_TableX[3,5] = Resultsheet2.cell_value(mci+ 3,52)      
-    
+    for nnn in range(0,2):        
+        GHG_Table_Overview[1,0,nnn] = Resultsheet2.cell_value(tci +2 + nnn,8)
+        GHG_Table_Overview[1,1,nnn] = Resultsheet2.cell_value(tci +2 + nnn,12)
+        GHG_Table_Overview[1,2,nnn] = Resultsheet2.cell_value(tci +2 + nnn,22)
+        GHG_Table_Overview[1,3,nnn] = Resultsheet2.cell_value(tci +2 + nnn,32)
+        GHG_Table_Overview[1,4,nnn] = Resultsheet2.cell_value(tci +2 + nnn,42)
+        GHG_Table_Overview[1,5,nnn] = Resultsheet2.cell_value(tci +2 + nnn,52)
+        
+        GHG_Table_Overview[3,0,nnn] = Resultsheet2.cell_value(mci +2 + nnn,8)
+        GHG_Table_Overview[3,1,nnn] = Resultsheet2.cell_value(mci +2 + nnn,12)
+        GHG_Table_Overview[3,2,nnn] = Resultsheet2.cell_value(mci +2 + nnn,22)
+        GHG_Table_Overview[3,3,nnn] = Resultsheet2.cell_value(mci +2 + nnn,32)
+        GHG_Table_Overview[3,4,nnn] = Resultsheet2.cell_value(mci +2 + nnn,42)
+        GHG_Table_Overview[3,5,nnn] = Resultsheet2.cell_value(mci +2 + nnn,52)      
+        
 
-    
-    return GHG_TableX
+    return GHG_Table_Overview
 
 # code for script to be run as standalone function
 if __name__ == "__main__":
