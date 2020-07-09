@@ -66,18 +66,88 @@ def main(RegionalScope,FolderList,SectorString):
     AnnEms2030_Sens      = np.zeros((NS,NR,NE)) # SSP-Scenario x RES scenario
     AnnEms2050_Sens      = np.zeros((NS,NR,NE)) # SSP-Scenario x RES scenario
     AvgDecadalEms        = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RES scenario x 4 decades
-    # for materials:
-    MatCumEms_Sens2050   = np.zeros((NS,NR,NE)) # SSP-Scenario x RES scenario
-    MatCumEms_Sens2060   = np.zeros((NS,NR,NE)) # SSP-Scenario x RES scenario
-    MatAnnEms2030_Sens   = np.zeros((NS,NR,NE)) # SSP-Scenario x RES scenario
-    MatAnnEms2050_Sens   = np.zeros((NS,NR,NE)) # SSP-Scenario x RES scenario
-    MatAvgDecadalEms     = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RES scenario x 4 decades
-    # for materials incl. recycling credit:
-    MatCumEms_SensC2050  = np.zeros((NS,NR,NE)) # SSP-Scenario x RES scenario
-    MatCumEms_SensC2060  = np.zeros((NS,NR,NE)) # SSP-Scenario x RES scenario
-    MatAnnEms2030_SensC  = np.zeros((NS,NR,NE)) # SSP-Scenario x RES scenario
-    MatAnnEms2050_SensC  = np.zeros((NS,NR,NE)) # SSP-Scenario x RES scenario
-    MatAvgDecadalEmsC    = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RES scenario x 4 decades    
+    # for use phase di emissions:
+    UseCumEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    UseCumEms2060    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    UseAnnEms2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    UseAnnEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
+    AvgDecadalUseEms = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
+    # for material-related emissions:
+    MatCumEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    MatCumEms2060    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    MatAnnEms2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    MatAnnEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
+    AvgDecadalMatEms = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
+    # for manufacturing-related emissions:
+    ManCumEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    ManCumEms2060    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    ManAnnEms2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    ManAnnEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
+    AvgDecadalManEms = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
+    # for forestry and wood waste related emissions:
+    ForCumEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    ForCumEms2060    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    ForAnnEms2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    ForAnnEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
+    AvgDecadalForEms = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060 
+    # for recycling credit:
+    RecCreditCum2050 = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    RecCreditCum2060 = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    RecCreditAnn2030 = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    RecCreditAnn2050 = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
+    RecCreditAvgDec  = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
+    
+    # get result items:
+    Resultfile = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderList[0],'SysVar_TotalGHGFootprint.xls'))
+    Resultsheet1 = Resultfile.sheet_by_name('Cover')
+    UUID         = Resultsheet1.cell_value(3,2)
+    Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderList[0],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
+    Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
+    # Find the index for the recycling credit and others:
+    rci = 1
+    while True:
+        if Resultsheet2.cell_value(rci, 0) == 'GHG emissions, recycling credits':
+            break # that gives us the right index to read the recycling credit from the result table.
+        rci += 1
+    mci = 1
+    while True:
+        if Resultsheet2.cell_value(mci, 0) == 'GHG emissions, material cycle industries and their energy supply _3di_9di':
+            break # that gives us the right index to read the recycling credit from the result table.
+        mci += 1
+
+    up1i = 1
+    while True:
+        if Resultsheet2.cell_value(up1i, 0) == 'GHG emissions, use phase _7d':
+            break # that gives us the right index from the result table.
+        up1i += 1  
+    up2i = 1
+    while True:
+        if Resultsheet2.cell_value(up2i, 0) == 'GHG emissions, use phase scope 2 (electricity) _7i':
+            break # that gives us the right index from the result table.
+        up2i += 1  
+    up3i = 1
+    while True:
+        if Resultsheet2.cell_value(up3i, 0) == 'GHG emissions, use phase other indirect (non-el.) _7i':
+            break # that gives us the right index from the result table.
+        up3i += 1  
+
+    mfi = 1
+    while True:
+        if Resultsheet2.cell_value(mfi, 0) == 'GHG emissions, manufacturing _5i, all':
+            break # that gives us the right index from the result table.
+        mfi += 1 
+    fci = 1
+    while True:
+        #if Resultsheet2.cell_value(fci, 0) == 'GHG emissions, energy recovery from waste wood (biogenic C plus energy substitution within System)':
+        if Resultsheet2.cell_value(fci, 0) == 'GHG emissions, manufacturing _5i, all':
+            break # that gives us the right index from the result table.
+        fci += 1 
+    wci = 1
+    while True:
+        #if Resultsheet2.cell_value(wci, 0) == 'GHG sequestration by forests (w. neg. sign)':
+        if Resultsheet2.cell_value(wci, 0) == 'GHG emissions, manufacturing _5i, all':
+            break # that gives us the right index from the result table.
+        wci += 1 
     
     for r in range(0,NE): # RE scenario
         Resultfile = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls'))
@@ -100,44 +170,72 @@ def main(RegionalScope,FolderList,SectorString):
         UUID         = Resultsheet1.cell_value(3,2)
         Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
         Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
-        # Find the index for the recycling credit and others:
-        rci = 1
-        while True:
-            if Resultsheet2.cell_value(rci, 0) == 'GHG emissions, recycling credits':
-                break # that gives us the right index to read the recycling credit from the result table.
-            rci += 1
-        mci = 1
-        while True:
-            if Resultsheet2.cell_value(mci, 0) == 'GHG emissions, material cycle industries and their energy supply _3di_9di':
-                break # that gives us the right index to read the recycling credit from the result table.
-            mci += 1
-            
-        # Material results imxport
+              
+        # Use phase results export
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR): # RCP scenario
                 for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
-                    MatCumEms_Sens2050[s,c,r] += Resultsheet2.cell_value(mci+ 2*s +c,t+8)
+                    UseCumEms2050[s,c,r] += Resultsheet2.cell_value(up1i+ 2*s +c,t+8) + Resultsheet2.cell_value(up2i+ 2*s +c,t+8) + Resultsheet2.cell_value(up3i+ 2*s +c,t+8)
                 for t in range(0,45): # time until 2060.
-                    MatCumEms_Sens2060[s,c,r] += Resultsheet2.cell_value(mci+ 2*s +c,t+8)                
-                MatAnnEms2030_Sens[s,c,r]   = Resultsheet2.cell_value(mci+ 2*s +c,22)
-                MatAnnEms2050_Sens[s,c,r]   = Resultsheet2.cell_value(mci+ 2*s +c,42)
-                MatAvgDecadalEms[s,c,r,0]   = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(13,23)])/10
-                MatAvgDecadalEms[s,c,r,1]   = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(23,33)])/10
-                MatAvgDecadalEms[s,c,r,2]   = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(33,43)])/10
-                MatAvgDecadalEms[s,c,r,3]   = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(43,53)])/10               
-            # Material results import, including recycling credit
+                    UseCumEms2060[s,c,r] += Resultsheet2.cell_value(up1i+ 2*s +c,t+8) + Resultsheet2.cell_value(up2i+ 2*s +c,t+8) + Resultsheet2.cell_value(up3i+ 2*s +c,t+8)                    
+                UseAnnEms2030[s,c,r]      = Resultsheet2.cell_value(up1i+ 2*s +c,22)  + Resultsheet2.cell_value(up2i+ 2*s +c,22)  + Resultsheet2.cell_value(up3i+ 2*s +c,22)  
+                UseAnnEms2050[s,c,r]      = Resultsheet2.cell_value(up1i+ 2*s +c,42)  + Resultsheet2.cell_value(up2i+ 2*s +c,42)  + Resultsheet2.cell_value(up3i+ 2*s +c,42)  
+                AvgDecadalUseEms[s,c,r,0] = sum([Resultsheet2.cell_value(up1i+ 2*s +c,t) for t in range(13,23)])/10 + sum([Resultsheet2.cell_value(up2i+ 2*s +c,t) for t in range(13,23)])/10 + sum([Resultsheet2.cell_value(up3i+ 2*s +c,t) for t in range(13,23)])/10
+                AvgDecadalUseEms[s,c,r,1] = sum([Resultsheet2.cell_value(up1i+ 2*s +c,t) for t in range(23,33)])/10 + sum([Resultsheet2.cell_value(up2i+ 2*s +c,t) for t in range(23,33)])/10 + sum([Resultsheet2.cell_value(up3i+ 2*s +c,t) for t in range(23,33)])/10
+                AvgDecadalUseEms[s,c,r,2] = sum([Resultsheet2.cell_value(up1i+ 2*s +c,t) for t in range(33,43)])/10 + sum([Resultsheet2.cell_value(up2i+ 2*s +c,t) for t in range(33,43)])/10 + sum([Resultsheet2.cell_value(up3i+ 2*s +c,t) for t in range(33,43)])/10
+                AvgDecadalUseEms[s,c,r,3] = sum([Resultsheet2.cell_value(up1i+ 2*s +c,t) for t in range(43,53)])/10 + sum([Resultsheet2.cell_value(up2i+ 2*s +c,t) for t in range(43,53)])/10 + sum([Resultsheet2.cell_value(up3i+ 2*s +c,t) for t in range(43,53)])/10          
+        # Material results export
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR): # RCP scenario
                 for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
-                    MatCumEms_SensC2050[s,c,r]+= Resultsheet2.cell_value(mci+ 2*s +c,t+8) + Resultsheet2.cell_value(rci+ 2*s +1,t+8)
+                    MatCumEms2050[s,c,r] += Resultsheet2.cell_value(mci+ 2*s +c,t+8)
                 for t in range(0,45): # time until 2060.
-                    MatCumEms_SensC2060[s,c,r]+= Resultsheet2.cell_value(mci+ 2*s +c,t+8) + Resultsheet2.cell_value(rci+ 2*s +1,t+8)
-                MatAnnEms2030_SensC[s,c,r]  = Resultsheet2.cell_value(mci+ 2*s +c,22)  + Resultsheet2.cell_value(rci+ 2*s +1,22)
-                MatAnnEms2050_SensC[s,c,r]  = Resultsheet2.cell_value(mci+ 2*s +c,42)  + Resultsheet2.cell_value(rci+ 2*s +1,42)
-                MatAvgDecadalEmsC[s,c,r,0]  = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(13,23)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(13,23)])/10
-                MatAvgDecadalEmsC[s,c,r,1]  = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(23,33)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(23,33)])/10
-                MatAvgDecadalEmsC[s,c,r,2]  = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(33,43)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(33,43)])/10
-                MatAvgDecadalEmsC[s,c,r,3]  = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(43,53)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(43,53)])/10            
+                    MatCumEms2060[s,c,r] += Resultsheet2.cell_value(mci+ 2*s +c,t+8)                    
+                MatAnnEms2030[s,c,r]      = Resultsheet2.cell_value(mci+ 2*s +c,22)
+                MatAnnEms2050[s,c,r]      = Resultsheet2.cell_value(mci+ 2*s +c,42)
+                AvgDecadalMatEms[s,c,r,0] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(13,23)])/10
+                AvgDecadalMatEms[s,c,r,1] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(23,33)])/10
+                AvgDecadalMatEms[s,c,r,2] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(33,43)])/10
+                AvgDecadalMatEms[s,c,r,3] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(43,53)])/10    
+        # Manufacturing results export
+        for s in range(0,NS): # SSP scenario
+            for c in range(0,NR): # RCP scenario
+                for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
+                    ManCumEms2050[s,c,r] += Resultsheet2.cell_value(mfi+ 2*s +c,t+8)
+                for t in range(0,45): # time until 2060.
+                    ManCumEms2060[s,c,r] += Resultsheet2.cell_value(mfi+ 2*s +c,t+8)                    
+                ManAnnEms2030[s,c,r]      = Resultsheet2.cell_value(mfi+ 2*s +c,22)
+                ManAnnEms2050[s,c,r]      = Resultsheet2.cell_value(mfi+ 2*s +c,42)
+                AvgDecadalManEms[s,c,r,0] = sum([Resultsheet2.cell_value(mfi+ 2*s +c,t) for t in range(13,23)])/10
+                AvgDecadalManEms[s,c,r,1] = sum([Resultsheet2.cell_value(mfi+ 2*s +c,t) for t in range(23,33)])/10
+                AvgDecadalManEms[s,c,r,2] = sum([Resultsheet2.cell_value(mfi+ 2*s +c,t) for t in range(33,43)])/10
+                AvgDecadalManEms[s,c,r,3] = sum([Resultsheet2.cell_value(mfi+ 2*s +c,t) for t in range(43,53)])/10                 
+        # Forestry results export
+        for s in range(0,NS): # SSP scenario
+            for c in range(0,NR): # RCP scenario
+                for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
+                    ForCumEms2050[s,c,r] += Resultsheet2.cell_value(fci+ 2*s +c,t+8) + Resultsheet2.cell_value(wci+ 2*s +c,t+8)
+                for t in range(0,45): # time until 2060.
+                    ForCumEms2060[s,c,r] += Resultsheet2.cell_value(fci+ 2*s +c,t+8) + Resultsheet2.cell_value(wci+ 2*s +c,t+8)                    
+                ForAnnEms2030[s,c,r]      = Resultsheet2.cell_value(fci+ 2*s +c,22)  + Resultsheet2.cell_value(wci+ 2*s +c,22)
+                ForAnnEms2050[s,c,r]      = Resultsheet2.cell_value(fci+ 2*s +c,42)  + Resultsheet2.cell_value(wci+ 2*s +c,42)
+                AvgDecadalForEms[s,c,r,0] = sum([Resultsheet2.cell_value(fci+ 2*s +c,t) for t in range(13,23)])/10 + sum([Resultsheet2.cell_value(wci+ 2*s +c,t) for t in range(13,23)])/10
+                AvgDecadalForEms[s,c,r,1] = sum([Resultsheet2.cell_value(fci+ 2*s +c,t) for t in range(23,33)])/10 + sum([Resultsheet2.cell_value(wci+ 2*s +c,t) for t in range(23,33)])/10
+                AvgDecadalForEms[s,c,r,2] = sum([Resultsheet2.cell_value(fci+ 2*s +c,t) for t in range(33,43)])/10 + sum([Resultsheet2.cell_value(wci+ 2*s +c,t) for t in range(33,43)])/10
+                AvgDecadalForEms[s,c,r,3] = sum([Resultsheet2.cell_value(fci+ 2*s +c,t) for t in range(43,53)])/10 + sum([Resultsheet2.cell_value(wci+ 2*s +c,t) for t in range(43,53)])/10              
+        # recycling credit
+        for s in range(0,NS): # SSP scenario
+            for c in range(0,NR):
+                for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
+                    RecCreditCum2050[s,c,r]+= Resultsheet2.cell_value(rci+ 2*s +c,t+8)
+                for t in range(0,45): # time until 2060.
+                    RecCreditCum2060[s,c,r]+= Resultsheet2.cell_value(rci+ 2*s +c,t+8)
+                RecCreditAnn2030[s,c,r]     = Resultsheet2.cell_value(rci+ 2*s +c,22)
+                RecCreditAnn2050[s,c,r]     = Resultsheet2.cell_value(rci+ 2*s +c,42)
+                RecCreditAvgDec[s,c,r,0]= sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(13,23)])/10
+                RecCreditAvgDec[s,c,r,1]= sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(23,33)])/10
+                RecCreditAvgDec[s,c,r,2]= sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(33,43)])/10
+                RecCreditAvgDec[s,c,r,3]= sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(43,53)])/10                       
     
     ### Tornado plot for sensitivity
             
@@ -190,7 +288,7 @@ def main(RegionalScope,FolderList,SectorString):
                 fig_name = RegionalScope + '_' + SectorString + '_' + Titles[npp] + '_' + Scens[m] + '_' + Rcens[c] + '.png'
                 fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
       
-    return CumEms_Sens2050, AnnEms2030_Sens, AnnEms2050_Sens, AvgDecadalEms, MatCumEms_Sens2050, MatAnnEms2030_Sens, MatAnnEms2050_Sens, MatAvgDecadalEms, MatCumEms_SensC2050, MatAnnEms2030_SensC, MatAnnEms2050_SensC, MatAvgDecadalEmsC, CumEms_Sens2060, MatCumEms_Sens2060, MatCumEms_SensC2060
+    return CumEms_Sens2050, CumEms_Sens2060, AnnEms2030_Sens, AnnEms2050_Sens, AvgDecadalEms, UseCumEms2050, UseCumEms2060, UseAnnEms2030, UseAnnEms2050, AvgDecadalUseEms, MatCumEms2050, MatCumEms2060, MatAnnEms2030, MatAnnEms2050, AvgDecadalMatEms, ManCumEms2050, ManCumEms2060, ManAnnEms2030, ManAnnEms2050, AvgDecadalManEms, ForCumEms2050, ForCumEms2060, ForAnnEms2030, ForAnnEms2050, AvgDecadalForEms, RecCreditCum2050, RecCreditCum2060, RecCreditAnn2030, RecCreditAnn2050, RecCreditAvgDec
 
 # code for script to be run as standalone function
 if __name__ == "__main__":

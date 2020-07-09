@@ -15,7 +15,7 @@ Script that modifies the RECC config file to run a list of scenarios and execute
 
 # Import required libraries:
 import os
-import xlrd
+import xlrd, xlwt
 import openpyxl
 
 import RECC_Paths # Import path file
@@ -85,6 +85,14 @@ while True:
     OutputDict = ODYM_RECC_V2_4.main()
     ResultFolders.append(OutputDict['Name_Scenario'])
 
+# Export ResultFolders:
+ResultFolder_workbook = xlwt.Workbook(encoding = 'ascii') # Export file
+ResultFolderSheet     = ResultFolder_workbook.add_sheet('ResultFolders')
+Fr = 3
+for Fname in ResultFolders:
+    ResultFolderSheet.write(Fr,3,label = Fname)
+    Fr +=1
+ResultFolder_workbook.save(os.path.join(RECC_Paths.results_path,'ResultFolders.xls'))
 
 #
 #

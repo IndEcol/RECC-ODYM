@@ -61,6 +61,7 @@ def main(RegionalScope,FolderList,SectorString):
         LWE_area= ['higher yields', 're-use & LTE','material subst.','down-sizing','car-sharing','ride-sharing']   
         PlotCtrl= 0 
         ColOrder= [0,1,2,3,4,5,6,7]
+        MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.   
         
     if SectorString == 'reb':
         NE      = 6 # no of Res. eff. scenarios for cascade
@@ -73,6 +74,7 @@ def main(RegionalScope,FolderList,SectorString):
         LWE_area= ['higher yields', 're-use & LTE','material subst.','light design','more intense use']    
         PlotCtrl= 1
         ColOrder= [0,1,2,3,4,5,6]
+        MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.   
         
     if SectorString == 'nrb':
         NE      = 6 # no of Res. eff. scenarios for cascade
@@ -85,6 +87,7 @@ def main(RegionalScope,FolderList,SectorString):
         LWE_area= ['higher yields', 're-use & LTE','material subst.','light design','more intense use']    
         PlotCtrl= 1
         ColOrder= [0,1,2,3,4,5,6]
+        MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.   
         
     if SectorString == 'pav_reb' or SectorString == 'pav_nrb':
         NE      = 8 # no of Res. eff. scenarios for cascade
@@ -97,6 +100,7 @@ def main(RegionalScope,FolderList,SectorString):
         LWE_area   = ['higher yields', 're-use & LTE','material subst.','down-sizing','car-sharing','ride-sharing','More intense bld. use']      
         PlotCtrl= 1
         ColOrder= [11,4,0,18,8,16,2,6,15]
+        MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map. 
 
     if SectorString == 'pav_reb_nrb':
         NE      = 8 # no of Res. eff. scenarios for cascade
@@ -109,6 +113,7 @@ def main(RegionalScope,FolderList,SectorString):
         LWE_area   = ['higher yields', 're-use & LTE','material subst.','down-sizing','car-sharing','ride-sharing','More intense bld. use']     
         PlotCtrl= 1
         ColOrder= [11,4,0,18,8,16,2,6,15]
+        MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map. 
         
     # system-wide emissions:
     CumEms2050       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario: cum. emissions 2016-2050.
@@ -117,6 +122,13 @@ def main(RegionalScope,FolderList,SectorString):
     AnnEms2050       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario: ann. emissions 2050.
     AvgDecadalEms    = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
     ASummary         = np.zeros((12,NR,NE)) # different indices compiled x RCP x RES.
+    # for use phase di emissions:
+    UseCumEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    UseCumEms2060    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    UseAnnEms2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    UseAnnEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
+    AvgDecadalUseEms = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
+    UsePhaseSummary  = np.zeros((12,NR,NE)) # different indices compiled x RCP x RES.    
     # for material-related emissions:
     MatCumEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     MatCumEms2060    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
@@ -124,13 +136,27 @@ def main(RegionalScope,FolderList,SectorString):
     MatAnnEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
     AvgDecadalMatEms = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
     MatSummary       = np.zeros((12,NR,NE)) # different indices compiled x RCP x RES.
-    # for material-related emissions plus recycling credit:
-    MatCumEmsC2050   = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
-    MatCumEmsC2060   = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
-    MatAnnEms2030C   = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
-    MatAnnEms2050C   = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
-    AvgDecadalMatEmsC= np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
-    MatSummaryC      = np.zeros((12,NR,NE)) # different indices compiled x RCP x RES.
+    # for manufacturing-related emissions:
+    ManCumEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    ManCumEms2060    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    ManAnnEms2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    ManAnnEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
+    AvgDecadalManEms = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
+    ManSummary       = np.zeros((12,NR,NE)) # different indices compiled x RCP x RES.
+    # for forestry and wood waste related emissions:
+    ForCumEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    ForCumEms2060    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    ForAnnEms2030    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    ForAnnEms2050    = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
+    AvgDecadalForEms = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
+    ForSummary       = np.zeros((12,NR,NE)) # different indices compiled x RCP x RES.    
+    # for recycling credit:
+    RecCreditCum2050 = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    RecCreditCum2060 = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    RecCreditAnn2030 = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+    RecCreditAnn2050 = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario    
+    RecCreditAvgDec  = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
+    RecCredit        = np.zeros((12,NR,NE)) # different indices compiled x RCP x RES.
     
     TimeSeries_R     = np.zeros((10,NE,45,3,2)) # NX x NE x Nt x NS x NR / indicators x RES x time x SSP x RCP
     # 0: system-wide GHG, 1: material-related GHG
@@ -159,8 +185,6 @@ def main(RegionalScope,FolderList,SectorString):
     ASummary[9::,:] = CumEms2060.copy()                        
     
     # Waterfall plot            
-    MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.            
-    
     Title  = ['CumGHG_16_50','CumGHG_40_50','AnnGHG_50']
     Scens  = ['LED','SSP1','SSP2']
     Rcens  = ['Base','RCP2_6']
@@ -230,6 +254,224 @@ def main(RegionalScope,FolderList,SectorString):
     MatProduction_Prim = np.zeros((Nt,Nm,NS,NR,NE))
     MatProduction_Sec  = np.zeros((Nt,Nm,NS,NR,NE))
     
+    # First, get the position indices for the different result variables:
+    Path = os.path.join(RECC_Paths.results_path,FolderList[0],'SysVar_TotalGHGFootprint.xls') # take first folder of the list.
+    Resultfile   = xlrd.open_workbook(Path)
+    Resultsheet  = Resultfile.sheet_by_name('TotalGHGFootprint')
+    Resultsheet1 = Resultfile.sheet_by_name('Cover')
+    UUID         = Resultsheet1.cell_value(3,2)
+    Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderList[0],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
+    Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')   
+    
+    rci = 1
+    while True:
+        if Resultsheet2.cell_value(rci, 0) == 'GHG emissions, recycling credits':
+            break # that gives us the right index to read the recycling credit from the result table.
+        rci += 1
+    mci = 1
+    while True:
+        if Resultsheet2.cell_value(mci, 0) == 'GHG emissions, material cycle industries and their energy supply _3di_9di':
+            break # that gives us the right index to read the recycling credit from the result table.
+        mci += 1
+        
+    ms1 = 1
+    while True:
+        if Resultsheet2.cell_value(ms1, 0) == 'In-use stock, construction grade steel':
+            break # that gives us the right index from the result table.
+        ms1 += 1            
+    ms2 = 1
+    while True:
+        if Resultsheet2.cell_value(ms2, 0) == 'In-use stock, automotive steel':
+            break # that gives us the right index from the result table.
+        ms2 += 1 
+    ms3 = 1
+    while True:
+        if Resultsheet2.cell_value(ms3, 0) == 'In-use stock, stainless steel':
+            break # that gives us the right index from the result table.
+        ms3 += 1 
+    ms4 = 1
+    while True:
+        if Resultsheet2.cell_value(ms4, 0) == 'In-use stock, cast iron':
+            break # that gives us the right index from the result table.
+        ms4 += 1 
+    ms5 = 1
+    while True:
+        if Resultsheet2.cell_value(ms5, 0) == 'In-use stock, wrought Al':
+            break # that gives us the right index from the result table.
+        ms5 += 1 
+    ms6 = 1
+    while True:
+        if Resultsheet2.cell_value(ms6, 0) == 'In-use stock, cast Al':
+            break # that gives us the right index from the result table.
+        ms6 += 1 
+    ms7 = 1
+    while True:
+        if Resultsheet2.cell_value(ms7, 0) == 'In-use stock, copper electric grade':
+            break # that gives us the right index from the result table.
+        ms7 += 1 
+    ms8 = 1
+    while True:
+        if Resultsheet2.cell_value(ms8, 0) == 'In-use stock, plastics':
+            break # that gives us the right index from the result table.
+        ms8 += 1 
+    ms9 = 1
+    while True:
+        if Resultsheet2.cell_value(ms9, 0) == 'In-use stock, cement':
+            break # that gives us the right index from the result table.
+        ms9 += 1 
+    ms10 = 1
+    while True:
+        if Resultsheet2.cell_value(ms10, 0) == 'In-use stock, wood and wood products':
+            break # that gives us the right index from the result table.
+        ms10 += 1 
+
+    mc1 = 1
+    while True:
+        if Resultsheet2.cell_value(mc1, 0) == 'Primary steel production':
+            break # that gives us the right index from the result table.
+        mc1 += 1
+    mc2 = 1
+    while True:
+        if Resultsheet2.cell_value(mc2, 0) == 'Primary Al production':
+            break # that gives us the right index from the result table.
+        mc2 += 1
+    mc3 = 1
+    while True:
+        if Resultsheet2.cell_value(mc3, 0) == 'Primary Cu production':
+            break # that gives us the right index from the result table.
+        mc3 += 1
+    mc4 = 1
+    while True:
+        if Resultsheet2.cell_value(mc4, 0) == 'Cement production':
+            break # that gives us the right index from the result table.
+        mc4 += 1
+    mc5 = 1
+    while True:
+        if Resultsheet2.cell_value(mc5, 0) == 'Primary plastics production':
+            break # that gives us the right index from the result table.
+        mc5 += 1
+    mc6 = 1
+    while True:
+        if Resultsheet2.cell_value(mc6, 0) == 'Wood, from forests':
+            break # that gives us the right index from the result table.
+        mc6 += 1
+    mc7 = 1
+    while True:
+        if Resultsheet2.cell_value(mc7, 0) == 'Secondary steel':
+            break # that gives us the right index from the result table.
+        mc7 += 1
+    mc8 = 1
+    while True:
+        if Resultsheet2.cell_value(mc8, 0) == 'Secondary Al':
+            break # that gives us the right index from the result table.
+        mc8 += 1            
+    mc9 = 1
+    while True:
+        if Resultsheet2.cell_value(mc9, 0) == 'Secondary copper':
+            break # that gives us the right index from the result table.
+        mc9 += 1   
+    mc10 = 1
+    while True:
+        if Resultsheet2.cell_value(mc10, 0) == 'Secondary plastics':
+            break # that gives us the right index from the result table.
+        mc10 += 1   
+    mc11 = 1
+    while True:
+        if Resultsheet2.cell_value(mc11, 0) == 'Recycled wood':
+            break # that gives us the right index from the result table.
+        mc11 += 1               
+        
+    ru1 = 1
+    while True:
+        if Resultsheet2.cell_value(ru1, 0) == 'ReUse of materials in products, construction grade steel':
+            break # that gives us the right index from the result table.
+        ru1 += 1 
+    ru2 = 1
+    while True:
+        if Resultsheet2.cell_value(ru2, 0) == 'ReUse of materials in products, automotive steel':
+            break # that gives us the right index from the result table.
+        ru2 += 1             
+    ru3 = 1
+    while True:
+        if Resultsheet2.cell_value(ru3, 0) == 'ReUse of materials in products, stainless steel':
+            break # that gives us the right index from the result table.
+        ru3 += 1 
+    ru4 = 1
+    while True:
+        if Resultsheet2.cell_value(ru4, 0) == 'ReUse of materials in products, cast iron':
+            break # that gives us the right index from the result table.
+        ru4 += 1 
+    ru5 = 1
+    while True:
+        if Resultsheet2.cell_value(ru5, 0) == 'ReUse of materials in products, wrought Al':
+            break # that gives us the right index from the result table.
+        ru5 += 1 
+    ru6 = 1
+    while True:
+        if Resultsheet2.cell_value(ru6, 0) == 'ReUse of materials in products, cast Al':
+            break # that gives us the right index from the result table.
+        ru6 += 1
+    ru7 = 1
+    while True:
+        if Resultsheet2.cell_value(ru7, 0) == 'ReUse of materials in products, copper electric grade':
+            break # that gives us the right index from the result table.
+        ru7 += 1
+    ru8 = 1
+    while True:
+        if Resultsheet2.cell_value(ru8, 0) == 'ReUse of materials in products, plastics':
+            break # that gives us the right index from the result table.
+        ru8 += 1
+    ru9 = 1
+    while True:
+        if Resultsheet2.cell_value(ru9, 0) == 'ReUse of materials in products, cement':
+            break # that gives us the right index from the result table.
+        ru9 += 1 
+    ru10 = 1
+    while True:
+        if Resultsheet2.cell_value(ru10, 0) == 'ReUse of materials in products, wood and wood products':
+            break # that gives us the right index from the result table.
+        ru10 += 1    
+        
+    mp2 = 1
+    while True:
+        if Resultsheet2.cell_value(mp2, 0) == 'Secondary materials, total':
+            break # that gives us the right index from the result table.
+        mp2 += 1  
+    
+    up1i = 1
+    while True:
+        if Resultsheet2.cell_value(up1i, 0) == 'GHG emissions, use phase _7d':
+            break # that gives us the right index from the result table.
+        up1i += 1  
+    up2i = 1
+    while True:
+        if Resultsheet2.cell_value(up2i, 0) == 'GHG emissions, use phase scope 2 (electricity) _7i':
+            break # that gives us the right index from the result table.
+        up2i += 1  
+    up3i = 1
+    while True:
+        if Resultsheet2.cell_value(up3i, 0) == 'GHG emissions, use phase other indirect (non-el.) _7i':
+            break # that gives us the right index from the result table.
+        up3i += 1  
+
+    mfi = 1
+    while True:
+        if Resultsheet2.cell_value(mfi, 0) == 'GHG emissions, manufacturing _5i, all':
+            break # that gives us the right index from the result table.
+        mfi += 1 
+    fci = 1
+    while True:
+        #if Resultsheet2.cell_value(fci, 0) == 'GHG emissions, energy recovery from waste wood (biogenic C plus energy substitution within System)':
+        if Resultsheet2.cell_value(fci, 0) == 'GHG emissions, manufacturing _5i, all':
+            break # that gives us the right index from the result table.
+        fci += 1 
+    wci = 1
+    while True:
+        #if Resultsheet2.cell_value(wci, 0) == 'GHG sequestration by forests (w. neg. sign)':
+        if Resultsheet2.cell_value(wci, 0) == 'GHG emissions, manufacturing _5i, all':
+            break # that gives us the right index from the result table.
+        wci += 1         
+    
     for r in range(0,NE): # RE scenario
         Path = os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls')
         Resultfile   = xlrd.open_workbook(Path)
@@ -237,182 +479,26 @@ def main(RegionalScope,FolderList,SectorString):
         Resultsheet1 = Resultfile.sheet_by_name('Cover')
         UUID         = Resultsheet1.cell_value(3,2)
         Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
-        Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
-        # Find the index for the recycling credit and others:
-        rci = 1
-        while True:
-            if Resultsheet2.cell_value(rci, 0) == 'GHG emissions, recycling credits':
-                break # that gives us the right index to read the recycling credit from the result table.
-            rci += 1
-        mci = 1
-        while True:
-            if Resultsheet2.cell_value(mci, 0) == 'GHG emissions, material cycle industries and their energy supply _3di_9di':
-                break # that gives us the right index to read the recycling credit from the result table.
-            mci += 1
-            
-        ms1 = 1
-        while True:
-            if Resultsheet2.cell_value(ms1, 0) == 'In-use stock, construction grade steel':
-                break # that gives us the right index from the result table.
-            ms1 += 1            
-        ms2 = 1
-        while True:
-            if Resultsheet2.cell_value(ms2, 0) == 'In-use stock, automotive steel':
-                break # that gives us the right index from the result table.
-            ms2 += 1 
-        ms3 = 1
-        while True:
-            if Resultsheet2.cell_value(ms3, 0) == 'In-use stock, stainless steel':
-                break # that gives us the right index from the result table.
-            ms3 += 1 
-        ms4 = 1
-        while True:
-            if Resultsheet2.cell_value(ms4, 0) == 'In-use stock, cast iron':
-                break # that gives us the right index from the result table.
-            ms4 += 1 
-        ms5 = 1
-        while True:
-            if Resultsheet2.cell_value(ms5, 0) == 'In-use stock, wrought Al':
-                break # that gives us the right index from the result table.
-            ms5 += 1 
-        ms6 = 1
-        while True:
-            if Resultsheet2.cell_value(ms6, 0) == 'In-use stock, cast Al':
-                break # that gives us the right index from the result table.
-            ms6 += 1 
-        ms7 = 1
-        while True:
-            if Resultsheet2.cell_value(ms7, 0) == 'In-use stock, copper electric grade':
-                break # that gives us the right index from the result table.
-            ms7 += 1 
-        ms8 = 1
-        while True:
-            if Resultsheet2.cell_value(ms8, 0) == 'In-use stock, plastics':
-                break # that gives us the right index from the result table.
-            ms8 += 1 
-        ms9 = 1
-        while True:
-            if Resultsheet2.cell_value(ms9, 0) == 'In-use stock, cement':
-                break # that gives us the right index from the result table.
-            ms9 += 1 
-        ms10 = 1
-        while True:
-            if Resultsheet2.cell_value(ms10, 0) == 'In-use stock, wood and wood products':
-                break # that gives us the right index from the result table.
-            ms10 += 1 
-
-        mc1 = 1
-        while True:
-            if Resultsheet2.cell_value(mc1, 0) == 'Primary steel production':
-                break # that gives us the right index from the result table.
-            mc1 += 1
-        mc2 = 1
-        while True:
-            if Resultsheet2.cell_value(mc2, 0) == 'Primary Al production':
-                break # that gives us the right index from the result table.
-            mc2 += 1
-        mc3 = 1
-        while True:
-            if Resultsheet2.cell_value(mc3, 0) == 'Primary Cu production':
-                break # that gives us the right index from the result table.
-            mc3 += 1
-        mc4 = 1
-        while True:
-            if Resultsheet2.cell_value(mc4, 0) == 'Cement production':
-                break # that gives us the right index from the result table.
-            mc4 += 1
-        mc5 = 1
-        while True:
-            if Resultsheet2.cell_value(mc5, 0) == 'Primary plastics production':
-                break # that gives us the right index from the result table.
-            mc5 += 1
-        mc6 = 1
-        while True:
-            if Resultsheet2.cell_value(mc6, 0) == 'Wood, from forests':
-                break # that gives us the right index from the result table.
-            mc6 += 1
-        mc7 = 1
-        while True:
-            if Resultsheet2.cell_value(mc7, 0) == 'Secondary steel':
-                break # that gives us the right index from the result table.
-            mc7 += 1
-        mc8 = 1
-        while True:
-            if Resultsheet2.cell_value(mc8, 0) == 'Secondary Al':
-                break # that gives us the right index from the result table.
-            mc8 += 1            
-        mc9 = 1
-        while True:
-            if Resultsheet2.cell_value(mc9, 0) == 'Secondary copper':
-                break # that gives us the right index from the result table.
-            mc9 += 1   
-        mc10 = 1
-        while True:
-            if Resultsheet2.cell_value(mc10, 0) == 'Secondary plastics':
-                break # that gives us the right index from the result table.
-            mc10 += 1   
-        mc11 = 1
-        while True:
-            if Resultsheet2.cell_value(mc11, 0) == 'Recycled wood':
-                break # that gives us the right index from the result table.
-            mc11 += 1               
-            
-        ru1 = 1
-        while True:
-            if Resultsheet2.cell_value(ru1, 0) == 'ReUse of materials in products, construction grade steel':
-                break # that gives us the right index from the result table.
-            ru1 += 1 
-        ru2 = 1
-        while True:
-            if Resultsheet2.cell_value(ru2, 0) == 'ReUse of materials in products, automotive steel':
-                break # that gives us the right index from the result table.
-            ru2 += 1             
-        ru3 = 1
-        while True:
-            if Resultsheet2.cell_value(ru3, 0) == 'ReUse of materials in products, stainless steel':
-                break # that gives us the right index from the result table.
-            ru3 += 1 
-        ru4 = 1
-        while True:
-            if Resultsheet2.cell_value(ru4, 0) == 'ReUse of materials in products, cast iron':
-                break # that gives us the right index from the result table.
-            ru4 += 1 
-        ru5 = 1
-        while True:
-            if Resultsheet2.cell_value(ru5, 0) == 'ReUse of materials in products, wrought Al':
-                break # that gives us the right index from the result table.
-            ru5 += 1 
-        ru6 = 1
-        while True:
-            if Resultsheet2.cell_value(ru6, 0) == 'ReUse of materials in products, cast Al':
-                break # that gives us the right index from the result table.
-            ru6 += 1
-        ru7 = 1
-        while True:
-            if Resultsheet2.cell_value(ru7, 0) == 'ReUse of materials in products, copper electric grade':
-                break # that gives us the right index from the result table.
-            ru7 += 1
-        ru8 = 1
-        while True:
-            if Resultsheet2.cell_value(ru8, 0) == 'ReUse of materials in products, plastics':
-                break # that gives us the right index from the result table.
-            ru8 += 1
-        ru9 = 1
-        while True:
-            if Resultsheet2.cell_value(ru9, 0) == 'ReUse of materials in products, cement':
-                break # that gives us the right index from the result table.
-            ru9 += 1 
-        ru10 = 1
-        while True:
-            if Resultsheet2.cell_value(ru10, 0) == 'ReUse of materials in products, wood and wood products':
-                break # that gives us the right index from the result table.
-            ru10 += 1            
+        Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')  
             
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR):
                 for t in range(0,45): # time
                     AnnEms[t,s,c,r]       = Resultsheet.cell_value(t +2, 1 + c + NR*s)
                     MatEms[t,s,c,r]       = Resultsheet2.cell_value(mci+ 2*s +c,t+8)
+        # Use phase results export
+        for s in range(0,NS): # SSP scenario
+            for c in range(0,NR): # RCP scenario
+                for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
+                    UseCumEms2050[s,c,r] += Resultsheet2.cell_value(up1i+ 2*s +c,t+8) + Resultsheet2.cell_value(up2i+ 2*s +c,t+8) + Resultsheet2.cell_value(up3i+ 2*s +c,t+8)
+                for t in range(0,45): # time until 2060.
+                    UseCumEms2060[s,c,r] += Resultsheet2.cell_value(up1i+ 2*s +c,t+8) + Resultsheet2.cell_value(up2i+ 2*s +c,t+8) + Resultsheet2.cell_value(up3i+ 2*s +c,t+8)                    
+                UseAnnEms2030[s,c,r]      = Resultsheet2.cell_value(up1i+ 2*s +c,22)  + Resultsheet2.cell_value(up2i+ 2*s +c,22)  + Resultsheet2.cell_value(up3i+ 2*s +c,22)  
+                UseAnnEms2050[s,c,r]      = Resultsheet2.cell_value(up1i+ 2*s +c,42)  + Resultsheet2.cell_value(up2i+ 2*s +c,42)  + Resultsheet2.cell_value(up3i+ 2*s +c,42)  
+                AvgDecadalUseEms[s,c,r,0] = sum([Resultsheet2.cell_value(up1i+ 2*s +c,t) for t in range(13,23)])/10 + sum([Resultsheet2.cell_value(up2i+ 2*s +c,t) for t in range(13,23)])/10 + sum([Resultsheet2.cell_value(up3i+ 2*s +c,t) for t in range(13,23)])/10
+                AvgDecadalUseEms[s,c,r,1] = sum([Resultsheet2.cell_value(up1i+ 2*s +c,t) for t in range(23,33)])/10 + sum([Resultsheet2.cell_value(up2i+ 2*s +c,t) for t in range(23,33)])/10 + sum([Resultsheet2.cell_value(up3i+ 2*s +c,t) for t in range(23,33)])/10
+                AvgDecadalUseEms[s,c,r,2] = sum([Resultsheet2.cell_value(up1i+ 2*s +c,t) for t in range(33,43)])/10 + sum([Resultsheet2.cell_value(up2i+ 2*s +c,t) for t in range(33,43)])/10 + sum([Resultsheet2.cell_value(up3i+ 2*s +c,t) for t in range(33,43)])/10
+                AvgDecadalUseEms[s,c,r,3] = sum([Resultsheet2.cell_value(up1i+ 2*s +c,t) for t in range(43,53)])/10 + sum([Resultsheet2.cell_value(up2i+ 2*s +c,t) for t in range(43,53)])/10 + sum([Resultsheet2.cell_value(up3i+ 2*s +c,t) for t in range(43,53)])/10          
         # Material results export
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR): # RCP scenario
@@ -420,26 +506,54 @@ def main(RegionalScope,FolderList,SectorString):
                     MatCumEms2050[s,c,r] += Resultsheet2.cell_value(mci+ 2*s +c,t+8)
                 for t in range(0,45): # time until 2060.
                     MatCumEms2060[s,c,r] += Resultsheet2.cell_value(mci+ 2*s +c,t+8)                    
-                    TimeSeries_R[1,r,t,s,c] = Resultsheet2.cell_value(mci+ 2*s +c,t+8)                    
+                    TimeSeries_R[1,r,t,s,c] = Resultsheet2.cell_value(mci+ 2*s +c,t+8) 
+                    #TimeSeries_R[2,r,t,s,c] = Resultsheet2.cell_value(mp1+ 2*s +c,t+8) 
+                    TimeSeries_R[3,r,t,s,c] = Resultsheet2.cell_value(mp2+ 2*s +c,t+8) 
                 MatAnnEms2030[s,c,r]      = Resultsheet2.cell_value(mci+ 2*s +c,22)
                 MatAnnEms2050[s,c,r]      = Resultsheet2.cell_value(mci+ 2*s +c,42)
                 AvgDecadalMatEms[s,c,r,0] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(13,23)])/10
                 AvgDecadalMatEms[s,c,r,1] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(23,33)])/10
                 AvgDecadalMatEms[s,c,r,2] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(33,43)])/10
                 AvgDecadalMatEms[s,c,r,3] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(43,53)])/10    
-        # Material results export, including recycling credit
+        # Manufacturing results export
+        for s in range(0,NS): # SSP scenario
+            for c in range(0,NR): # RCP scenario
+                for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
+                    ManCumEms2050[s,c,r] += Resultsheet2.cell_value(mfi+ 2*s +c,t+8)
+                for t in range(0,45): # time until 2060.
+                    ManCumEms2060[s,c,r] += Resultsheet2.cell_value(mfi+ 2*s +c,t+8)                    
+                ManAnnEms2030[s,c,r]      = Resultsheet2.cell_value(mfi+ 2*s +c,22)
+                ManAnnEms2050[s,c,r]      = Resultsheet2.cell_value(mfi+ 2*s +c,42)
+                AvgDecadalManEms[s,c,r,0] = sum([Resultsheet2.cell_value(mfi+ 2*s +c,t) for t in range(13,23)])/10
+                AvgDecadalManEms[s,c,r,1] = sum([Resultsheet2.cell_value(mfi+ 2*s +c,t) for t in range(23,33)])/10
+                AvgDecadalManEms[s,c,r,2] = sum([Resultsheet2.cell_value(mfi+ 2*s +c,t) for t in range(33,43)])/10
+                AvgDecadalManEms[s,c,r,3] = sum([Resultsheet2.cell_value(mfi+ 2*s +c,t) for t in range(43,53)])/10                 
+        # Forestry results export
+        for s in range(0,NS): # SSP scenario
+            for c in range(0,NR): # RCP scenario
+                for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
+                    ForCumEms2050[s,c,r] += Resultsheet2.cell_value(fci+ 2*s +c,t+8) + Resultsheet2.cell_value(wci+ 2*s +c,t+8)
+                for t in range(0,45): # time until 2060.
+                    ForCumEms2060[s,c,r] += Resultsheet2.cell_value(fci+ 2*s +c,t+8) + Resultsheet2.cell_value(wci+ 2*s +c,t+8)                    
+                ForAnnEms2030[s,c,r]      = Resultsheet2.cell_value(fci+ 2*s +c,22)  + Resultsheet2.cell_value(wci+ 2*s +c,22)
+                ForAnnEms2050[s,c,r]      = Resultsheet2.cell_value(fci+ 2*s +c,42)  + Resultsheet2.cell_value(wci+ 2*s +c,42)
+                AvgDecadalForEms[s,c,r,0] = sum([Resultsheet2.cell_value(fci+ 2*s +c,t) for t in range(13,23)])/10 + sum([Resultsheet2.cell_value(wci+ 2*s +c,t) for t in range(13,23)])/10
+                AvgDecadalForEms[s,c,r,1] = sum([Resultsheet2.cell_value(fci+ 2*s +c,t) for t in range(23,33)])/10 + sum([Resultsheet2.cell_value(wci+ 2*s +c,t) for t in range(23,33)])/10
+                AvgDecadalForEms[s,c,r,2] = sum([Resultsheet2.cell_value(fci+ 2*s +c,t) for t in range(33,43)])/10 + sum([Resultsheet2.cell_value(wci+ 2*s +c,t) for t in range(33,43)])/10
+                AvgDecadalForEms[s,c,r,3] = sum([Resultsheet2.cell_value(fci+ 2*s +c,t) for t in range(43,53)])/10 + sum([Resultsheet2.cell_value(wci+ 2*s +c,t) for t in range(43,53)])/10              
+        # recycling credit
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR):
                 for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
-                    MatCumEmsC2050[s,c,r]+= Resultsheet2.cell_value(mci+ 2*s +c,t+8) + Resultsheet2.cell_value(rci+ 2*s +c,t+8)
+                    RecCreditCum2050[s,c,r]+= Resultsheet2.cell_value(rci+ 2*s +c,t+8)
                 for t in range(0,45): # time until 2060.
-                    MatCumEmsC2060[s,c,r]+= Resultsheet2.cell_value(mci+ 2*s +c,t+8) + Resultsheet2.cell_value(rci+ 2*s +c,t+8)
-                MatAnnEms2030C[s,c,r]     = Resultsheet2.cell_value(mci+ 2*s +c,22)  + Resultsheet2.cell_value(rci+ 2*s +c,22)
-                MatAnnEms2050C[s,c,r]     = Resultsheet2.cell_value(mci+ 2*s +c,42)  + Resultsheet2.cell_value(rci+ 2*s +c,42)
-                AvgDecadalMatEmsC[s,c,r,0]= sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(13,23)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(13,23)])/10
-                AvgDecadalMatEmsC[s,c,r,1]= sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(23,33)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(23,33)])/10
-                AvgDecadalMatEmsC[s,c,r,2]= sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(33,43)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(33,43)])/10
-                AvgDecadalMatEmsC[s,c,r,3]= sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(43,53)])/10 + sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(43,53)])/10                       
+                    RecCreditCum2060[s,c,r]+= Resultsheet2.cell_value(rci+ 2*s +c,t+8)
+                RecCreditAnn2030[s,c,r]     = Resultsheet2.cell_value(rci+ 2*s +c,22)
+                RecCreditAnn2050[s,c,r]     = Resultsheet2.cell_value(rci+ 2*s +c,42)
+                RecCreditAvgDec[s,c,r,0]= sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(13,23)])/10
+                RecCreditAvgDec[s,c,r,1]= sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(23,33)])/10
+                RecCreditAvgDec[s,c,r,2]= sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(33,43)])/10
+                RecCreditAvgDec[s,c,r,3]= sum([Resultsheet2.cell_value(rci+ 2*s +1,t) for t in range(43,53)])/10                       
 
         # Material stocks export
         for s in range(0,NS): # SSP scenario
@@ -470,15 +584,30 @@ def main(RegionalScope,FolderList,SectorString):
                     MatProduction_Sec[t,4,s,c,r]  = Resultsheet2.cell_value(mc10+ 2*s +c,t+8) + Resultsheet2.cell_value(ru8+ 2*s +c,t+8)
                     MatProduction_Sec[t,5,s,c,r]  = Resultsheet2.cell_value(mc11+ 2*s +c,t+8) + Resultsheet2.cell_value(ru10+ 2*s +c,t+8)                    
 
+    UsePhaseSummary[0:3,:,:] = UseAnnEms2030.copy()
+    UsePhaseSummary[3:6,:,:] = UseAnnEms2050.copy()
+    UsePhaseSummary[6:9,:,:] = UseCumEms2050.copy()
+    UsePhaseSummary[9::,:,:] = UseCumEms2060.copy()
+    
     MatSummary[0:3,:,:] = MatAnnEms2030.copy()
     MatSummary[3:6,:,:] = MatAnnEms2050.copy()
     MatSummary[6:9,:,:] = MatCumEms2050.copy()
     MatSummary[9::,:,:] = MatCumEms2060.copy()
     
-    MatSummaryC[0:3,:,:]= MatAnnEms2030C.copy()
-    MatSummaryC[3:6,:,:]= MatAnnEms2050C.copy()
-    MatSummaryC[6:9,:,:]= MatCumEmsC2050.copy()
-    MatSummaryC[9::,:,:]= MatCumEmsC2060.copy()
+    ManSummary[0:3,:,:] = ManAnnEms2030.copy()
+    ManSummary[3:6,:,:] = ManAnnEms2050.copy()
+    ManSummary[6:9,:,:] = ManCumEms2050.copy()
+    ManSummary[9::,:,:] = ManCumEms2060.copy()
+    
+    ForSummary[0:3,:,:] = ForAnnEms2030.copy()
+    ForSummary[3:6,:,:] = ForAnnEms2050.copy()
+    ForSummary[6:9,:,:] = ForCumEms2050.copy()
+    ForSummary[9::,:,:] = ForCumEms2060.copy()    
+    
+    RecCredit[0:3,:,:]= RecCreditAnn2030.copy()
+    RecCredit[3:6,:,:]= RecCreditAnn2050.copy()
+    RecCredit[6:9,:,:]= RecCreditCum2050.copy()
+    RecCredit[9::,:,:]= RecCreditCum2060.copy()
     
     # Area plot, stacked, GHG emissions, system
     MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select colors from the 'Paired' color map.            
@@ -696,7 +825,7 @@ def main(RegionalScope,FolderList,SectorString):
         fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
         
     
-    return ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, MatSummaryC, AvgDecadalMatEmsC, CumEms2050, AnnEms2050, MatStocks, TimeSeries_R
+    return ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, RecCreditAvgDec, CumEms2050, AnnEms2050, MatStocks, TimeSeries_R
 
 # code for script to be run as standalone function
 if __name__ == "__main__":

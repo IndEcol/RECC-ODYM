@@ -2345,7 +2345,7 @@ def main():
             SysVar_GHGEms_EnergyRecoveryWaste_9di += SysVar_IndirectGHGEms_EnergySupply_WasteToEnergy
             # Calculate total emissions of system
             SysVar_GHGEms_OtherThanUsePhaseDirect  = SysVar_GHGEms_UsePhase_7i_Scope2_El + SysVar_GHGEms_UsePhase_7i_OtherIndir + SysVar_GHGEms_PrimaryMaterial_3di + SysVar_GHGEms_MaterialCycle_5di_9di
-            SysVar_TotalGHGEms_3579di              = SysVar_GHGEms_UsePhase_7d + SysVar_GHGEms_OtherThanUsePhaseDirect + SysVar_GHGEms_RecyclingCredit + SysVar_GHGEms_EnergyRecoveryWaste_9di + np.einsum('Xtm->Xt',SysVar_CO2UptakeEmissions_Forests)
+            SysVar_TotalGHGEms_3579di              = SysVar_GHGEms_UsePhase_7d + SysVar_GHGEms_OtherThanUsePhaseDirect + SysVar_GHGEms_EnergyRecoveryWaste_9di + np.einsum('Xtm->Xt',SysVar_CO2UptakeEmissions_Forests)
     
             SysVar_GHGEms_Materials_3di_9di        = SysVar_GHGEms_PrimaryMaterial_3di + SysVar_GHGEms_WasteMgtRemelting_9di
             # Unit: Mt/yr.
@@ -2449,15 +2449,22 @@ def main():
             
             # del RECC_System # Delete system when done, clear memory.
             '''                
-            Emissions scopes:
-            System, all processes:                              GHG_System        
+            Emissions scopes reported:
+            << Emissions account item >>                     << ODYM-RECC variable >>       // << Result file label (text) >>
+            System, all processes:                              GWP_System_3579di           // GHG emissions, system-wide _3579di   
             is composed of:
-            Use phase only:                                     GHG_UsePhase    
-            Use phase, electricity scope2:                      GHG_UsePhase_Scope2_El
-            Use phase, indirect, rest:                          GHG_UsePhase_OtherIndir
-            Primary material production:                        GHG_PrimaryMaterial    
-            Manufacturing_Recycling:                            GHG_MaterialCycle
-            RecyclingCredit                                     GHG_RecyclingCredit
+            (i) Operation
+            Use phase only:                                     GWP_UsePhase_7d             // GHG emissions, use phase _7d
+            Use phase, electricity scope2:                      GWP_UsePhase_7i_Scope2_El   // GHG emissions, use phase scope 2 (electricity) _7i
+            Use phase, indirect, rest:                          GWP_UsePhase_7i_OtherIndir  // GHG emissions, use phase other indirect (non-el.) _7i
+            (ii) Material production and manufacturing
+            Material production:                                GWP_Materials_3di_9di       // GHG emissions, material cycle industries and their energy supply _3di_9di
+            Manufacturing:                                      GWP_Manufact_5di_all        // GHG emissions, manufacturing _5i, all
+            (iii) Energy recovery, forest carbon uptake
+            Energy recovery wood waste                          GWP_EnergyRecoveryWasteWood // GHG emissions, energy recovery from waste wood (biogenic C plus energy substitution within System)
+            Forest CO2 uptake                                   GWP_ForestCO2Uptake         // GHG sequestration by forests (w. neg. sign)
+            (iv) Reported extra, not part of System emissions
+            RecyclingCredit                                     GWP_RecyclingCredit         // GHG emissions, energy recovery from waste wood (biogenic C plus energy substitution within System)
             '''        
             
 #            # DIAGNOSTICS
