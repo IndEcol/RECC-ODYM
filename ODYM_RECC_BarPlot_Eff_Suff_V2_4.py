@@ -14,26 +14,26 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
     import RECC_Paths # Import path file   
     
     # FileOrder:
-    # 1) None, choose no climate policy scenario
-    # 1) None, choose RCP 2.6 scenario
-    # 3) Supply-Side ME only
-    # 4) Supply and Demand-side ME
-    # 5) ALL, including sufficiency
+    # 1) No energy efficiency, no climate policy scenario
+    # 2) No ME, no  climate policy scenario
+    # 3) No ME, RCP 2.6 scenario
+    # 4) Supply-Side ME only
+    # 5) Supply and Demand-side ME
+    # 6) ALL, including sufficiency-based ME
     
     Region      = RegionalScope
-    FolderlistV = [SingleSectList[2],ThreeSectoList_Export[0],SingleSectList[0],SingleSectList[3],ThreeSectoList_Export[-1]]
+    FolderlistV = [SingleSectList[2],ThreeSectoList_Export[0],ThreeSectoList_Export[0],SingleSectList[0],SingleSectList[3],ThreeSectoList_Export[-1]]
     
     # Waterfall plots.
     
     NS = 3 # no of SSP scenarios
     NR = 2 # no of RCP scenarios
-    NE = 5 # no of Res. eff. scenarios
+    NE = 6 # no of Res. eff. scenarios
     
     CumEmsV           = np.zeros((NS,NR,NE))   # SSP-Scenario x RCP scenario x RES scenario
     CumEmsV2060       = np.zeros((NS,NR,NE))   # SSP-Scenario x RCP scenario x RES scenario
     AnnEmsV2030       = np.zeros((NS,NR,NE))   # SSP-Scenario x RCP scenario x RES scenario
     AnnEmsV2050       = np.zeros((NS,NR,NE))   # SSP-Scenario x RCP scenario x RES scenario
-    ASummaryV         = np.zeros((12,NE))      # For direct copy-paste to Excel
     AvgDecadalEmsV    = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario
     
     for r in range(0,NE): # RE scenario
@@ -48,19 +48,14 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
                     CumEmsV2060[s,c,r] += Resultsheet.cell_value(t +2, 1 + c + NR*s)                    
                 AnnEmsV2030[s,c,r]  = Resultsheet.cell_value(16  , 1 + c + NR*s)
                 AnnEmsV2050[s,c,r]  = Resultsheet.cell_value(36  , 1 + c + NR*s)
-            AvgDecadalEmsV[s,1,r,0]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(7,17)])/10
-            AvgDecadalEmsV[s,1,r,1]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(17,27)])/10
-            AvgDecadalEmsV[s,1,r,2]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(27,37)])/10
-            AvgDecadalEmsV[s,1,r,3]   = sum([Resultsheet.cell_value(i, 2*(s+1)) for i in range(37,47)])/10      
+            AvgDecadalEmsV[s,1,r,0]   = sum([Resultsheet.cell_value(i, 2*(s+1))   for i in range(7,17)])/10
+            AvgDecadalEmsV[s,1,r,1]   = sum([Resultsheet.cell_value(i, 2*(s+1))   for i in range(17,27)])/10
+            AvgDecadalEmsV[s,1,r,2]   = sum([Resultsheet.cell_value(i, 2*(s+1))   for i in range(27,37)])/10
+            AvgDecadalEmsV[s,1,r,3]   = sum([Resultsheet.cell_value(i, 2*(s+1))   for i in range(37,47)])/10      
             AvgDecadalEmsV[s,0,r,0]   = sum([Resultsheet.cell_value(i, 2*(s+1)-1) for i in range(7,17)])/10
             AvgDecadalEmsV[s,0,r,1]   = sum([Resultsheet.cell_value(i, 2*(s+1)-1) for i in range(17,27)])/10
             AvgDecadalEmsV[s,0,r,2]   = sum([Resultsheet.cell_value(i, 2*(s+1)-1) for i in range(27,37)])/10
             AvgDecadalEmsV[s,0,r,3]   = sum([Resultsheet.cell_value(i, 2*(s+1)-1) for i in range(37,47)])/10               
-                
-    ASummaryV[0:3,:] = AnnEmsV2030[:,1,:].copy() # RCP is fixed: RCP2.6
-    ASummaryV[3:6,:] = AnnEmsV2050[:,1,:].copy() # RCP is fixed: RCP2.6
-    ASummaryV[6:9,:] = CumEmsV[:,1,:].copy()     # RCP is fixed: RCP2.6
-    ASummaryV[9::,:] = CumEmsV2060[:,1,:].copy() # RCP is fixed: RCP2.6
                         
     # Waterfall plot            
     MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map.                       
@@ -68,31 +63,31 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
     Sector = ['suff_eff']
     Title  = ['Cum_GHG_2016_2050','Cum_GHG_2040_2050','Annual_GHG_2050']
     Scens  = ['LED','SSP1','SSP2']
-    LWE    = ['No climate policy','energy efficiency','energy supply', 'supply-side ME','demand-side ME','sufficiency','residual']
+    LWE    = ['No climate policy','energy efficiency','energy supply', 'supply-side ME','demand-side ME','sufficiency-rel. ME','residual']
     
     for nn in range(0,3):
         Data = np.zeros((3,6))
         if nn == 0:
             Data[:,0] = CumEmsV[:,0,0].copy()
             Data[:,1] = CumEmsV[:,0,1].copy()
-            Data[:,2] = CumEmsV[:,1,1].copy()
-            Data[:,3] = CumEmsV[:,1,2].copy()
-            Data[:,4] = CumEmsV[:,1,3].copy()
-            Data[:,5] = CumEmsV[:,1,4].copy()
+            Data[:,2] = CumEmsV[:,1,2].copy()
+            Data[:,3] = CumEmsV[:,1,3].copy()
+            Data[:,4] = CumEmsV[:,1,4].copy()
+            Data[:,5] = CumEmsV[:,1,5].copy()
         if nn == 1:
             Data[:,0] = 10*AvgDecadalEmsV[:,0,0,2].copy()
             Data[:,1] = 10*AvgDecadalEmsV[:,0,1,2].copy()
-            Data[:,2] = 10*AvgDecadalEmsV[:,1,1,2].copy()
-            Data[:,3] = 10*AvgDecadalEmsV[:,1,2,2].copy()
-            Data[:,4] = 10*AvgDecadalEmsV[:,1,3,2].copy()            
-            Data[:,5] = 10*AvgDecadalEmsV[:,1,4,2].copy()            
+            Data[:,2] = 10*AvgDecadalEmsV[:,1,2,2].copy()
+            Data[:,3] = 10*AvgDecadalEmsV[:,1,3,2].copy()
+            Data[:,4] = 10*AvgDecadalEmsV[:,1,4,2].copy()            
+            Data[:,5] = 10*AvgDecadalEmsV[:,1,5,2].copy()            
         if nn == 2:
             Data[:,0] = AnnEmsV2050[:,0,0].copy()
             Data[:,1] = AnnEmsV2050[:,0,1].copy()
-            Data[:,2] = AnnEmsV2050[:,1,1].copy()
-            Data[:,3] = AnnEmsV2050[:,1,2].copy()
-            Data[:,4] = AnnEmsV2050[:,1,3].copy()
-            Data[:,5] = AnnEmsV2050[:,1,4].copy()
+            Data[:,2] = AnnEmsV2050[:,1,2].copy()
+            Data[:,3] = AnnEmsV2050[:,1,3].copy()
+            Data[:,4] = AnnEmsV2050[:,1,4].copy()
+            Data[:,5] = AnnEmsV2050[:,1,5].copy()
             
         Left  = Data[2,0]
         
@@ -131,7 +126,7 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
         plt.xticks([1.6,3.6,5.6])
         plt.yticks(fontsize =18)
         ax1.set_xticklabels(Scens, rotation =0, fontsize = 21, fontweight = 'normal')
-        plt_lgd  = plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':12},ncol=1, loc = 'upper left' ) 
+        plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':12},ncol=1, loc = 'upper left' ) 
         #plt.axis([-0.2, 7.7, 0.9*Right, 1.02*Left])
         plt.axis([-0.2, 7, 0, 1.03*Left])
     
@@ -140,7 +135,7 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
         fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')             
         
     
-    return None
+    return CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV
 
 # code for script to be run as standalone function
 if __name__ == "__main__":

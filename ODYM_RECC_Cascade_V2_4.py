@@ -61,7 +61,8 @@ def main(RegionalScope,FolderList,SectorString):
         LWE_area= ['higher yields', 're-use & LTE','material subst.','down-sizing','car-sharing','ride-sharing']   
         PlotCtrl= 0 
         ColOrder= [0,1,2,3,4,5,6,7]
-        MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.   
+        MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.  
+        LLeft   = 7.5
         
     if SectorString == 'reb':
         NE      = 6 # no of Res. eff. scenarios for cascade
@@ -75,6 +76,7 @@ def main(RegionalScope,FolderList,SectorString):
         PlotCtrl= 1
         ColOrder= [0,1,2,3,4,5,6]
         MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.   
+        LLeft   = 7.5
         
     if SectorString == 'nrb':
         NE      = 6 # no of Res. eff. scenarios for cascade
@@ -88,6 +90,7 @@ def main(RegionalScope,FolderList,SectorString):
         PlotCtrl= 1
         ColOrder= [0,1,2,3,4,5,6]
         MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.   
+        LLeft   = 7.5
         
     if SectorString == 'pav_reb' or SectorString == 'pav_nrb':
         NE      = 8 # no of Res. eff. scenarios for cascade
@@ -101,6 +104,7 @@ def main(RegionalScope,FolderList,SectorString):
         PlotCtrl= 1
         ColOrder= [11,4,0,18,8,16,2,6,15]
         MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map. 
+        LLeft   = 8.5
 
     if SectorString == 'pav_reb_nrb':
         NE      = 8 # no of Res. eff. scenarios for cascade
@@ -114,6 +118,7 @@ def main(RegionalScope,FolderList,SectorString):
         PlotCtrl= 1
         ColOrder= [11,4,0,18,8,16,2,6,15]
         MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map. 
+        LLeft   = 8.5
         
     # system-wide emissions:
     CumEms2050       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario: cum. emissions 2016-2050.
@@ -211,17 +216,17 @@ def main(RegionalScope,FolderList,SectorString):
             
                 ProxyHandlesList = []   # For legend     
                 # plot bars
-                ax1.fill_between([0,0+bw], [0,0],[Left,Left],linestyle = '--', facecolor =MyColorCycle[0,:], linewidth = 0.0)
-                ax1.fill_between([1,1+bw], [Data[1,m],Data[1,m]],[Left,Left],linestyle = '--', facecolor =MyColorCycle[1,:], linewidth = 0.0)
+                ax1.fill_between([0,0+bw], [0,0],[Left,Left],linestyle = '--', facecolor =MyColorCycle[ColOrder[0],:], linewidth = 0.0)
+                ax1.fill_between([1,1+bw], [Data[1,m],Data[1,m]],[Left,Left],linestyle = '--', facecolor =MyColorCycle[ColOrder[1],:], linewidth = 0.0)
                 for xca in range(2,NE):
-                    ax1.fill_between([xca,xca+bw], [Data[xca,m],Data[xca,m]],[Data[xca-1,m],Data[xca-1,m]],linestyle = '--', facecolor =MyColorCycle[xca,:], linewidth = 0.0)
-                ax1.fill_between([NE,NE+bw], [0,0],[Data[NE-1,m],Data[NE-1,m]],linestyle = '--', facecolor =MyColorCycle[NE,:], linewidth = 0.0)                
+                    ax1.fill_between([xca,xca+bw], [Data[xca,m],Data[xca,m]],[Data[xca-1,m],Data[xca-1,m]],linestyle = '--', facecolor =MyColorCycle[ColOrder[xca],:], linewidth = 0.0)
+                ax1.fill_between([NE,NE+bw], [0,0],[Data[NE-1,m],Data[NE-1,m]],linestyle = '--', facecolor =MyColorCycle[ColOrder[NE],:], linewidth = 0.0)                
                     
                 for fca in range(0,NE+1):
                     ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[ColOrder[fca],:])) # create proxy artist for legend
                 
                 # plot lines:
-                plt.plot([0,7.5],[Left,Left],linestyle = '-', linewidth = 0.5, color = 'k')
+                plt.plot([0,LLeft],[Left,Left],linestyle = '-', linewidth = 0.5, color = 'k')
                 for yca in range(1,NE):
                     plt.plot([yca,yca +1.5],[Data[yca,m],Data[yca,m]],linestyle = '-', linewidth = 0.5, color = 'k')
                     
@@ -273,7 +278,11 @@ def main(RegionalScope,FolderList,SectorString):
         if Resultsheet2.cell_value(mci, 0) == 'GHG emissions, material cycle industries and their energy supply _3di_9di':
             break # that gives us the right index to read the recycling credit from the result table.
         mci += 1
-        
+    mp1 = 1
+    while True:
+        if Resultsheet2.cell_value(mp1, 0) == 'Primary materials, total':
+            break # that gives us the right index to read the recycling credit from the result table.
+        mp1 += 1    
     ms1 = 1
     while True:
         if Resultsheet2.cell_value(ms1, 0) == 'In-use stock, construction grade steel':
@@ -461,14 +470,12 @@ def main(RegionalScope,FolderList,SectorString):
         mfi += 1 
     fci = 1
     while True:
-        #if Resultsheet2.cell_value(fci, 0) == 'GHG emissions, energy recovery from waste wood (biogenic C plus energy substitution within System)':
-        if Resultsheet2.cell_value(fci, 0) == 'GHG emissions, manufacturing _5i, all':
+        if Resultsheet2.cell_value(fci, 0) == 'GHG emissions, energy recovery from waste wood (biogenic C plus energy substitution within System)':
             break # that gives us the right index from the result table.
         fci += 1 
     wci = 1
     while True:
-        #if Resultsheet2.cell_value(wci, 0) == 'GHG sequestration by forests (w. neg. sign)':
-        if Resultsheet2.cell_value(wci, 0) == 'GHG emissions, manufacturing _5i, all':
+        if Resultsheet2.cell_value(wci, 0) == 'GHG sequestration by forests (w. neg. sign)':
             break # that gives us the right index from the result table.
         wci += 1         
     
@@ -507,7 +514,7 @@ def main(RegionalScope,FolderList,SectorString):
                 for t in range(0,45): # time until 2060.
                     MatCumEms2060[s,c,r] += Resultsheet2.cell_value(mci+ 2*s +c,t+8)                    
                     TimeSeries_R[1,r,t,s,c] = Resultsheet2.cell_value(mci+ 2*s +c,t+8) 
-                    #TimeSeries_R[2,r,t,s,c] = Resultsheet2.cell_value(mp1+ 2*s +c,t+8) 
+                    TimeSeries_R[2,r,t,s,c] = Resultsheet2.cell_value(mp1+ 2*s +c,t+8) 
                     TimeSeries_R[3,r,t,s,c] = Resultsheet2.cell_value(mp2+ 2*s +c,t+8) 
                 MatAnnEms2030[s,c,r]      = Resultsheet2.cell_value(mci+ 2*s +c,22)
                 MatAnnEms2050[s,c,r]      = Resultsheet2.cell_value(mci+ 2*s +c,42)
@@ -515,7 +522,7 @@ def main(RegionalScope,FolderList,SectorString):
                 AvgDecadalMatEms[s,c,r,1] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(23,33)])/10
                 AvgDecadalMatEms[s,c,r,2] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(33,43)])/10
                 AvgDecadalMatEms[s,c,r,3] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(43,53)])/10    
-        # Manufacturing results export
+        # Manufacturing results export 
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR): # RCP scenario
                 for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
@@ -609,7 +616,69 @@ def main(RegionalScope,FolderList,SectorString):
     RecCredit[6:9,:,:]= RecCreditCum2050.copy()
     RecCredit[9::,:,:]= RecCreditCum2060.copy()
     
-    # Area plot, stacked, GHG emissions, system
+    # Waterfall plot  for material-related GHG          
+    Title  = ['MatCumGHG_16_50','MatCumGHG_40_50','MatAnnGHG_50']
+    Scens  = ['LED','SSP1','SSP2']
+    Rcens  = ['Base','RCP2_6']
+    
+    for nn in range(0,3):
+        for m in range(0,NS): # SSP
+            for rcp in range(0,NR): # RCP
+                if nn == 0:
+                    Data = np.einsum('SE->ES',MatCumEms2050[:,rcp,:])
+                if nn == 1:
+                    Data = np.einsum('SE->ES',10*AvgDecadalMatEms[:,rcp,:,2])
+                if nn == 2:
+                    Data = np.einsum('SE->ES',MatAnnEms2050[:,rcp,:])
+                    
+                inc = -100 * (Data[0,m] - Data[-1,m])/Data[0,m]
+            
+                Left  = Data[0,m]
+                Right = Data[-1,m]
+                # plot results
+                bw = 0.5
+            
+                fig  = plt.figure(figsize=(5,8))
+                ax1  = plt.axes([0.08,0.08,0.85,0.9])
+            
+                ProxyHandlesList = []   # For legend     
+                # plot bars
+                ax1.fill_between([0,0+bw], [0,0],[Left,Left],linestyle = '--', facecolor =MyColorCycle[ColOrder[0],:], linewidth = 0.0)
+                ax1.fill_between([1,1+bw], [Data[1,m],Data[1,m]],[Left,Left],linestyle = '--', facecolor =MyColorCycle[ColOrder[1],:], linewidth = 0.0)
+                for xca in range(2,NE):
+                    ax1.fill_between([xca,xca+bw], [Data[xca,m],Data[xca,m]],[Data[xca-1,m],Data[xca-1,m]],linestyle = '--', facecolor =MyColorCycle[ColOrder[xca],:], linewidth = 0.0)
+                ax1.fill_between([NE,NE+bw], [0,0],[Data[NE-1,m],Data[NE-1,m]],linestyle = '--', facecolor =MyColorCycle[ColOrder[NE],:], linewidth = 0.0)                
+                    
+                for fca in range(0,NE+1):
+                    ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[ColOrder[fca],:])) # create proxy artist for legend
+                
+                # plot lines:
+                plt.plot([0,LLeft],[Left,Left],linestyle = '-', linewidth = 0.5, color = 'k')
+                for yca in range(1,NE):
+                    plt.plot([yca,yca +1.5],[Data[yca,m],Data[yca,m]],linestyle = '-', linewidth = 0.5, color = 'k')
+                    
+                plt.arrow(Offset1, Data[NE-1,m],0, Data[0,m]-Data[NE-1,m], lw = 0.8, ls = '-', shape = 'full',
+                      length_includes_head = True, head_width =0.1, head_length =0.01*Left, ec = 'k', fc = 'k')
+                plt.arrow(Offset1,Data[0,m],0,Data[NE-1,m]-Data[0,m], lw = 0.8, ls = '-', shape = 'full',
+                      length_includes_head = True, head_width =0.1, head_length =0.01*Left, ec = 'k', fc = 'k')
+                    
+                # plot text and labels
+                plt.text(Offset2, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
+                plt.text(Offset3, 0.94  *Right, Scens[m],fontsize=18,fontweight='bold') 
+                plt.title('RE strats. and mat GHG emissions, ' + SectorString + '.', fontsize = 18)
+                plt.ylabel(Title[nn] + ', Mt.', fontsize = 18)
+                plt.xticks(XTicks)
+                plt.yticks(fontsize =18)
+                ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
+                plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':12},ncol=1, loc = 'upper right' ,bbox_to_anchor=(1.91, 1)) 
+                #plt.axis([-0.2, 7.7, 0.9*Right, 1.02*Left])
+                plt.axis([-0.2, Offset4, 0, 1.02*Left])
+            
+                plt.show()
+                fig_name = RegionalScope + '_' + SectorString + '_' + Title[nn] + '_' + Scens[m] + '_' + Rcens[rcp] + '.png'
+                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight') 
+
+    # Area plot, stacked, GHG emissions, system and material production
     MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select colors from the 'Paired' color map.            
     grey0_9      = np.array([0.9,0.9,0.9,1])
     
@@ -656,16 +725,16 @@ def main(RegionalScope,FolderList,SectorString):
                 ax1.set_xlim([2015, 2061])
                 
                 plt.show()
-                fig_name = RegionalScope + '_' + SectorString + '_' + Title[nn] + '_' + Scens[m] + '_' + Rcens[mRCP] + '.png'
+                fig_name = RegionalScope + '_' + SectorString + '_' + Title[nn] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '.png'
                 fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
                
-                
+              
     ##### Overview plot metal production
     MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select colors from the 'tab20' color map.            
     grey0_9      = np.array([0.9,0.9,0.9,1])
     
     Title      = ['Materials']
-    Sector     = ['pav_reb_nrb']
+    Sector     = ['pav_reb_nrb'] # also works for pav_reb 
     Scens      = ['LED','SSP1','SSP2']
     Rcens      = ['Base','RCP2_6']      
     
@@ -744,88 +813,203 @@ def main(RegionalScope,FolderList,SectorString):
     #            ax1.set_xlim([2015, 2061])
                 
                 plt.show()
-                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '.png'
+                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_bar.png'
                 fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')  
                 
-                
+    # Same data, but with line plot:
+    LegendLables = ['Primary material production, no RES','Primary material production, full RES','Secondary material production, no RES','Secondary material production, full RES']
+    if RegionalScope == 'Global':
+        LWI = [0.8,1.4,0.8]
+        for mRCP in range(0,NR):  # RCP
+            for mR in range(0,1): # pav-reb-nrb
+                              
+                fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, sharex=True, gridspec_kw={'hspace': 0.3, 'wspace': 0.35})
+    
+                for mS in range(0,NS): # SSP
+                    ax1.plot(np.arange(2016,2061,1),MatProduction_Prim[:,0,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[0,:], linewidth = LWI[mS])
+                    ax1.plot(np.arange(2016,2061,1),MatProduction_Prim[:,0,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[0,:], linewidth = LWI[mS])
+                    ax1.plot(np.arange(2016,2061,1),MatProduction_Sec[:,0,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[1,:], linewidth = LWI[mS])
+                    ax1.plot(np.arange(2016,2061,1),MatProduction_Sec[:,0,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[1,:], linewidth = LWI[mS])
+                ax1.set_title('Steel')
+                for mS in range(0,NS): # SSP
+                    ax2.plot(np.arange(2016,2061,1),MatProduction_Prim[:,1,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[2,:], linewidth = LWI[mS])
+                    ax2.plot(np.arange(2016,2061,1),MatProduction_Prim[:,1,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[2,:], linewidth = LWI[mS])
+                    ax2.plot(np.arange(2016,2061,1),MatProduction_Sec[:,1,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[3,:], linewidth = LWI[mS])
+                    ax2.plot(np.arange(2016,2061,1),MatProduction_Sec[:,1,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[3,:], linewidth = LWI[mS])
+                ax2.set_title('Aluminium')
+                for mS in range(0,NS): # SSP
+                    ax3.plot(np.arange(2016,2061,1),MatProduction_Prim[:,2,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[4,:], linewidth = LWI[mS])
+                    ax3.plot(np.arange(2016,2061,1),MatProduction_Prim[:,2,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[4,:], linewidth = LWI[mS])
+                    ax3.plot(np.arange(2016,2061,1),MatProduction_Sec[:,2,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[5,:], linewidth = LWI[mS])
+                    ax3.plot(np.arange(2016,2061,1),MatProduction_Sec[:,2,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[5,:], linewidth = LWI[mS])
+                ax3.set_title('Copper')
+                for mS in range(0,NS): # SSP
+                    ax4.plot(np.arange(2016,2061,1),MatProduction_Prim[:,3,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[6,:], linewidth = LWI[mS])
+                    ax4.plot(np.arange(2016,2061,1),MatProduction_Prim[:,3,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[6,:], linewidth = LWI[mS])
+                    ax4.plot(np.arange(2016,2061,1),MatProduction_Sec[:,3,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[7,:], linewidth = LWI[mS])
+                    ax4.plot(np.arange(2016,2061,1),MatProduction_Sec[:,3,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[7,:], linewidth = LWI[mS])
+                ax4.set_title('Cement')
+                for mS in range(0,NS): # SSP
+                    ax5.plot(np.arange(2016,2061,1),MatProduction_Prim[:,4,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[8,:], linewidth = LWI[mS])
+                    ax5.plot(np.arange(2016,2061,1),MatProduction_Prim[:,4,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[8,:], linewidth = LWI[mS])
+                    ax5.plot(np.arange(2016,2061,1),MatProduction_Sec[:,4,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[9,:], linewidth = LWI[mS])
+                    ax5.plot(np.arange(2016,2061,1),MatProduction_Sec[:,4,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[9,:], linewidth = LWI[mS])
+                ax5.set_title('Plastics')
+                for mS in range(0,NS): # SSP
+                    ax6.plot(np.arange(2016,2061,1),MatProduction_Prim[:,5,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[10,:], linewidth = LWI[mS])
+                    ax6.plot(np.arange(2016,2061,1),MatProduction_Prim[:,5,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[10,:], linewidth = LWI[mS])
+                    ax6.plot(np.arange(2016,2061,1),MatProduction_Sec[:,5,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[11,:], linewidth = LWI[mS])
+                    ax6.plot(np.arange(2016,2061,1),MatProduction_Sec[:,5,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[11,:], linewidth = LWI[mS])
+                ax6.set_title('Wood')
+    
+                plt.sca(ax1)
+                plt.ylabel('Mt/yr', fontsize = 12)
+                plt.sca(ax4)
+                plt.ylabel('Mt/yr', fontsize = 12)
+
+                plt.plot(2016,0,color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='-')
+                plt.plot(2016,0,color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='--')
+                plt.plot(2016,0,color=np.array([0.3,0.3,0.3,1]), lw=LWI[1],  linestyle='-')
+                plt.plot(2016,0,color=np.array([0.3,0.3,0.3,1]), lw=LWI[1],  linestyle='--') 
+                plt.legend(LegendLables,shadow = False, prop={'size':7}, loc = 'upper right',bbox_to_anchor=(2.5, 1))  
+    
+                plt.show()
+                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Rcens[mRCP] + '_line.png'
+                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')      
+                    
+            
+    # Same data, but with line plot for each SSP
+    LWI = [0.8,1.4,0.8]
+    for mRCP in range(0,NR): # RCP
+        for mS in range(0,NS): # SSP
+            for mR in range(0,1): # pav-reb-nrb
+                          
+                fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, sharex=True, gridspec_kw={'hspace': 0.3, 'wspace': 0.35})
+
+                ax1.plot(np.arange(2016,2061,1),MatProduction_Prim[:,0,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[0,:], linewidth = LWI[mS])
+                ax1.plot(np.arange(2016,2061,1),MatProduction_Prim[:,0,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[0,:], linewidth = LWI[mS])
+                ax1.plot(np.arange(2016,2061,1),MatProduction_Sec[:,0,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[1,:], linewidth = LWI[mS])
+                ax1.plot(np.arange(2016,2061,1),MatProduction_Sec[:,0,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[1,:], linewidth = LWI[mS])
+                ax1.set_title('Steel')
+                ax2.plot(np.arange(2016,2061,1),MatProduction_Prim[:,1,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[2,:], linewidth = LWI[mS])
+                ax2.plot(np.arange(2016,2061,1),MatProduction_Prim[:,1,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[2,:], linewidth = LWI[mS])
+                ax2.plot(np.arange(2016,2061,1),MatProduction_Sec[:,1,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[3,:], linewidth = LWI[mS])
+                ax2.plot(np.arange(2016,2061,1),MatProduction_Sec[:,1,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[3,:], linewidth = LWI[mS])
+                ax2.set_title('Aluminium')
+                ax3.plot(np.arange(2016,2061,1),MatProduction_Prim[:,2,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[4,:], linewidth = LWI[mS])
+                ax3.plot(np.arange(2016,2061,1),MatProduction_Prim[:,2,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[4,:], linewidth = LWI[mS])
+                ax3.plot(np.arange(2016,2061,1),MatProduction_Sec[:,2,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[5,:], linewidth = LWI[mS])
+                ax3.plot(np.arange(2016,2061,1),MatProduction_Sec[:,2,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[5,:], linewidth = LWI[mS])
+                ax3.set_title('Copper')
+                ax4.plot(np.arange(2016,2061,1),MatProduction_Prim[:,3,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[6,:], linewidth = LWI[mS])
+                ax4.plot(np.arange(2016,2061,1),MatProduction_Prim[:,3,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[6,:], linewidth = LWI[mS])
+                ax4.plot(np.arange(2016,2061,1),MatProduction_Sec[:,3,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[7,:], linewidth = LWI[mS])
+                ax4.plot(np.arange(2016,2061,1),MatProduction_Sec[:,3,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[7,:], linewidth = LWI[mS])
+                ax4.set_title('Cement')
+                ax5.plot(np.arange(2016,2061,1),MatProduction_Prim[:,4,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[8,:], linewidth = LWI[mS])
+                ax5.plot(np.arange(2016,2061,1),MatProduction_Prim[:,4,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[8,:], linewidth = LWI[mS])
+                ax5.plot(np.arange(2016,2061,1),MatProduction_Sec[:,4,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[9,:], linewidth = LWI[mS])
+                ax5.plot(np.arange(2016,2061,1),MatProduction_Sec[:,4,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[9,:], linewidth = LWI[mS])
+                ax5.set_title('Plastics')
+                ax6.plot(np.arange(2016,2061,1),MatProduction_Prim[:,5,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[10,:], linewidth = LWI[mS])
+                ax6.plot(np.arange(2016,2061,1),MatProduction_Prim[:,5,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[10,:], linewidth = LWI[mS])
+                ax6.plot(np.arange(2016,2061,1),MatProduction_Sec[:,5,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[11,:], linewidth = LWI[mS])
+                ax6.plot(np.arange(2016,2061,1),MatProduction_Sec[:,5,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[11,:], linewidth = LWI[mS])
+                ax6.set_title('Wood')
+
+                plt.sca(ax1)
+                plt.ylabel('Mt/yr', fontsize = 12)
+                plt.sca(ax4)
+                plt.ylabel('Mt/yr', fontsize = 12)
+    
+                plt.plot(2016,0,color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='-')
+                plt.plot(2016,0,color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='--')
+                plt.plot(2016,0,color=np.array([0.3,0.3,0.3,1]), lw=LWI[1],  linestyle='-')
+                plt.plot(2016,0,color=np.array([0.3,0.3,0.3,1]), lw=LWI[1],  linestyle='--') 
+                plt.legend(LegendLables,shadow = False, prop={'size':7}, loc = 'upper right',bbox_to_anchor=(2.5, 1))     
+    
+                plt.show()
+                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line.png'
+                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')               
+            
     ##### line Plot overview of primary steel and steel recycling
-    
-    MyColorCycle = pylab.cm.Paired(np.arange(0,1,0.2))
-    #linewidth = [1.2,2.4,1.2,1.2,1.2]
-    linewidth  = [1.2,2,1.2]
-    linewidth2 = [1.2,2,1.2]
-    
-    ColorOrder         = [1,0,3]
+    if RegionalScope == 'Global':
+        MyColorCycle = pylab.cm.Paired(np.arange(0,1,0.2))
+        #linewidth = [1.2,2.4,1.2,1.2,1.2]
+        linewidth  = [1.2,2,1.2]
+        linewidth2 = [1.2,2,1.2]
+        
+        ColorOrder         = [1,0,3]
+                
+        
+        # Primary steel
+        AnnEmsV_PrimarySteel   = np.zeros((Nt,NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+        AnnEmsV_SecondarySteel = np.zeros((Nt,NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
+        
+        for r in range(0,NE): # RE scenario
+            Path         = os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls')
+            Resultfile1  = xlrd.open_workbook(Path)
+            Resultsheet1 = Resultfile1.sheet_by_name('Cover')
+            UUID         = Resultsheet1.cell_value(3,2)
+            Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
+            Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
+            # Find the index for materials
+            pps = 1
+            while True:
+                if Resultsheet2.cell_value(pps, 0) == 'Primary steel production':
+                    break # that gives us the right index to read the recycling credit from the result table.
+                pps += 1
+            sps = 1
+            while True:
+                if Resultsheet2.cell_value(sps, 0) == 'Secondary steel':
+                    break # that gives us the right index to read the recycling credit from the result table.
+                sps += 1
+     
+            for s in range(0,NS): # SSP scenario
+                for c in range(0,NR):
+                    for t in range(0,45): # timeAnnEmsV_SecondarySteel[t,s,c,r] = Resultsheet2.cell_value(151+ 2*s +c,t+8)
+                        AnnEmsV_PrimarySteel[t,s,c,r]   = Resultsheet2.cell_value(pps+ 2*s +c,t+8)
+                        AnnEmsV_SecondarySteel[t,s,c,r] = Resultsheet2.cell_value(sps+ 2*s +c,t+8)
+                        
+        Title      = ['primary_steel','secondary_steel']            
+        ScensL     = ['SSP2, no REFs','SSP2, full REF spectrum','SSP1, no REFs','SSP1, full REF spectrum','LED, no REFs','LED, full REF spectrum']
+        
+        #mS = 1
+        #mR = 1
+        for nn in range(0,2):
+            mRCP = 1 # select RCP2.6, which has full implementation of RE strategies by 2050.
+            
+            if nn == 0:
+                Data = AnnEmsV_PrimarySteel[:,:,mRCP,:]
+            if nn == 1:
+                Data = AnnEmsV_SecondarySteel[:,:,mRCP,:]
+        
+        
+            fig  = plt.figure(figsize=(8,5))
+            ax1  = plt.axes([0.08,0.08,0.85,0.9])
+            
+            ProxyHandlesList = []   # For legend     
+            
+            for mS in range(NS-1,-1,-1):
+                ax1.plot(np.arange(2016,2061), Data[:,mS,0],  linewidth = linewidth[mS],  linestyle = '-',  color = MyColorCycle[ColorOrder[mS],:])
+                #ProxyHandlesList.append(plt.line((0, 0), 1, 1, fc=MyColorCycle[m,:]))
+                ax1.plot(np.arange(2016,2061), Data[:,mS,-1], linewidth = linewidth2[mS], linestyle = '--', color = MyColorCycle[ColorOrder[mS],:])
+                #ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))     
+            plt.legend(ScensL,shadow = False, prop={'size':12}, loc = 'upper left',bbox_to_anchor=(1.05, 1))    
+            plt.ylabel('Mt/yr.', fontsize = 18) 
+            plt.xlabel('year', fontsize = 18)         
+            plt.title(Title[nn] + ', by socio-economic scenario, \n' + RegionalScope + ', ' + SectorString + '.', fontsize = 18)
+            plt.xticks(fontsize=18)
+            plt.yticks(fontsize=18)
+            ax1.set_xlim([2015, 2061])
+            plt.gca().set_ylim(bottom=0)
+            
+            plt.show()
+            fig_name = RegionalScope + '_' + SectorString + '_' + Title[nn] + '.png'
+            fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
             
     
-    # Primary steel
-    AnnEmsV_PrimarySteel   = np.zeros((Nt,NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
-    AnnEmsV_SecondarySteel = np.zeros((Nt,NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
-    
-    for r in range(0,NE): # RE scenario
-        Path         = os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls')
-        Resultfile1  = xlrd.open_workbook(Path)
-        Resultsheet1 = Resultfile1.sheet_by_name('Cover')
-        UUID         = Resultsheet1.cell_value(3,2)
-        Resultfile2  = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
-        Resultsheet2 = Resultfile2.sheet_by_name('Model_Results')
-        # Find the index for materials
-        pps = 1
-        while True:
-            if Resultsheet2.cell_value(pps, 0) == 'Primary steel production':
-                break # that gives us the right index to read the recycling credit from the result table.
-            pps += 1
-        sps = 1
-        while True:
-            if Resultsheet2.cell_value(sps, 0) == 'Secondary steel':
-                break # that gives us the right index to read the recycling credit from the result table.
-            sps += 1
- 
-        for s in range(0,NS): # SSP scenario
-            for c in range(0,NR):
-                for t in range(0,45): # timeAnnEmsV_SecondarySteel[t,s,c,r] = Resultsheet2.cell_value(151+ 2*s +c,t+8)
-                    AnnEmsV_PrimarySteel[t,s,c,r]   = Resultsheet2.cell_value(pps+ 2*s +c,t+8)
-                    AnnEmsV_SecondarySteel[t,s,c,r] = Resultsheet2.cell_value(sps+ 2*s +c,t+8)
-                    
-    Title      = ['primary_steel','secondary_steel']            
-    ScensL     = ['SSP2, no REFs','SSP2, full REF spectrum','SSP1, no REFs','SSP1, full REF spectrum','LED, no REFs','LED, full REF spectrum']
-    
-    #mS = 1
-    #mR = 1
-    for nn in range(0,2):
-        mRCP = 1 # select RCP2.6, which has full implementation of RE strategies by 2050.
-        
-        if nn == 0:
-            Data = AnnEmsV_PrimarySteel[:,:,mRCP,:]
-        if nn == 1:
-            Data = AnnEmsV_SecondarySteel[:,:,mRCP,:]
-    
-    
-        fig  = plt.figure(figsize=(8,5))
-        ax1  = plt.axes([0.08,0.08,0.85,0.9])
-        
-        ProxyHandlesList = []   # For legend     
-        
-        for mS in range(NS-1,-1,-1):
-            ax1.plot(np.arange(2016,2061), Data[:,mS,0],  linewidth = linewidth[mS],  linestyle = '-',  color = MyColorCycle[ColorOrder[mS],:])
-            #ProxyHandlesList.append(plt.line((0, 0), 1, 1, fc=MyColorCycle[m,:]))
-            ax1.plot(np.arange(2016,2061), Data[:,mS,-1], linewidth = linewidth2[mS], linestyle = '--', color = MyColorCycle[ColorOrder[mS],:])
-            #ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))     
-        plt.legend(ScensL,shadow = False, prop={'size':12}, loc = 'upper left',bbox_to_anchor=(1.05, 1))    
-        plt.ylabel('Mt/yr.', fontsize = 18) 
-        plt.xlabel('year', fontsize = 18)         
-        plt.title(Title[nn] + ', by socio-economic scenario, \n' + RegionalScope + ', ' + SectorString + '.', fontsize = 18)
-        plt.xticks(fontsize=18)
-        plt.yticks(fontsize=18)
-        ax1.set_xlim([2015, 2061])
-        plt.gca().set_ylim(bottom=0)
-        
-        plt.show()
-        fig_name = RegionalScope + '_' + SectorString + '_' + Title[nn] + '.png'
-        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
-        
-    
-    return ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, RecCreditAvgDec, CumEms2050, AnnEms2050, MatStocks, TimeSeries_R
+    return ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, RecCreditAvgDec, CumEms2050, AnnEms2050, MatStocks, TimeSeries_R, MatEms
 
 # code for script to be run as standalone function
 if __name__ == "__main__":

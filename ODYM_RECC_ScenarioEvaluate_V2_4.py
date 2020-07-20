@@ -6,7 +6,7 @@ Created on Fri Jun 14 05:18:48 2019
 """
 
 """
-File RECC_ScenarioEvaluate_V2_4.py
+File ODYM_RECC_ScenarioEvaluate_V2_4.py
 
 Script that runs the sensitivity and scnenario comparison scripts for different settings.
 
@@ -14,7 +14,6 @@ Section 1: single sector cascade
 Section 2: multi-sector cascade
 Section 3: Sensitivity plots
 Section 4: Bar plot sufficiency
-
 """
 
 # Import required libraries:
@@ -24,6 +23,7 @@ import openpyxl
 import numpy as np
 import matplotlib.pyplot as plt 
 import pylab
+import pandas as pd
 
 import RECC_Paths # Import path file
 
@@ -35,21 +35,32 @@ import ODYM_RECC_Table_Extract_V2_4
 
 # The following ALL REGION scripts are called when ALL 20 world regions are present in the result folder list.
 
-
 # Define list of 20 regions, to be arranged 5 x 5, and corresponding data containers
-RegionList20 = ['Global','G7','EU28','legend','legend', \
-'R32USA','R32CAN','R32CHN','R32IND','R32JPN', \
-'France','Germany','Italy','Poland','Spain', \
-'UK','Oth_R32EU15','Oth_R32EU12-H','R32EU12-M','R5.2OECD_Other', \
-'R5.2REF_Other','R5.2MNF_Other','R5.2SSA_Other','R5.2LAM_Other','R5.2ASIA_Other']
+Pav_axis_5x5 = [5000,5000,2500,2500,2500,800,800,800,50,50,420,420,420,420,420,200,200,200,200,200,100,100,100,100,100]
+Pav_RegionList20 = ['Global','Global_North','Global_South','G7','R32USA', \
+'EU28','R32CHN','R5.2SSA_Other','Oth_R32EU12-H','R32EU12-M',\
+'R32IND','R5.2OECD_Other','R5.2ASIA_Other','R5.2REF_Other','R5.2MNF_Other',\
+'R32CAN','R32JPN','R5.2LAM_Other','Oth_R32EU15','Germany',\
+'France','Italy','Poland','Spain','UK']
+Pav_RegionList20Plot = ['Global','Glob_North','Glob_South','G7','USA', \
+'EU28','China','SSA_Other','Oth_EU12-H','EU12-M',\
+'India','OECD_Other','ASIA_Other','REF_Other','MNF_Other',\
+'Canada','Japan','LAM_Other','Oth_EU15','Germany',\
+'France','Italy','Poland','Spain','UK']
+Reb_axis_5x5 = [12000,9000,4500,4500,4500,1500,1500,1500,1500,1500,1200,600,600,300,300,200,200,200,200,200,120,120,120,120,120]
+Reb_RegionList20 = ['Global','Global_North','Global_South','R32CHN','G7', \
+'EU28','R32USA','R5.2ASIA_Other','R5.2REF_Other','R5.2MNF_Other',\
+'R32IND','R5.2SSA_Other','R5.2OECD_Other','Germany','R5.2LAM_Other',\
+'R32CAN','UK','France','Oth_R32EU15','R32JPN',\
+'Italy','Poland','Spain','Oth_R32EU12-H','R32EU12-M']
+Reb_RegionList20Plot = ['Global','Glob_North','Glob_South','China','G7', \
+'EU28','USA','ASIA_Other','REF_Other','MNF_Other',\
+'India','SSA_Other','OECD_Other','Germany','LAM_Other',\
+'Canada','UK','France','Oth_EU15','Japan',\
+'Italy','Poland','Spain','Oth_EU12-H','EU12-M']
 
-RegionList20Plot = ['Global','G7','EU28','legend','legend', \
-'USA','CAN','CHN','IND','JPN', \
-'France','Germany','Italy','Poland','Spain', \
-'UK','Oth_EU15','Oth_EU12-H','EU12-M','OECD_Other', \
-'REF_Other','MNF_Other','SSA_Other','LAM_Other','ASIA_Other']
-
-PlotOrder      = [] # Will contain positions of countries/regions in 5x5 plot
+PlotOrder_pav      = [] # Will contain positions of countries/regions in 5x5 plot
+PlotOrder_reb      = [] # Will contain positions of countries/regions in 5x5 plot
 TimeSeries_All = np.zeros((10,45,25,2,3,2)) # NX x Nt x Nr x NV x NS x NR / indicators x time x regions x sectors x SSP x RCP
 # 0: system-wide GHG, no RES 1: system-wide GHG, all RES
 # 2: material-related GHG, no RES, 3: material-related GHG, all RES,
@@ -61,12 +72,11 @@ NS = 3 # SSP
 NR = 2 # RCP
     
 ###ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-ScenarioSetting = 'Evaluate_pav_reb_Cascade' # run eval and plot scripts for selected regions and sectors only
-#ScenarioSetting = 'Evaluate_pav_reb_Cascade_all' # run eval and plot scripts for all regions and sectors
+#ScenarioSetting = 'Evaluate_pav_reb_Cascade' # run eval and plot scripts for selected regions and sectors only
+ScenarioSetting = 'Evaluate_pav_reb_Cascade_all' # run eval and plot scripts for all regions and sectors
 #ScenarioSetting = 'Germany_detail_evaluate' # run eval and plot scripts for Germany case study only
 #ScenarioSetting = 'Global_all_evaluate' # run eval and plot scripts for all regions and all sectors
 #ScenarioSetting = 'Evaluate_TestRun' # Test run evaluate
-
 
 # open scenario sheet
 ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'))
@@ -89,15 +99,16 @@ CascadeFlag1  = False
 CascadeFlag2  = False
 SensitiFlag1  = False
 
-SingleSectList = [] # For model runs not part of sensitivity or cascade, used for efficiency-sufficiency bar plot
+SingleSectList           = [] # For model runs not part of sensitivity or cascade, used for efficiency-sufficiency bar plot
+SingleSectRegionList     = [] # For regions for eff-suff plot
+
 # search for script config list entry
 while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
     if ModelEvalListSheet.cell_value(Row, 1) != '':
-        FolderList    = []
-        
-        MultiSectorList= []
-        RegionalScope  = ModelEvalListSheet.cell_value(Row, 1)
-        Setting        = ModelEvalListSheet.cell_value(Row, 2) # cascade or sensitivity
+        FolderList       = []
+        MultiSectorList  = []
+        RegionalScope    = ModelEvalListSheet.cell_value(Row, 1)
+        Setting          = ModelEvalListSheet.cell_value(Row, 2) # cascade or sensitivity
         print(RegionalScope)
         
     if Setting == 'Cascade_pav':
@@ -136,7 +147,27 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
         for m in range(0,NE):
             FolderList.append(ModelEvalListSheet.cell_value(Row +m, 3))
         # run the cascade plot function
-        ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, AvgDecadalRecEms, CumEms, AnnEms2050, MatStocks, TimeSeries_R = ODYM_RECC_Cascade_V2_4.main(RegionalScope,FolderList,SectorString)
+        ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, AvgDecadalRecEms, CumEms, AnnEms2050, MatStocks, TimeSeries_R, MatEms = ODYM_RECC_Cascade_V2_4.main(RegionalScope,FolderList,SectorString)
+        
+        # Export cascade results via pandas:
+        ColIndex      = [str(mmx) for mmx in  range(2016,2061)]
+        MatEma_R_Data = np.einsum('tSRE->ESRt',MatEms).reshape(NE*NS*NR,45)
+        if SectorString == 'pav':
+            RES_List = ['None','EoL + FSD + FYI','EoL + FSD + FYI + ReU +LTE','EoL + FSD + FYI + ReU +LTE + MSu','EoL + FSD + FYI + ReU +LTE + MSu + LWE','EoL + FSD + FYI + ReU +LTE + MSu + LWE + CaS','EoL + FSD + FYI + ReU +LTE + MSu + LWE + CaS + RiS = ALL']
+        else:
+            RES_List = ['None','EoL + FSD + FYI','EoL + FSD + FYI + ReU +LTE','EoL + FSD + FYI + ReU +LTE + MSu','EoL + FSD + FYI + ReU +LTE + MSu + LWE','EoL + FSD + FYI + ReU +LTE + MSu + LWE + MIU = ALL']
+        RowIndex = pd.MultiIndex.from_product([RES_List,['LED','SSP1','SSP2'],['NoNewClimPol','RCP2.6']], names=('res. eff.','SSP','RCP'))
+        MatEma_R = pd.DataFrame(MatEma_R_Data, index=RowIndex, columns=ColIndex)
+        MatEma_R.to_excel(os.path.join(RECC_Paths.results_path,RegionalScope + '_Mat_GHG_MtCO2.xls'), merge_cells=False)
+        
+        # Export material production via pandas
+        PP_R_Data = np.einsum('EtSR->ESRt',TimeSeries_R[2,:,:,:,:]).reshape(NE*NS*NR,45)
+        PP_R      = pd.DataFrame(PP_R_Data, index=RowIndex, columns=ColIndex)
+        PP_R.to_excel(os.path.join(RECC_Paths.results_path,RegionalScope + '_Mat_PrimProd_Mt.xls'), merge_cells=False)
+        SP_R_Data = np.einsum('EtSR->ESRt',TimeSeries_R[3,:,:,:,:]).reshape(NE*NS*NR,45)
+        SP_R      = pd.DataFrame(SP_R_Data, index=RowIndex, columns=ColIndex)
+        SP_R.to_excel(os.path.join(RECC_Paths.results_path,RegionalScope + '_Mat_SecProd_Mt.xls'), merge_cells=False)
+        
         # write results summary to Excel
         for R in range(0,NR):
             for r in range(0,3):
@@ -192,10 +223,12 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
         if SectorString == 'pav' or SectorString == 'reb':
             if SectorString == 'pav':
                 SectorIndex = 0
+                RegPos = Pav_RegionList20.index(RegionalScope)
+                PlotOrder_pav.append(RegPos)
             if SectorString == 'reb':
                 SectorIndex = 1
-            RegPos = RegionList20.index(RegionalScope)
-            PlotOrder.append(RegPos)
+                RegPos = Reb_RegionList20.index(RegionalScope)
+                PlotOrder_reb.append(RegPos)
             TimeSeries_All[0,:,RegPos,SectorIndex,:,:] = TimeSeries_R[0,0,:,:,:]  # system-wide GHG, no RES
             TimeSeries_All[1,:,RegPos,SectorIndex,:,:] = TimeSeries_R[0,-1,:,:,:] # system-wide GHG, full RES
             TimeSeries_All[2,:,RegPos,SectorIndex,:,:] = TimeSeries_R[1,0,:,:,:]  # matcycle GHG, no RES
@@ -267,17 +300,17 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
                     Gsheet.cell(row = r+4 + 8*R, column = c+4).value  = GHG_TableX[r,c,R]        
 
         # run the cascade plots for the three sectors
-        ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, AvgDecadalMatEmsC, CumEms, AnnEms2050, MatStocks, TimeSeries_R = ODYM_RECC_Cascade_V2_4.main(RegionalScope,MultiSectorList,SectorString)
-                    
+        ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, AvgDecadalRecEms, CumEms, AnnEms2050, MatStocks, TimeSeries_R, MatEms = ODYM_RECC_Cascade_V2_4.main(RegionalScope,MultiSectorList,SectorString)              
+
         # plot GHG overview figure global
         if RegionalScope == 'Global':
             ColOrder     = [11,4,0,18,8,16,2,6,15]
             Xoff         = [1,1.7,2.7,3.4,4.4,5.1]
             MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map. 
             Data_Cum_Abs = CumEms
-            Data_Cum_pc  = Data_Cum_Abs / np.einsum('SR,E->SRE',Data_Cum_Abs[:,:,0],np.ones(8))
+            Data_Cum_pc  = Data_Cum_Abs / np.einsum('SR,E->SRE',Data_Cum_Abs[:,:,0],np.ones(8)) # here: pc = percent, not per capita.
             Data_50_Abs  = np.einsum('ESR->SRE',TimeSeries_R[0,:,35,:,:])
-            Data_50_pc   = Data_50_Abs / np.einsum('SR,E->SRE',Data_50_Abs[:,:,0],np.ones(8))
+            Data_50_pc   = Data_50_Abs / np.einsum('SR,E->SRE',Data_50_Abs[:,:,0],np.ones(8))   # here: pc = percent, not per capita.
             Cum_savings  = Data_Cum_Abs[:,:,0] - Data_Cum_Abs[:,:,-1]
             Ann_savings  = Data_50_Abs[:,:,0]  - Data_50_Abs[:,:,-1]
             LWE          = ['higher yields', 're-use/longer use','material subst.','down-sizing','car-sharing','ride-sharing','More intense bld. use','Bottom line']
@@ -302,7 +335,7 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
                     ax1.fill_between([Xoff[mS*2+mR],Xoff[mS*2+mR]+bw], [0,0],[Data_50_pc[mS,mR,-1],Data_50_pc[mS,mR,-1]],linestyle = '--', facecolor =MyColorCycle[ColOrder[0],:], linewidth = 0.0)
                     for xca in range(1,NE):
                         ax1.fill_between([Xoff[mS*2+mR],Xoff[mS*2+mR]+bw], [Data_50_pc[mS,mR,-xca],Data_50_pc[mS,mR,-xca]],[Data_50_pc[mS,mR,-xca-1],Data_50_pc[mS,mR,-xca-1]],linestyle = '--', facecolor =MyColorCycle[ColOrder[xca],:], linewidth = 0.0)
-            plt.plot([-1,8],[1.1,1.1],linestyle = '-', linewidth = 0.5, color = 'k')
+            plt.plot([-1,8],[1.1,1.1],  linestyle = '-',  linewidth = 0.5, color = 'k')
             plt.plot([2.45,2.45],[-1,3],linestyle = '--', linewidth = 0.5, color = 'k')
             plt.plot([4.15,4.15],[-1,3],linestyle = '--', linewidth = 0.5, color = 'k')
             for fca in range(0,NE):
@@ -311,9 +344,23 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
             # plot emissions reductions
             for mS in range(0,3):
                 for mR in range(0,2): 
-                    plt.text(Xoff[mS*2+mR]+0.2, 1.9, ("%3.0f" % (Cum_savings[mS,mR]/1000)) + ' Gt',fontsize=16, rotation=90, fontweight='normal')
-                    plt.text(Xoff[mS*2+mR]+0.2, 0.5, ("%3.0f" % Ann_savings[mS,mR]) + ' Mt',fontsize=16, rotation=90, fontweight='normal')
-                
+                    plt.text(Xoff[mS*2+mR]+0.51, 2.19,  ("%3.0f" % (-Cum_savings[mS,mR]/1000))                  + ' Gt',fontsize=14, rotation=90, fontweight='bold')
+                    plt.text(Xoff[mS*2+mR]+0.51, 0.99,  ("%3.0f" % (-10*np.round(Ann_savings[mS,mR]/10)))       + ' Mt',fontsize=14, rotation=90, fontweight='bold')
+                    plt.text(Xoff[mS*2+mR]+0.2, 1.52,   ("%3.0f" % (10*np.round(Data_Cum_Abs[mS,mR,-1]/10000))) + ' Gt',fontsize=16, rotation=90, fontweight='normal', color =np.array([0.48,0.33,0.22,1]))
+                    plt.text(Xoff[mS*2+mR]+0.2, 0.45,   ("%3.0f" % (100*np.round(Data_50_Abs[mS,mR,-1]/100)))   + ' Mt',fontsize=16, rotation=90, fontweight='normal', color =np.array([0.48,0.33,0.22,1]))
+                    # top arrow
+                    plt.arrow(Xoff[mS*2+mR]+0.42,2.25,0,-0.05, lw = 0.8, ls = '-', shape = 'full',
+                      length_includes_head = True, head_width =0.06, head_length =0.02, ec = 'k', fc = 'k')
+                    plt.arrow(Xoff[mS*2+mR]+0.42,1.05,0,-0.05, lw = 0.8, ls = '-', shape = 'full',
+                      length_includes_head = True, head_width =0.06, head_length =0.02, ec = 'k', fc = 'k')
+                    # bottom arrow
+                    plt.arrow(Xoff[mS*2+mR]+0.42,1.2+Data_Cum_pc[mS,mR,-1]-0.05,0,0.05, lw = 0.8, ls = '-', shape = 'full',
+                      length_includes_head = True, head_width =0.06, head_length =0.02, ec = 'k', fc = 'k')
+                    plt.arrow(Xoff[mS*2+mR]+0.42,Data_50_pc[mS,mR,-1]-0.05,0,0.05, lw = 0.8, ls = '-', shape = 'full',
+                      length_includes_head = True, head_width =0.06, head_length =0.02, ec = 'k', fc = 'k')
+                    #plt.text(Xoff[mS*2+mR]+0.2, 1.9, ("%3.0f" % (Cum_savings[mS,mR]/1000)) + ' Gt',fontsize=16, rotation=90, fontweight='normal')
+                    #plt.text(Xoff[mS*2+mR]+0.2, 0.5, ("%3.0f" % Ann_savings[mS,mR]) + ' Mt',fontsize=16, rotation=90, fontweight='normal')
+                    
             # plot text and labels
             plt.text(0.85, 0.97, '2050 annual emissions',fontsize=11, rotation=90, fontweight='bold')          
             plt.text(0.85, 2.2, '2016-50 cum. emissions',fontsize=11, rotation=90, fontweight='bold')          
@@ -333,6 +380,13 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
             fig_name = 'Overview_GHG_Global.png'
             fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')   
                 
+        if ModelEvalListSheet.cell_value(Row+NE, 2) == 'Efficiency_Sufficiency_Scenario':
+            for mmxx in range(0,4):
+                SingleSectList.append(ModelEvalListSheet.cell_value(Row+NE+mmxx, 3))
+            # run the efficieny_sufficieny plots, with 4 extra single sectors in result list
+            CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV = ODYM_RECC_BarPlot_Eff_Suff_V2_4.main(RegionalScope,MultiSectorList,SingleSectList)  
+            SingleSectList = []
+            NE  +=4 # add for extra scenarios for efficiency-sufficiency plot
                 
     if Setting == 'Sensitivity_pav':
         SensitiFlag1     = True
@@ -419,17 +473,9 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
                     for d in range(0,4):
                         Ssheet.cell(row = d*3 + r + SensRows[29],column = c +SensCols[R]).value   = RecCreditAvgDec[r,R,c,d]                         
                         
-    if Setting == 'Do_not_include':
-        NE = 1
-        SingleSectList.append(ModelEvalListSheet.cell_value(Row, 3))
-
     # forward counter   
     Row += NE
         
-# run the efficieny_sufficieny plots, only if 4 single sectors in result list
-if len(SingleSectList) == 4:
-    ODYM_RECC_BarPlot_Eff_Suff_V2_4.main(RegionalScope,MultiSectorList,SingleSectList)      
-
 # store overview tables
 # Done for each region, overwritten each time, data for LAST REGION remain.
 WFsheet = mywb4['CascadeBySector']
@@ -453,110 +499,84 @@ mywb4.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_Tables_V2_4
 # plot SSP1 time series in 5x5 plot:
 # TimeSeries_All indices: NX x Nt x Nr x NV x NS x NR / indicators x time x regions x sectors x SSP x RCP
 # 0: system-wide GHG, no RES 1: system-wide GHG, all RES
-# 2: material-related GHG, no RES, 3: material-related GHG, all RES,
+# 1: material-related GHG, no RES, 3: material-related GHG, all RES,
+# 2: primary materials with and without RES
+# 3: secondary material with and without RES
+
+ind_5x5 = [0,2,4,6]
+fin_5x5 = ['GHG_SSP1_pav_5x5.png','GHG_SSP1_reb_5x5.png','GHGMat_SSP1_pav_5x5.png','GHGMat_SSP1_reb_5x5.png','PrimMat_5x5_pav.png','PrimMat_5x5_reb.png','SecMat_5x5_pav.png','SecMat_5x5_reb.png']
+fit_5x5 = ['System-wide GHG, SSP1, pav, Mt/yr','System-wide GHG, SSP1, reb, Mt/yr','Matcycle GHG, SSP1, pav, Mt/yr','Matcycle GHG, SSP1, reb, Mt/yr','Total primary material, SSP1, pav, Mt/yr','Total primary material, SSP1, reb, Mt/yr','Total secondary material, SSP1, pav, Mt/yr','Total secondary material, SSP1, reb, Mt/yr']
 
 # System-wide GHG
 MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Paired' color map. 
+BaseBlue     = np.array([0.31,0.51,0.74,1])
+R26Green     = np.array([0.03,0.66,0.48,1])
 plt.rcParams['axes.labelsize'] = 7
-fig_names    = ['GHG_SSP1_pav_5x5.png','GHG_SSP1_reb_5x5.png']
-fig_titles   = ['System-wide GHG, SSP1, pav, Mt/yr','System-wide GHG, SSP1, reb, Mt/yr']
-LegendLables = ['RCP NoPol, full RES','RCP 2.6, full RES','RCP NoPol, no RES','RCP 2.6, no RES']
-for Sect in range(0,2):
-    fig, axs = plt.subplots(5, 5, sharex=True, gridspec_kw={'hspace': 0.6, 'wspace': 0.4})
-    for plotNo in PlotOrder:
-        axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[0,:,plotNo,Sect,1,0],color=MyColorCycle[4,:], lw=0.6, linestyle='--') # System GHG, sector, Baseline, no RES
-        axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[0,:,plotNo,Sect,1,1],color=MyColorCycle[7,:], lw=0.6, linestyle='--') # System GHG, sector, RCP2.6, no RES
-        axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[1,:,plotNo,Sect,1,0],color=MyColorCycle[4,:], lw=0.8, linestyle='-') # System GHG, sector, Baseline, full RES
-        axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[1,:,plotNo,Sect,1,1],color=MyColorCycle[7,:], lw=0.8, linestyle='-') # System GHG, sector, RCP2.6, full RES
-        axs[plotNo//5, plotNo%5].set_ylim(ymin=0)
-        axs[plotNo//5, plotNo%5].set_title(RegionList20Plot[plotNo], fontsize=7)
-        #axs[plotNo//5, plotNo%5].set_yticklabels(fontsize = 6)
-        axs[plotNo//5, plotNo%5].tick_params(axis='x', labelsize=6)
-        axs[plotNo//5, plotNo%5].tick_params(axis='y', labelsize=6)
-    # legend plot:
-    axs[0,4].plot(2016,0,color=MyColorCycle[4,:], lw=0.8, linestyle='-') # System GHG, sector, Baseline, full RES
-    axs[0,4].plot(2016,0,color=MyColorCycle[7,:], lw=0.8, linestyle='-') # System GHG, sector, RCP2.6, full RES
-    axs[0,4].plot(2016,0,color=MyColorCycle[4,:], lw=0.6, linestyle='--') # System GHG, sector, Baseline, no RES
-    axs[0,4].plot(2016,0,color=MyColorCycle[7,:], lw=0.6, linestyle='--') # System GHG, sector, RCP2.6, no RES
-    axs[0,4].legend(LegendLables,shadow = False, prop={'size':5}, loc = 'upper right')    
-    axs[0,3].axis('off')
-    axs[0,4].axis('off')
-    fig.suptitle(fig_titles[Sect], fontsize=14)
-    for xm in range(0,5):
-        plt.sca(axs[4,xm])
-        plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 6, fontweight = 'normal')
-    plt.show()
-    fig_name = fig_names[Sect]
-    fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')  
+LegendLables = ['NoNewClimPol, no RES','NoNewClimPol, full RES','RCP2.6, no RES','RCP2.6, full RES']
+for mmf in range(0,4):
+    for Sect in range(0,2):
+        if Sect == 0:
+            RegionList20Plot = Pav_RegionList20Plot
+            PlotOrder        = PlotOrder_pav
+            AxisMax          = Pav_axis_5x5
+        if Sect == 1:
+            RegionList20Plot = Reb_RegionList20Plot        
+            PlotOrder        = PlotOrder_reb
+            AxisMax          = Reb_axis_5x5
+        fig, axs = plt.subplots(5, 5, sharex=True, gridspec_kw={'hspace': 0.6, 'wspace': 0.5})
+        for plotNo in PlotOrder:
+            if mmf == 0: # only for GHG total plot
+                for mmn in range(0,45): # plot grey bar where net emisisons are negative:
+                    if TimeSeries_All[1,mmn,plotNo,Sect,1,1] < 0:
+                        axs[plotNo//5, plotNo%5].fill_between([2016+mmn,2016+mmn+1], [0,0],[AxisMax[plotNo],AxisMax[plotNo]],linestyle = '--', facecolor =np.array([0.3,0.3,0.3,0.3]), linewidth = 0.0)
+            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,1,0],color=BaseBlue, lw=0.8, linestyle='-')    # Baseline, no RES
+            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,1,1],color=R26Green, lw=0.8, linestyle='-')    # RCP2.6, no RES
+            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,1,0],color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
+            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,1,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
+            axs[plotNo//5, plotNo%5].set_ylim(ymin=0)
+            axs[plotNo//5, plotNo%5].set_title(RegionList20Plot[plotNo], fontsize=7)
+            #axs[plotNo//5, plotNo%5].set_yticklabels(fontsize = 6)
+            axs[plotNo//5, plotNo%5].tick_params(axis='x', labelsize=6)
+            axs[plotNo//5, plotNo%5].tick_params(axis='y', labelsize=6)
+            for axis in ['top','bottom','left','right']:
+                axs[plotNo//5, plotNo%5].spines[axis].set_linewidth(0.3)
+            if mmf == 0:
+                axs[plotNo//5, plotNo%5].axis([2012, 2063, 0, AxisMax[plotNo]])
+            axs[plotNo//5, plotNo%5].tick_params(axis='both',width = 0.3)
     
-# Material cycle GHG
-MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Paired' color map. 
-plt.rcParams['axes.labelsize'] = 7
-fig_names    = ['GHGMat_SSP1_pav_5x5.png','GHGMat_SSP1_reb_5x5.png']
-fig_titles   = ['Matcycle GHG, SSP1, pav, Mt/yr','Matcycle GHG, SSP1, reb, Mt/yr']
-LegendLables = ['RCP NoPol, full RES','RCP 2.6, full RES','RCP NoPol, no RES','RCP 2.6, no RES']
-for Sect in range(0,2):
-    fig, axs = plt.subplots(5, 5, sharex=True, gridspec_kw={'hspace': 0.6, 'wspace': 0.4})
-    for plotNo in PlotOrder:
-        axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[2,:,plotNo,Sect,1,0],color=MyColorCycle[4,:], lw=0.6, linestyle='--') # System GHG, sector, Baseline, no RES
-        axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[2,:,plotNo,Sect,1,1],color=MyColorCycle[7,:], lw=0.6, linestyle='--') # System GHG, sector, RCP2.6, no RES
-        axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[3,:,plotNo,Sect,1,0],color=MyColorCycle[4,:], lw=0.8, linestyle='-') # System GHG, sector, Baseline, full RES
-        axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[3,:,plotNo,Sect,1,1],color=MyColorCycle[7,:], lw=0.8, linestyle='-') # System GHG, sector, RCP2.6, full RES
-        axs[plotNo//5, plotNo%5].set_ylim(ymin=0)
-        axs[plotNo//5, plotNo%5].set_title(RegionList20Plot[plotNo], fontsize=7)
-        #axs[plotNo//5, plotNo%5].set_yticklabels(fontsize = 6)
-        axs[plotNo//5, plotNo%5].tick_params(axis='x', labelsize=6)
-        axs[plotNo//5, plotNo%5].tick_params(axis='y', labelsize=6)
-    # legend plot:
-    axs[0,4].plot(2016,0,color=MyColorCycle[4,:], lw=0.8, linestyle='-') # System GHG, sector, Baseline, full RES
-    axs[0,4].plot(2016,0,color=MyColorCycle[7,:], lw=0.8, linestyle='-') # System GHG, sector, RCP2.6, full RES
-    axs[0,4].plot(2016,0,color=MyColorCycle[4,:], lw=0.6, linestyle='--') # System GHG, sector, Baseline, no RES
-    axs[0,4].plot(2016,0,color=MyColorCycle[7,:], lw=0.6, linestyle='--') # System GHG, sector, RCP2.6, no RES
-    axs[0,4].legend(LegendLables,shadow = False, prop={'size':5}, loc = 'upper right')         
-    axs[0,3].axis('off')
-    axs[0,4].axis('off')
-    fig.suptitle(fig_titles[Sect], fontsize=14)
-    for xm in range(0,5):
-        plt.sca(axs[4,xm])
-        plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 6, fontweight = 'normal')
-    plt.show()
-    fig_name = fig_names[Sect]
-    fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')    
-
-# Total secondary material production
-MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Paired' color map. 
-plt.rcParams['axes.labelsize'] = 7
-fig_names    = ['SecMat_5x5_pav.png','SecMat_5x5_reb.png']
-fig_titles   = ['Total secondary material, SSP1, pav, Mt/yr','Total secondary material, SSP1, reb, Mt/yr']
-LegendLables = ['RCP NoPol, full RES','RCP 2.6, full RES','RCP NoPol, no RES','RCP 2.6, no RES']
-for Sect in range(0,2):
-    fig, axs = plt.subplots(5, 5, sharex=True, gridspec_kw={'hspace': 0.6, 'wspace': 0.4})
-    for plotNo in PlotOrder:
-        axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[6,:,plotNo,Sect,1,0],color=MyColorCycle[4,:], lw=0.6, linestyle='--') # System GHG, sector, Baseline, no RES
-        axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[6,:,plotNo,Sect,1,1],color=MyColorCycle[7,:], lw=0.6, linestyle='--') # System GHG, sector, RCP2.6, no RES
-        axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[7,:,plotNo,Sect,1,0],color=MyColorCycle[4,:], lw=0.8, linestyle='-') # System GHG, sector, Baseline, full RES
-        axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[7,:,plotNo,Sect,1,1],color=MyColorCycle[7,:], lw=0.8, linestyle='-') # System GHG, sector, RCP2.6, full RES
-        axs[plotNo//5, plotNo%5].set_ylim(ymin=0)
-        axs[plotNo//5, plotNo%5].set_title(RegionList20Plot[plotNo], fontsize=7)
-        #axs[plotNo//5, plotNo%5].set_yticklabels(fontsize = 6)
-        axs[plotNo//5, plotNo%5].tick_params(axis='x', labelsize=6)
-        axs[plotNo//5, plotNo%5].tick_params(axis='y', labelsize=6)
-    # legend plot:
-    axs[0,4].plot(2016,0,color=MyColorCycle[4,:], lw=0.8, linestyle='-') # System GHG, sector, Baseline, full RES
-    axs[0,4].plot(2016,0,color=MyColorCycle[7,:], lw=0.8, linestyle='-') # System GHG, sector, RCP2.6, full RES
-    axs[0,4].plot(2016,0,color=MyColorCycle[4,:], lw=0.6, linestyle='--') # System GHG, sector, Baseline, no RES
-    axs[0,4].plot(2016,0,color=MyColorCycle[7,:], lw=0.6, linestyle='--') # System GHG, sector, RCP2.6, no RES
-    axs[0,4].legend(LegendLables,shadow = False, prop={'size':5}, loc = 'upper right')         
-    axs[0,3].axis('off')
-    axs[0,4].axis('off')
-    fig.suptitle(fig_titles[Sect], fontsize=14)
-    for xm in range(0,5):
-        plt.sca(axs[4,xm])
-        plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 6, fontweight = 'normal')
-    plt.show()
-    fig_name = fig_names[Sect]
-    fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')  
-
+        plt.plot(2016,0,color=BaseBlue, lw=0.8,  linestyle='-')  # Baseline, full RES
+        plt.plot(2016,0,color=BaseBlue, lw=0.99, linestyle='--') # RCP2.6, full RES
+        plt.plot(2016,0,color=R26Green, lw=0.8,  linestyle='-')  # Baseline, no RES
+        plt.plot(2016,0,color=R26Green, lw=0.99, linestyle='--') # RCP2.6, no RES
+        plt.legend(LegendLables,shadow = False,  prop={'size':7}, loc = 'upper right',bbox_to_anchor=(3.5, 1))    
+        
+        fig.suptitle(fit_5x5[2*mmf+Sect], fontsize=14)
+        for xm in range(0,5):
+            plt.sca(axs[4,xm])
+            plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 6, fontweight = 'normal')
+        plt.show()
+        fig_name = fin_5x5[2*mmf+Sect]
+        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')  
+        
+        
+# Excel export global data via pandas:
+# TimeSeries_All indices: NX x Nt x Nr x NV x NS x NR / indicators x time x regions x SSP x RCP 
+ColIndex      = [str(mmx) for mmx in  range(2016,2061)]
+if len(PlotOrder_pav) == 25:        # only if data for all regions were exported
+    # pav:
+    DF_Data_pav   = np.einsum('XtrSR->XrSRt',TimeSeries_All[0:2,:,:,0,:,:]).reshape(2*25*3*2,45)
+    RowIndex      = pd.MultiIndex.from_product([['no RES','full RES'],Pav_RegionList20Plot,['LED','SSP1','SSP2'],['NoNewClimPol','RCP2.6']], names=('res. eff.','region','SSP','RCP'))
+    DF_pav_global = pd.DataFrame(DF_Data_pav, index=RowIndex, columns=ColIndex)
+    DF_pav_global.to_excel(os.path.join(RECC_Paths.results_path,'Fig_GHG_pav_5x5.xls'), merge_cells=False)
+    #print(ColIndex)
+    #print(RowIndex)
+if len(PlotOrder_reb) == 25:        # only if data for all regions were exported
+    # reb:
+    DF_Data_reb   = np.einsum('XtrSR->XrSRt',TimeSeries_All[0:2,:,:,1,:,:]).reshape(2*25*3*2,45)
+    RowIndex      = pd.MultiIndex.from_product([['no RES','full RES'],Reb_RegionList20Plot,['LED','SSP1','SSP2'],['NoNewClimPol','RCP2.6']], names=('res. eff.','region','SSP','RCP'))
+    DF_reb_global = pd.DataFrame(DF_Data_reb, index=RowIndex, columns=ColIndex)
+    DF_reb_global.to_excel(os.path.join(RECC_Paths.results_path,'Fig_GHG_reb_5x5.xls'), merge_cells=False)
+    
 #
 #
 #
