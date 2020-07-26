@@ -1057,11 +1057,11 @@ def main():
                                                      Indices = 't,o,w,e', Values=None, Uncert=None,
                                                      ID=None, UUID=None)
             
-            RECC_System.StockDict['S_12']    = msc.Stock(Name='secondary material buffer', P_Res=10, Type=0,
+            RECC_System.StockDict['S_12']    = msc.Stock(Name='secondary material buffer', P_Res=12, Type=0,
                                                      Indices = 't,o,m,e', Values=None, Uncert=None,
                                                      ID=None, UUID=None)
             
-            RECC_System.StockDict['dS_12']   = msc.Stock(Name='Secondary material buffer change', P_Res=10, Type=1,
+            RECC_System.StockDict['dS_12']   = msc.Stock(Name='Secondary material buffer change', P_Res=12, Type=1,
                                                      Indices = 't,o,m,e', Values=None, Uncert=None,
                                                      ID=None, UUID=None)
             
@@ -1508,7 +1508,7 @@ def main():
                 
                 TotalStockCurves_UsePhase_I = np.zeros((Nt,NI,Nl))
     
-                for I in tqdm(range(0, NI), unit='EGT types'):
+                for I in tqdm(range(0, NI), unit=' EGT types'):
                     for l in range(0, Nl):
                                 LifeTimes = Par_RECC_ProductLifetime_ind[I, l, :]
                             
@@ -1563,7 +1563,7 @@ def main():
                             
                 TotalStockCurves_UsePhase_a = np.zeros((Nt,Na,Nl))
                 
-                for a in tqdm(range(0, Na), unit='App types'):
+                for a in tqdm(range(0, Na), unit=' App types'):
                     for o in range(0, No):
                         LifeTimes = Par_RECC_ProductLifetime_app[a, o, :]
                     
@@ -1899,9 +1899,8 @@ def main():
                 RECC_System.FlowDict['F_9_12'].Values[t,:,:,:]     = np.einsum('owe,wmePo->ome',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:],RECC_System.ParameterDict['4_PY_MaterialProductionRemelting'].Values[:,:,:,:,0,:])
                 RECC_System.FlowDict['F_9_12'].Values[t,:,:,0]     = np.einsum('ome->om',RECC_System.FlowDict['F_9_12'].Values[t,:,:,1::])
     
-                # 8) SCRAP MARKET BALANCE:
-                # Below, only the total mass is taken into consideration for decision making. In later model versions, alloy and tramp element composition constraints can be added instead.
-                
+                # 8) MARKET BALANCE for secondary materials:
+    
                 # a) Use diverted fab scrap first, if possible:
                 DivFabScrap_to_Manuf = np.zeros((Nm,Ne))
                 for mat in range(0,Nm):
@@ -1933,7 +1932,7 @@ def main():
                             StockPileSecondaryMaterialUse[mat,:]   = (RECC_System.StockDict['S_12'].Values[t,0,mat,:] * RemainingManufactInputDemand_2[mat] / RECC_System.StockDict['S_12'].Values[t,0,mat,0]).copy()
                         else:
                             StockPileSecondaryMaterialUse[mat,:]   = RECC_System.StockDict['S_12'].Values[t,0,mat,:].copy()
-                RECC_System.StockDict['S_12'].Values[t,0,:,:]      = RECC_System.StockDict['S_12'].Values[t,0,:,:] - StockPileSecondaryMaterialUse
+                RECC_System.StockDict['S_12'].Values[t,0,:,:]      = RECC_System.StockDict['S_12'].Values[t,0,:,:] - StockPileSecondaryMaterialUse.copy()
                 PrimaryProductionDemand = RemainingManufactInputDemand_2 - StockPileSecondaryMaterialUse[:,0]
                 
                 # d) convert internal calculations to system variables:
@@ -1944,11 +1943,7 @@ def main():
                 else:
                     RECC_System.StockDict['S_12'].Values[t,0,:,:] += Non_DivFabScrap.copy() + Non_UsedSecMaterial.copy()
              
-                # e) Element composition of material flows:
-                #Element_Material_Composition_t_SecondaryMaterial   = msf.DetermineElementComposition_All_Oth(RECC_System.FlowDict['F_9_12'].Values[t,0,:,:])
-                # Element composition shares of recycled content: (may contain mix of recycled and fabscrapdiverted material)
-                #Element_Material_Composition_t_RecycledMaterial    = msf.DetermineElementComposition_All_Oth(RECC_System.FlowDict['F_12_5'].Values[t,0,:,:])
-                
+                # e) Element composition of material flows:         
                 Manufacturing_Input_me_final                       = RECC_System.FlowDict['F_4_5'].Values[t,:,:] + RECC_System.FlowDict['F_12_5'].Values[t,0,:,:]
                 Manufacturing_Input_gme_final                      = np.einsum('gm,me->gme',Manufacturing_Input_Split_gm,Manufacturing_Input_me_final)
                 Element_Material_Composition_Manufacturing         = msf.DetermineElementComposition_All_Oth(Manufacturing_Input_me_final)
@@ -1958,7 +1953,7 @@ def main():
                 Par_Element_Composition_of_Materials_m[t+115,:,:]  = Element_Material_Composition_Manufacturing.copy()
                 Par_Element_Composition_of_Materials_u[t+115,:,:]  = Element_Material_Composition_Manufacturing.copy()
     
-                # End of 8) SCRAP MARKET BALANCE.
+                # End of 8)MARKET BALANCE for secondary material.
     
                 # 9) Primary production and forestry carbon balance
                 RECC_System.FlowDict['F_3_4'].Values[t,:,:]        = RECC_System.FlowDict['F_4_5'].Values[t,:,:]
