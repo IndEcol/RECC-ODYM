@@ -47,6 +47,7 @@ Pav_RegionList20Plot = ['Global','Glob_North','Glob_South','G7','USA', \
 'India','OECD_Other','ASIA_Other','REF_Other','MNF_Other',\
 'Canada','Japan','LAM_Other','Oth_EU15','Germany',\
 'France','Italy','Poland','Spain','UK']
+
 Reb_axis_5x5 = [12000,9000,4500,4500,4500,1500,1500,1500,1500,1500,1200,600,600,300,300,200,200,200,200,200,120,120,120,120,120]
 Reb_RegionList20 = ['Global','Global_North','Global_South','R32CHN','G7', \
 'EU28','R32USA','R5.2ASIA_Other','R5.2REF_Other','R5.2MNF_Other',\
@@ -65,15 +66,15 @@ TimeSeries_All = np.zeros((10,45,25,2,3,2)) # NX x Nt x Nr x NV x NS x NR / indi
 # 0: system-wide GHG, no RES 1: system-wide GHG, all RES
 # 2: material-related GHG, no RES, 3: material-related GHG, all RES,
 
-PlotExpResolution = 200
+PlotExpResolution = 150 # dpi 150 for overview or 500 for paper
 
 # Number of scenarios:
 NS = 3 # SSP
 NR = 2 # RCP
     
 ###ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-#ScenarioSetting = 'Evaluate_pav_reb_Cascade' # run eval and plot scripts for selected regions and sectors only
-ScenarioSetting = 'Evaluate_pav_reb_Cascade_all' # run eval and plot scripts for all regions and sectors
+ScenarioSetting = 'Evaluate_pav_reb_Cascade' # run eval and plot scripts for selected regions and sectors only
+#ScenarioSetting = 'Evaluate_pav_reb_Cascade_all' # run eval and plot scripts for all regions and sectors
 #ScenarioSetting = 'Germany_detail_evaluate' # run eval and plot scripts for Germany case study only
 #ScenarioSetting = 'Global_all_evaluate' # run eval and plot scripts for all regions and all sectors
 #ScenarioSetting = 'Evaluate_TestRun' # Test run evaluate
@@ -143,7 +144,8 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
         
     if CascadeFlag1 is True: #extract results for this cascade and store
         CascadeFlag1 = False
-        print('Cascade_' + RegionalScope + '_' + SectorString)
+        Descr = 'Cascade_' + RegionalScope + '_' + SectorString
+        print(Descr)
         for m in range(0,NE):
             FolderList.append(ModelEvalListSheet.cell_value(Row +m, 3))
         # run the cascade plot function
@@ -154,19 +156,18 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
         MatEma_R_Data = np.einsum('tSRE->ESRt',MatEms).reshape(NE*NS*NR,45)
         if SectorString == 'pav':
             RES_List = ['None','EoL + FSD + FYI','EoL + FSD + FYI + ReU +LTE','EoL + FSD + FYI + ReU +LTE + MSu','EoL + FSD + FYI + ReU +LTE + MSu + LWE','EoL + FSD + FYI + ReU +LTE + MSu + LWE + CaS','EoL + FSD + FYI + ReU +LTE + MSu + LWE + CaS + RiS = ALL']
-        else:
+        else: # for reb and nrb
             RES_List = ['None','EoL + FSD + FYI','EoL + FSD + FYI + ReU +LTE','EoL + FSD + FYI + ReU +LTE + MSu','EoL + FSD + FYI + ReU +LTE + MSu + LWE','EoL + FSD + FYI + ReU +LTE + MSu + LWE + MIU = ALL']
         RowIndex = pd.MultiIndex.from_product([RES_List,['LED','SSP1','SSP2'],['NoNewClimPol','RCP2.6']], names=('res. eff.','SSP','RCP'))
         MatEma_R = pd.DataFrame(MatEma_R_Data, index=RowIndex, columns=ColIndex)
-        MatEma_R.to_excel(os.path.join(RECC_Paths.results_path,RegionalScope + '_Mat_GHG_MtCO2.xls'), merge_cells=False)
-        
+        MatEma_R.to_excel(os.path.join(RECC_Paths.results_path,Descr + '_Mat_GHG_MtCO2.xls'), merge_cells=False)
         # Export material production via pandas
         PP_R_Data = np.einsum('EtSR->ESRt',TimeSeries_R[2,:,:,:,:]).reshape(NE*NS*NR,45)
         PP_R      = pd.DataFrame(PP_R_Data, index=RowIndex, columns=ColIndex)
-        PP_R.to_excel(os.path.join(RECC_Paths.results_path,RegionalScope + '_Mat_PrimProd_Mt.xls'), merge_cells=False)
+        PP_R.to_excel(os.path.join(RECC_Paths.results_path,Descr + '_Mat_PrimProd_Mt.xls'), merge_cells=False)
         SP_R_Data = np.einsum('EtSR->ESRt',TimeSeries_R[3,:,:,:,:]).reshape(NE*NS*NR,45)
         SP_R      = pd.DataFrame(SP_R_Data, index=RowIndex, columns=ColIndex)
-        SP_R.to_excel(os.path.join(RECC_Paths.results_path,RegionalScope + '_Mat_SecProd_Mt.xls'), merge_cells=False)
+        SP_R.to_excel(os.path.join(RECC_Paths.results_path,Descr + '_Mat_SecProd_Mt.xls'), merge_cells=False)
         
         # write results summary to Excel
         for R in range(0,NR):
@@ -288,6 +289,8 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
                     
     if CascadeFlag2 is True: #extract results for this cascade and store    
         CascadeFlag2 = False
+        Descr = 'Cascade_' + RegionalScope + '_' + SectorString
+        print(Descr)
         for m in range(0,NE):
             MultiSectorList.append(ModelEvalListSheet.cell_value(Row +m, 3))  
         GHG_TableX = ODYM_RECC_Table_Extract_V2_4.main(RegionalScope,MultiSectorList)        
@@ -302,6 +305,21 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
         # run the cascade plots for the three sectors
         ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, AvgDecadalRecEms, CumEms, AnnEms2050, MatStocks, TimeSeries_R, MatEms = ODYM_RECC_Cascade_V2_4.main(RegionalScope,MultiSectorList,SectorString)              
 
+        # Export cascade results via pandas:
+        ColIndex      = [str(mmx) for mmx in  range(2016,2061)]
+        MatEma_R_Data = np.einsum('tSRE->ESRt',MatEms).reshape(NE*NS*NR,45)
+        RES_List = ['None','EoL + FSD + FYI','EoL + FSD + FYI + ReU +LTE','EoL + FSD + FYI + ReU +LTE + MSu','EoL + FSD + FYI + ReU +LTE + MSu + LWE','EoL + FSD + FYI + ReU +LTE + MSu + LWE + CaS','EoL + FSD + FYI + ReU +LTE + MSu + LWE + CaS + RiS','EoL + FSD + FYI + ReU +LTE + MSu + LWE + CaS + RiS + MIU = ALL']
+        RowIndex = pd.MultiIndex.from_product([RES_List,['LED','SSP1','SSP2'],['NoNewClimPol','RCP2.6']], names=('res. eff.','SSP','RCP'))
+        MatEma_R = pd.DataFrame(MatEma_R_Data, index=RowIndex, columns=ColIndex)
+        MatEma_R.to_excel(os.path.join(RECC_Paths.results_path,Descr + '_Mat_GHG_MtCO2.xls'), merge_cells=False)
+        # Export material production via pandas
+        PP_R_Data = np.einsum('EtSR->ESRt',TimeSeries_R[2,:,:,:,:]).reshape(NE*NS*NR,45)
+        PP_R      = pd.DataFrame(PP_R_Data, index=RowIndex, columns=ColIndex)
+        PP_R.to_excel(os.path.join(RECC_Paths.results_path,Descr + '_Mat_PrimProd_Mt.xls'), merge_cells=False)
+        SP_R_Data = np.einsum('EtSR->ESRt',TimeSeries_R[3,:,:,:,:]).reshape(NE*NS*NR,45)
+        SP_R      = pd.DataFrame(SP_R_Data, index=RowIndex, columns=ColIndex)
+        SP_R.to_excel(os.path.join(RECC_Paths.results_path,Descr + '_Mat_SecProd_Mt.xls'), merge_cells=False)
+        
         # plot GHG overview figure global
         if RegionalScope == 'Global':
             ColOrder     = [11,4,0,18,8,16,2,6,15]
@@ -507,12 +525,64 @@ ind_5x5 = [0,2,4,6]
 fin_5x5 = ['GHG_SSP1_pav_5x5.png','GHG_SSP1_reb_5x5.png','GHGMat_SSP1_pav_5x5.png','GHGMat_SSP1_reb_5x5.png','PrimMat_5x5_pav.png','PrimMat_5x5_reb.png','SecMat_5x5_pav.png','SecMat_5x5_reb.png']
 fit_5x5 = ['System-wide GHG, SSP1, pav, Mt/yr','System-wide GHG, SSP1, reb, Mt/yr','Matcycle GHG, SSP1, pav, Mt/yr','Matcycle GHG, SSP1, reb, Mt/yr','Total primary material, SSP1, pav, Mt/yr','Total primary material, SSP1, reb, Mt/yr','Total secondary material, SSP1, pav, Mt/yr','Total secondary material, SSP1, reb, Mt/yr']
 
-# System-wide GHG
 MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Paired' color map. 
 BaseBlue     = np.array([0.31,0.51,0.74,1])
 R26Green     = np.array([0.03,0.66,0.48,1])
 plt.rcParams['axes.labelsize'] = 7
 LegendLables = ['NoNewClimPol, no RES','NoNewClimPol, full RES','RCP2.6, no RES','RCP2.6, full RES']
+
+# System-wide GHG, mat. GHG, and material production, with country names on top of plots
+#for mmf in range(0,4):
+#    for Sect in range(0,2):
+#        if Sect == 0:
+#            RegionList20Plot = Pav_RegionList20Plot
+#            PlotOrder        = PlotOrder_pav
+#            AxisMax          = Pav_axis_5x5
+#        if Sect == 1:
+#            RegionList20Plot = Reb_RegionList20Plot        
+#            PlotOrder        = PlotOrder_reb
+#            AxisMax          = Reb_axis_5x5
+#        fig, axs = plt.subplots(5, 5, sharex=True, gridspec_kw={'hspace': 0.6, 'wspace': 0.5})
+#        for plotNo in PlotOrder:
+#            if mmf == 0: # only for GHG total plot
+#                for mmn in range(0,45): # plot grey bar where net emisisons are negative:
+#                    if TimeSeries_All[1,mmn,plotNo,Sect,1,1] < 0:
+#                        axs[plotNo//5, plotNo%5].fill_between([2016+mmn,2016+mmn+1], [0,0],[AxisMax[plotNo],AxisMax[plotNo]],linestyle = '--', facecolor =np.array([0.3,0.3,0.3,0.3]), linewidth = 0.0)
+#            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,1,0],color=BaseBlue, lw=0.8,  linestyle='-')    # Baseline, no RES
+#            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,1,0],color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
+#            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,1,1],color=R26Green, lw=0.8,  linestyle='-')    # RCP2.6, no RES
+#            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,1,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
+#            axs[plotNo//5, plotNo%5].set_ylim(ymin=0)
+#            axs[plotNo//5, plotNo%5].set_title(RegionList20Plot[plotNo], fontsize=7)
+#            #axs[plotNo//5, plotNo%5].set_yticklabels(fontsize = 6)
+#            axs[plotNo//5, plotNo%5].tick_params(axis='x', labelsize=6)
+#            axs[plotNo//5, plotNo%5].tick_params(axis='y', labelsize=6)
+#            for axis in ['top','bottom','left','right']:
+#                axs[plotNo//5, plotNo%5].spines[axis].set_linewidth(0.3)
+#            if mmf == 0:
+#                axs[plotNo//5, plotNo%5].axis([2012, 2063, 0, AxisMax[plotNo]])
+#            axs[plotNo//5, plotNo%5].tick_params(axis='both',width = 0.3)
+#    
+#        plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.8,  linestyle='-')  # Baseline, no RES
+#        plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.99, linestyle='--') # Baseline, full RES
+#        plt.plot([2010,2011],[0,0],color=R26Green, lw=0.8,  linestyle='-')  # RCP2.6, no RES
+#        plt.plot([2010,2011],[0,0],color=R26Green, lw=0.99, linestyle='--') # RCP2.6, full RES
+#        plt.legend(LegendLables,shadow = False,  prop={'size':7}, loc = 'upper right',bbox_to_anchor=(3.5, 1))    
+#        
+#        fig.suptitle(fit_5x5[2*mmf+Sect], fontsize=14)
+#        for xm in range(0,5):
+#            plt.sca(axs[4,xm])
+#            plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 6, fontweight = 'normal')
+#        plt.show()
+#        fig_name = fin_5x5[2*mmf+Sect]
+#        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')  
+
+# System-wide GHG, mat. GHG, and material production, with country names inside plots        
+Pav_label_offset = [2017,2023,2018,2050,2045,2040,2017,2026,2020,2033,2017,2017,2017,2017,2017,2033,2037,2015,2026,2028,2040,2045,2040,2040,2050]        
+Pav_label_pos    = [0.06,0.83,0.83,0.83,0.83,0.83,0.06,0.06,0.83,0.83,0.83,0.83,0.06,0.06,0.06,0.83,0.83,0.06,0.83,0.83,0.83,0.83,0.83,0.83,0.83]        
+Reb_label_offset = [2038,2023,2023,2038,2048,2040,2045,2023,2025,2023,2042,2014,2020,2030,2025,2035,2050,2035,2025,2040,2045,2035,2040,2020,2032]
+Reb_label_pos    = [0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.06,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83]        
+
 for mmf in range(0,4):
     for Sect in range(0,2):
         if Sect == 0:
@@ -523,31 +593,38 @@ for mmf in range(0,4):
             RegionList20Plot = Reb_RegionList20Plot        
             PlotOrder        = PlotOrder_reb
             AxisMax          = Reb_axis_5x5
-        fig, axs = plt.subplots(5, 5, sharex=True, gridspec_kw={'hspace': 0.6, 'wspace': 0.5})
+        fig, axs = plt.subplots(5, 5, sharex=True, gridspec_kw={'hspace': 0.22, 'wspace': 0.5})
         for plotNo in PlotOrder:
             if mmf == 0: # only for GHG total plot
                 for mmn in range(0,45): # plot grey bar where net emisisons are negative:
                     if TimeSeries_All[1,mmn,plotNo,Sect,1,1] < 0:
                         axs[plotNo//5, plotNo%5].fill_between([2016+mmn,2016+mmn+1], [0,0],[AxisMax[plotNo],AxisMax[plotNo]],linestyle = '--', facecolor =np.array([0.3,0.3,0.3,0.3]), linewidth = 0.0)
-            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,1,0],color=BaseBlue, lw=0.8, linestyle='-')    # Baseline, no RES
-            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,1,1],color=R26Green, lw=0.8, linestyle='-')    # RCP2.6, no RES
+            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,1,0],color=BaseBlue, lw=0.8,  linestyle='-')    # Baseline, no RES
             axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,1,0],color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
+            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,1,1],color=R26Green, lw=0.8,  linestyle='-')    # RCP2.6, no RES
             axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,1,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
             axs[plotNo//5, plotNo%5].set_ylim(ymin=0)
-            axs[plotNo//5, plotNo%5].set_title(RegionList20Plot[plotNo], fontsize=7)
-            #axs[plotNo//5, plotNo%5].set_yticklabels(fontsize = 6)
+            if mmf == 0:
+                if Sect == 0:
+                    axs[plotNo//5, plotNo%5].text(Pav_label_offset[plotNo], Pav_label_pos[plotNo]*AxisMax[plotNo], RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
+                if Sect == 1:
+                    axs[plotNo//5, plotNo%5].text(Reb_label_offset[plotNo], Reb_label_pos[plotNo]*AxisMax[plotNo], RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
+            else:
+                axs[plotNo//5, plotNo%5].text(2015, 0.12*TimeSeries_All[ind_5x5[mmf]:ind_5x5[mmf]+2,:,plotNo,Sect,1,:].max(), RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
             axs[plotNo//5, plotNo%5].tick_params(axis='x', labelsize=6)
             axs[plotNo//5, plotNo%5].tick_params(axis='y', labelsize=6)
             for axis in ['top','bottom','left','right']:
                 axs[plotNo//5, plotNo%5].spines[axis].set_linewidth(0.3)
             if mmf == 0:
                 axs[plotNo//5, plotNo%5].axis([2012, 2063, 0, AxisMax[plotNo]])
+            else:
+                axs[plotNo//5, plotNo%5].axis([2012, 2063, 0, 1.1*TimeSeries_All[ind_5x5[mmf]:ind_5x5[mmf]+2,:,plotNo,Sect,1,:].max()])
             axs[plotNo//5, plotNo%5].tick_params(axis='both',width = 0.3)
     
-        plt.plot(2016,0,color=BaseBlue, lw=0.8,  linestyle='-')  # Baseline, full RES
-        plt.plot(2016,0,color=BaseBlue, lw=0.99, linestyle='--') # RCP2.6, full RES
-        plt.plot(2016,0,color=R26Green, lw=0.8,  linestyle='-')  # Baseline, no RES
-        plt.plot(2016,0,color=R26Green, lw=0.99, linestyle='--') # RCP2.6, no RES
+        plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.8,  linestyle='-')  # Baseline, no RES
+        plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.99, linestyle='--') # Baseline, full RES
+        plt.plot([2010,2011],[0,0],color=R26Green, lw=0.8,  linestyle='-')  # RCP2.6, no RES
+        plt.plot([2010,2011],[0,0],color=R26Green, lw=0.99, linestyle='--') # RCP2.6, full RES
         plt.legend(LegendLables,shadow = False,  prop={'size':7}, loc = 'upper right',bbox_to_anchor=(3.5, 1))    
         
         fig.suptitle(fit_5x5[2*mmf+Sect], fontsize=14)
@@ -557,7 +634,6 @@ for mmf in range(0,4):
         plt.show()
         fig_name = fin_5x5[2*mmf+Sect]
         fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')  
-        
         
 # Excel export global data via pandas:
 # TimeSeries_All indices: NX x Nt x Nr x NV x NS x NR / indicators x time x regions x SSP x RCP 

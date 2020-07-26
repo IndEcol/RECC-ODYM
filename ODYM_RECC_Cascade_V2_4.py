@@ -13,7 +13,7 @@ def main(RegionalScope,FolderList,SectorString):
     import os
     import RECC_Paths # Import path file   #
     
-    PlotExpResolution = 150 # dpi
+    PlotExpResolution = 150 # dpi 150 for overview or 500 for paper
     
     # FileOrder needs to be kept:
     # pav:
@@ -922,12 +922,16 @@ def main(RegionalScope,FolderList,SectorString):
                 plt.sca(ax4)
                 plt.ylabel('Mt/yr', fontsize = 12)
     
-                plt.plot(2016,0,color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='-')
-                plt.plot(2016,0,color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='--')
-                plt.plot(2016,0,color=np.array([0.3,0.3,0.3,1]), lw=LWI[1],  linestyle='-')
-                plt.plot(2016,0,color=np.array([0.3,0.3,0.3,1]), lw=LWI[1],  linestyle='--') 
-                plt.legend(LegendLables,shadow = False, prop={'size':7}, loc = 'upper right',bbox_to_anchor=(2.5, 1))     
-    
+#                fig  = plt.figure(figsize=(5,8))
+#                ax1  = plt.axes([0.08,0.08,0.85,0.9])
+#                plt.plot([2016,2017],[0,0],color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='-')
+#                plt.plot([2016,2017],[0,0],color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='--')
+#                plt.plot([2016,2017],[0,0],color=np.array([0.5,0.5,0.5,1]), lw=LWI[1],  linestyle='-')
+#                plt.plot([2016,2017],[0,0],color=np.array([0.5,0.5,0.5,1]), lw=LWI[1],  linestyle='--') 
+#                plt.legend(LegendLables,shadow = False, prop={'size':8}, loc = 'upper right')   
+#                plt.show()
+#                fig.savefig(os.path.join(RECC_Paths.results_path,'Legend.png'), dpi = PlotExpResolution, bbox_inches='tight')  
+                
                 plt.show()
                 fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line.png'
                 fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')               

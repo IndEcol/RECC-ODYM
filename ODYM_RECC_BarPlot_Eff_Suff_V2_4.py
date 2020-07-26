@@ -132,7 +132,7 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
     
         plt.show()
         fig_name = Title[nn] + Region + '_ ' + Sector[0] + '.png'
-        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')             
+        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 500, bbox_inches='tight')             
         
     
     return CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV

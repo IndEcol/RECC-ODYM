@@ -13,7 +13,7 @@ def main(RegionalScope,FolderList,SectorString):
     import RECC_Paths # Import path file    
     import os
     
-    PlotExpResolution = 150 # dpi
+    PlotExpResolution = 150 # dpi 150 for overview or 500 for paper
     
     #Sensitivity analysis folder order, by default, all strategies are off, one by one is implemented each at a time.
     ## Vehicles:

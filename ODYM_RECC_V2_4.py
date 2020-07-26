@@ -77,9 +77,6 @@ def main():
     
     Name_Script        = Model_Configsheet.cell_value(5,3)
     if Name_Script != 'ODYM_RECC_V2_4':  # Name of this script must equal the specified name in the Excel config file
-        # TODO: This does not work because the logger was not yet initialized
-        # log.critical("The name of the current script '%s' does not match to the sript name specfied in the project configuration file '%s'. Exiting the script.",
-        #              Name_Script, 'ODYM_RECC_Test1')
         raise AssertionError('Fatal: The name of the current script does not match to the sript name specfied in the project configuration file. Exiting the script.')
     # the model will terminate if the name of the script that is run is not identical to the script name specified in the config file.
     Name_Scenario            = Model_Configsheet.cell_value(6,3) # Regional scope as torso for scenario name
@@ -358,7 +355,8 @@ def main():
     Ind_2020      = 120 #index of year 2020
     IsClose_Remainder_Small = 1e-15 
     IsClose_Remainder_Large = 1e-7 
-        
+    DPIRES        = 50 # 50 for overview or 500 for paper plots
+    
     # Determine location of the indices of individual sectors in the region-specific list and in the list of all goods
     # indices of sectors with same regional scope in complete goods list
     Sector_11reg_rge    = Sector_ind_rge
@@ -1198,6 +1196,18 @@ def main():
                     RECC_dsm                    = dsm.DynamicStockModel(t=np.arange(0,Nc,1), s=FutureStock.copy(), lt = lt)  # The lt parameter is not used, the sf array is handed over directly in the next step.   
                     Var_S, Var_O, Var_I, IFlags = RECC_dsm.compute_stock_driven_model_initialstock_typesplit_negativeinflowcorrect(SwitchTime,InitialStock,SFArrayCombined,TypeSplit,NegativeInflowCorrect = True)
                     
+                    # For a single-vehicle dynamic LCA, use this code block below to replace actual flows by single vehicle with fixed lifetime:
+    #                VType = 4 # 0 for gasoline, 4 for BEV
+    #                VLT   = 15 # fixed lifetime in years
+    #                VTin  = 120 # year index of production, 120 stands for 2020.
+    #                Var_I = np.zeros((Nc,Np))
+    #                Var_I[VTin,VType] = 1
+    #                Var_S = np.zeros((Nc,Nc,Np))
+    #                Var_S[VTin:VTin+VLT,VTin,VType] = 1
+    #                Var_O = np.zeros((Nc,Nc,Np))
+    #                Var_O[VTin+VLT,VTin,VType] = 1
+    #                InitialStock = np.zeros((Nc,Np))
+                    
                     # Below, the results are added with += because the different commodity groups (buildings, vehicles) are calculated separately
                     # to introduce the type split for each, but using the product resolution of the full model with all sectors.
                     Stock_Detail_UsePhase_p[0,:,:,r]     += InitialStock.copy() # cgr, needed for correct calculation of mass balance later.
@@ -1207,8 +1217,8 @@ def main():
                     Inflow_Prod_r[1::,r,Sector_pav_rge,mS,mR] = Var_I[SwitchTime::,:].copy()
                     # Check for negative inflows:
                     if IFlags.sum() != 0:
-                        NegInflowFlags[Sector_pav_loc,mS,mR] = 1 # flag this scenario
-        
+                        NegInflowFlags[Sector_pav_loc,mS,mR] = 1 # flag this scenario                
+                    
                 # Here so far: Units: Vehicles: million. for stocks, X/yr for flows.
                 StockCurves_Totl[:,Sector_pav_loc,mS,mR] = TotalStockCurves_UsePhase_p.sum(axis =1).copy()
                 StockCurves_Prod[:,Sector_pav_rge,mS,mR] = np.einsum('tcpr->tp',Stock_Detail_UsePhase_p).copy()
@@ -1444,10 +1454,13 @@ def main():
                 SF_Array = np.zeros((Nc,Nc,NN,No)) # survival functions, by year, age-cohort, good, and region. PDFs are stored externally because recreating them with scipy.stats is slow.            
                 s_nrbg   = RECC_System.ParameterDict['2_S_RECC_FinalProducts_nonresbuildings_g'].Values[:,:]  ### dimensions: 'Nt'
     
+                if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True': # for future age-cohorts t = c
+                    RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_nonresbuildings_g'].Values[:,:,SwitchTime -1::] = np.einsum('Not,Not->Not',RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_nonresbuildings_g'].Values[:,:,SwitchTime -1::],1 + np.einsum('No,ot->Not',RECC_System.ParameterDict['6_PR_LifeTimeExtension_nonresbuildings_g'].Values[:,:],RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[mR,:,:,mS]))
+    
                 for N in tqdm(range(0, NN), unit='Mm²'):
                     for o in range(0, No):
                         # First, replicate lifetimes for all age-cohorts
-                        LifeTimes_nrbg = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_nonresbuildings_g'].Values[N,o,:] # Dimensions: 'Not'
+                        LifeTimes_nrbg = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_nonresbuildings_g'].Values[N,o,:] # Dimensions: 'Noc'
                         lt = {'Type'  : 'Normal',
                               'Mean'  : LifeTimes_nrbg, 
                               'StdDev': 0.3 * LifeTimes_nrbg}
@@ -1479,11 +1492,13 @@ def main():
                 
                 SF_Array                    = np.zeros((Nc,Nc,NI,Nl)) # survival functions, by year, age-cohort, good, and region. PDFs are stored externally because recreating them with scipy.stats is slow.
                 i_Inflow_ind = RECC_System.ParameterDict['1_F_RECC_FinalProducts_industry'].Values[:,:,:,:,:]                     ### dimensions: rSRpt of TotalFutureInflow_UsePhase_ind
-           
-                # Include_REStrategy_LifeTimeExtension: Product lifetime extension.
-                # First, replicate lifetimes for all age-cohorts
-                Par_RECC_ProductLifetime_ind = np.einsum('cr,p->prc',np.ones((Nc,Nl)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_industry'].Values[:])
-        
+    
+                # set lifetime parameter
+                # First, Simply replicate lifetimes for all age-cohorts
+                Par_RECC_ProductLifetime_ind = np.einsum('cl,I->Ilc',np.ones((Nc,Nl)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_industry'].Values)
+                if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True': # for future age-cohorts t = c
+                    Par_RECC_ProductLifetime_ind[:,:,SwitchTime -1::] = np.einsum('Ilt,Ilt->Ilt',Par_RECC_ProductLifetime_ind[:,:,SwitchTime -1::],1 + np.einsum('Il,t->Ilt',RECC_System.ParameterDict['6_PR_LifeTimeExtension_industry'].Values[:,:,mS],RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[mR,0,:,mS]))
+                    
                 # Dynamic stock model
                 # Build pdf array from lifetime distribution: Probability of survival.
                 RECC_dsm_ind_s_c        = np.zeros((Nl,NS,NR,NI,Nc,Nc))
@@ -1534,15 +1549,12 @@ def main():
                 SF_Array     = np.zeros((Nc,Nc,Na,No)) # survival functions, by year, age-cohort, good, and region. PDFs are stored externally because recreating them with scipy.stats is slow.
                 i_Inflow_app = RECC_System.ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[:,:,:,:,:] # dimensions:ocSRa
             
-                Par_RECC_ProductLifetime_app = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_appliances'].Values[:]
-                   
-                # Include_REStrategy_LifeTimeExtension: Product lifetime extension.
-                # First, replicate lifetimes for all age-cohorts
-                Par_RECC_ProductLifetime_app = np.einsum('cr,p->prc',np.ones((Nc,No)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_appliances'].Values[:])
-            #                   # Second, change lifetime of future age-cohorts according to lifetime extension parameter
-            #                    if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True':
-            #                        Par_RECC_ProductLifetime_p[:,:,SwitchTime -1::] = np.einsum('crp,prc->prc',1 + np.einsum('cr,pr->crp',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values[:,:,mS]),Par_RECC_ProductLifetime_p[:,:,SwitchTime -1::])
-         
+                # set lifetime parameter
+                # First, Simply replicate lifetimes for all age-cohorts
+                Par_RECC_ProductLifetime_app = np.einsum('co,a->aoc',np.ones((Nc,No)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_appliances'].Values)
+                if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True': # for future age-cohorts t = c
+                    Par_RECC_ProductLifetime_app[:,:,SwitchTime -1::] = np.einsum('aot,aot->aot',Par_RECC_ProductLifetime_app[:,:,SwitchTime -1::],1 + np.einsum('ao,ot->aot',RECC_System.ParameterDict['6_PR_LifeTimeExtension_appliances'].Values[:,:,mS],RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[mR,:,:,mS]))
+                    
                 # Dynamic stock model
                 # Build pdf array from lifetime distribution: Probability of survival.
                 RECC_dsm_app_s_c        = np.zeros((No,NS,NR,Na,Nc,Nc))
@@ -2470,16 +2482,16 @@ def main():
             RecyclingCredit                                     GWP_RecyclingCredit         // GHG emissions, energy recovery from waste wood (biogenic C plus energy substitution within System)
             '''        
             
-#            # DIAGNOSTICS
-#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_5_6',0)
-#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_5',0)
-#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_5_10',0)
-#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_4_5',0)
-#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_17_6',0)
-#            
-#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_5',0)
-#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_0',0)
-#            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_9_12',0)
+    #            # DIAGNOSTICS
+    #            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_5_6',0)
+    #            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_5',0)
+    #            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_5_10',0)
+    #            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_4_5',0)
+    #            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_17_6',0)
+    #            
+    #            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_5',0)
+    #            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_12_0',0)
+    #            a,b,c = RECC_System.Check_If_All_Chem_Elements_Are_present('F_9_12',0)
             
     ##############################################################
     #   Section 7) Export and plot results, save, and close      #
@@ -2490,7 +2502,7 @@ def main():
     mystyle = xlwt.XFStyle()
     mystyle.font = myfont
     
-    Mylog.info('### 5.0 - Check data and resuls for boundary constraints and plausibility. Exit flags.')
+    Mylog.info('### 5.0 - Check data and results for boundary constraints and plausibility. Exit flags.')
     Mylog.info('Model input')          
     
     ExitFlags['3_SHA_LightWeighting_Vehicles_min']             = ParameterDict['3_SHA_LightWeighting_Vehicles'].Values.min() >= 0
@@ -2499,11 +2511,13 @@ def main():
     ExitFlags['3_SHA_DownSizing_Vehicles_max']                 = ParameterDict['3_SHA_DownSizing_Vehicles'].Values.max() <= 1
     ExitFlags['3_SHA_TypeSplit_Vehicles_min']                  = ParameterDict['3_SHA_TypeSplit_Vehicles'].Values.min() >= 0
     ExitFlags['3_SHA_TypeSplit_Vehicles_max']                  = ParameterDict['3_SHA_TypeSplit_Vehicles'].Values.max() <= 1
+    ExitFlags['3_SHA_TypeSplit_Vehicles_sum']                  = np.isclose(ParameterDict['3_SHA_TypeSplit_Vehicles'].Values.sum(),Nr*NR*Nt, IsClose_Remainder_Large)
     ExitFlags['3_SHA_TypeSplit_Buildings_min']                 = ParameterDict['3_SHA_TypeSplit_Buildings'].Values.min() >= 0
     ExitFlags['3_SHA_TypeSplit_Buildings_max']                 = ParameterDict['3_SHA_TypeSplit_Buildings'].Values.max() <= 1
     ExitFlags['3_SHA_TypeSplit_Buildings_sum']                 = np.isclose(ParameterDict['3_SHA_TypeSplit_Buildings'].Values.sum(),Nr*Nt*NS, IsClose_Remainder_Large)
     ExitFlags['3_SHA_TypeSplit_NonResBuildings_min']           = ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values.min() >= 0
     ExitFlags['3_SHA_TypeSplit_NonResBuildings_max']           = ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values.max() <= 1
+    ExitFlags['3_SHA_TypeSplit_NonResBuildings_sum']           = np.isclose(ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values.sum(),Nr*Nt*NS, IsClose_Remainder_Large)
     ExitFlags['LTE_Renovation_Consistency']                    = bool(ScriptConfig['Include_REStrategy_LifeTimeExtension']) & bool(ScriptConfig['Include_Renovation_reb']) & bool(ScriptConfig['Include_Renovation_nrb'])
     ExitFlags['Secondary_Material_Flows_Positive']             = SecondaryProduct.min() >= 0
     
@@ -2551,6 +2565,8 @@ def main():
     # final material consumption, fab scrap
     for m in range(0,Nm):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow[:,:,m,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials: ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[m],'Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,0:4,:,:]),newrowoffset,len(ColLabels),'Final consumption of materials: iron&steel (4 groups)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,4:6,:,:]),newrowoffset,len(ColLabels),'Final consumption of materials: aluminium (2 groups)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     for m in range(0,Nw):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,FabricationScrap[:,m,:,:],newrowoffset,len(ColLabels),'Fabrication scrap: ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[m],'Mt / yr',ScriptConfig['RegionalScope'],'F_5_10','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # secondary materials
@@ -2600,15 +2616,17 @@ def main():
     # a) pass. vehicles:
     if 'pav' in SectorList:
         for mr in range(0,Nr):
-            for ms in range(0,Ns):
-                newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[ms,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of newly registered pass. vehicles in segment ' +IndexTable.Classification[IndexTable.index.get_loc('Car_segments')].Items[ms],'1',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-            for mp in range(0,len(Sector_pav_rge)):
-                newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[mp,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels), 'Share of newly registered light-weighted ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_pav_rge[mp]],'%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)      
+            for ms in range(0,Ns): # vehicle downsizing parameter is modified by script, result exported here.
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[ms,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Segment split of newly registered pass. vehicles, ' +IndexTable.Classification[IndexTable.index.get_loc('Car_segments')].Items[ms],'1',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            for mp in range(0,len(Sector_pav_rge)): # vehicle lightweighting parameter is modified by script, result exported here.
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[mp,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels), 'Share of light-weighted cars in newly registered ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_pav_rge[mp]],'%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)      
+            for mp in range(0,len(Sector_pav_rge)): # export vehicle type split
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('Rt,S->tSR',ParameterDict['3_SHA_TypeSplit_Vehicles'].Values[Sector_pav_loc,mr,:,mp,:],np.ones((NS))),newrowoffset,len(ColLabels), 'Type split of newly registered cars, ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_pav_rge[mp]],'%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)                      
     # b) res. buildings   
     if 'reb' in SectorList:     
-        for mr in range(0,Nr):
+        for mr in range(0,Nr): # building downsizing parameter is modified by script, result exported here.
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Buildings'].Values[0,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of newly built downsized res. buildings','%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-            for mB in range(0,len(Sector_reb_rge)):
+            for mB in range(0,len(Sector_reb_rge)): # building lightweighting parameter is modified by script, result exported here.
                 newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[mB,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of newly built light-weighted ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_reb_rge[mB]],'%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     #vehicle km 
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Vehicle_km,newrowoffset,len(ColLabels),'km driven by pass. vehicles','million km/yr',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -2652,12 +2670,16 @@ def main():
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod[:,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), all drive technologies together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'reb' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod[:,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), all res. building types together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'nrb' in SectorList:
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod[:,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), all nonres. building types together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     for mg in range(0,Ng):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'EoL products (use phase outflow), ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'pav' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), all drive technologies together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'reb' in SectorList:
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), all building types together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), all res. building types together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
+    if 'nrb' in SectorList:
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), all nonres. building types together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
     # Material reuse
     for mm in range(0,Nm):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials[:,mm,:,:],newrowoffset,len(ColLabels),'ReUse of materials in products, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -2813,7 +2835,7 @@ def main():
     fig_name = 'GHG_Ems_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=60, bbox_inches='tight')
+    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
     
@@ -2832,7 +2854,7 @@ def main():
     fig_name = 'GHG_PP_WithEST'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=60, bbox_inches='tight')
+    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
     
@@ -2856,7 +2878,7 @@ def main():
     fig_name = 'PSteel_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=60, bbox_inches='tight')
+    #fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
     
@@ -2880,7 +2902,7 @@ def main():
     fig_name = 'Cement_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=60, bbox_inches='tight')
+    #fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
     
@@ -2904,7 +2926,7 @@ def main():
     fig_name = 'SteelRecycling_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=60, bbox_inches='tight')
+    #fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
     
@@ -2929,7 +2951,7 @@ def main():
     fig_name = 'GHG_UsePhase_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=60, bbox_inches='tight')
+    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
     
@@ -2949,7 +2971,7 @@ def main():
     #    fig_name = 'ImplementationCurves_' + IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[0]
     #    # include figure in logfile:
     #    fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    #    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=500, bbox_inches='tight')
+    #    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
     #    Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     #    Figurecounter += 1
     
@@ -3000,7 +3022,7 @@ def main():
             # include figure in logfile:
             fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
             # comment out to save disk space in archive:
-            fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=60, bbox_inches='tight')
+            fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1
     
@@ -3037,7 +3059,7 @@ def main():
             # include figure in logfile:
             fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
             # comment out to save disk space in archive:
-            fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=60, bbox_inches='tight')
+            fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1
     

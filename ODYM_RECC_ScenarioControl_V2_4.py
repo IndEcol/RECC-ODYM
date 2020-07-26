@@ -22,9 +22,9 @@ import RECC_Paths # Import path file
 import ODYM_RECC_V2_4
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-ScenarioSetting = 'pav_reb_Config_list'
+#ScenarioSetting = 'pav_reb_Config_list'
 #ScenarioSetting = 'pav_reb_Config_list_all'
-#ScenarioSetting = 'Germany_detail_config'
+ScenarioSetting = 'Germany_detail_config'
 #ScenarioSetting = 'Germany_detail_config_all'
 #ScenarioSetting = 'Global_all'
 #ScenarioSetting = 'TestRun'
@@ -60,27 +60,28 @@ while True:
     sheet['G29']  = Config['Products']
     sheet['G33']  = Config['NonresidentialBuildings']
     sheet['G48']  = Config['Regions32goods']
-    sheet['D181'] = Config['Logging_Verbosity']
-    sheet['D182'] = Config['Include_REStrategy_FabYieldImprovement']
-    sheet['D183'] = Config['Include_REStrategy_FabScrapDiversion']
-    sheet['D184'] = Config['Include_REStrategy_EoL_RR_Improvement']
-    sheet['D185'] = Config['ScrapExport']
-    sheet['D186'] = Config['ScrapExportRecyclingCredit']
-    sheet['D187'] = Config['IncludeRecycling']
-    sheet['D188'] = Config['Include_REStrategy_MaterialSubstitution']
-    sheet['D189'] = Config['Include_REStrategy_UsingLessMaterialByDesign']
-    sheet['D190'] = Config['Include_REStrategy_ReUse']
-    sheet['D191'] = Config['Include_REStrategy_LifeTimeExtension']
-    sheet['D192'] = Config['Include_REStrategy_MoreIntenseUse']
-    sheet['D193'] = Config['Include_REStrategy_CarSharing']
-    sheet['D194'] = Config['Include_REStrategy_RideSharing']
-    sheet['D195'] = Config['Include_REStrategy_ModalSplit']
-    sheet['D196'] = Config['SectorSelect']
-    sheet['D197'] = Config['Include_Renovation_reb']
-    sheet['D198'] = Config['Include_Renovation_nrb']
-    sheet['D199'] = Config['No_EE_Improvements']
+    sheet['D182'] = Config['Logging_Verbosity']
+    sheet['D183'] = Config['Include_REStrategy_FabYieldImprovement']
+    sheet['D184'] = Config['Include_REStrategy_FabScrapDiversion']
+    sheet['D185'] = Config['Include_REStrategy_EoL_RR_Improvement']
+    sheet['D186'] = Config['ScrapExport']
+    sheet['D187'] = Config['ScrapExportRecyclingCredit']
+    sheet['D188'] = Config['IncludeRecycling']
+    sheet['D189'] = Config['Include_REStrategy_MaterialSubstitution']
+    sheet['D190'] = Config['Include_REStrategy_UsingLessMaterialByDesign']
+    sheet['D191'] = Config['Include_REStrategy_ReUse']
+    sheet['D192'] = Config['Include_REStrategy_LifeTimeExtension']
+    sheet['D193'] = Config['Include_REStrategy_MoreIntenseUse']
+    sheet['D194'] = Config['Include_REStrategy_CarSharing']
+    sheet['D195'] = Config['Include_REStrategy_RideSharing']
+    sheet['D196'] = Config['Include_REStrategy_ModalSplit']
+    sheet['D197'] = Config['SectorSelect']
+    sheet['D198'] = Config['Include_Renovation_reb']
+    sheet['D199'] = Config['Include_Renovation_nrb']
+    sheet['D200'] = Config['No_EE_Improvements']
     
     mywb.save(os.path.join(RECC_Paths.recc_path,'RECC_Config_V2_4.xlsx'))
+
     # run the ODYM-RECC model
     OutputDict = ODYM_RECC_V2_4.main()
     ResultFolders.append(OutputDict['Name_Scenario'])
