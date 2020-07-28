@@ -352,7 +352,8 @@ def main():
     DomstHW_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('DHW')
     Service_Drivg = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Driving')
     Service_Reb   = np.array([Heating_loc,Cooling_loc,DomstHW_loc])
-    Ind_2020      = 120 #index of year 2020
+    Ind_2015      = 115 #index of year 2020
+    #Ind_2020      = 120 #index of year 2020
     IsClose_Remainder_Small = 1e-15 
     IsClose_Remainder_Large = 1e-7 
     DPIRES        = 50 # 50 for overview or 500 for paper plots
@@ -611,11 +612,11 @@ def main():
     # Calibrate vehicle kilometrage: No longer used! VKM is now calibrated in scenario target table process to deliver correct pC stock number for 2015.
     #### ParameterDict['3_IO_Vehicles_UsePhase'].Values[3,:,:,:]                             = ParameterDict['3_IO_Vehicles_UsePhase'].Values[3,:,:,:]                           * np.einsum('r,tS->rtS',ParameterDict['6_PR_Calibration'].Values[0,:],np.ones((Nt,NS)))
     # Calibrate vehicle fuel consumption, cgVnrS    
-    ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,3,:,:,:]        = ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,3,:,:,:]      * np.einsum('r,cgnS->cgnrS',ParameterDict['6_PR_Calibration'].Values[1,:],np.ones((115,Np,Nn,NS)))
+    ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,3,:,:,:]        = ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,3,:,:,:]      * np.einsum('r,cpnS->cpnrS',ParameterDict['6_PR_Calibration'].Values[1,:],np.ones((115,Np,Nn,NS)))
     # Calibrate res. building energy consumption
-    ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,0:3,:,:,:]      = ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,0:3,:,:,:]    * np.einsum('r,cgVnS->cgVnrS',ParameterDict['6_PR_Calibration'].Values[2,:],np.ones((115,NB,3,Nn,NS)))
+    ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,0:3,:,:,:]      = ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,0:3,:,:,:]    * np.einsum('r,cBVnS->cBVnrS',ParameterDict['6_PR_Calibration'].Values[2,:],np.ones((115,NB,3,Nn,NS)))
     # Calibrate nonres. building energy consumption
-    ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,0:3,:,:,:]   = ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,0:3,:,:,:] * np.einsum('r,cgVnS->cgVnrS',ParameterDict['6_PR_Calibration'].Values[3,:],np.ones((115,NN,3,Nn,NS)))
+    ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,0:3,:,:,:]   = ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,0:3,:,:,:] * np.einsum('r,cNVnS->cNVnrS',ParameterDict['6_PR_Calibration'].Values[3,:],np.ones((115,NN,3,Nn,NS)))
     
     # 12) No recycling scenario (counterfactual reference)
     if ScriptConfig['IncludeRecycling'] == 'False': # no recycling and remelting
@@ -625,18 +626,19 @@ def main():
     # 13) No energy efficiency improvements (counterfactual reference)
     # Freeze type split and archetypes at 2020 levels:
     if ScriptConfig['No_EE_Improvements'] == 'True':
+        SwitchIndex = Ind_2015 # choose between Ind_2015 (for continuation from 2015 onwards) or Ind_2020 (for cont. from 2020 onwards).
         if 'pav' in SectorList:
-            ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[Ind_2020::,:,:,:,:,:]    = np.einsum('pVnrS,c->cpVnrS',ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[Ind_2020,:,:,:,:,:],np.ones(Nc-Ind_2020))
-            ParameterDict['3_SHA_TypeSplit_Vehicles'].Values[:,:,:,:,4::]                        = np.einsum('GrRp,t->GrRpt',ParameterDict['3_SHA_TypeSplit_Vehicles'].Values[:,:,:,:,4],np.ones(Nt-4)) # index 4 is year 2020.
-            ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[Ind_2020::,:,:,:,:]                  = np.einsum('mprS,c->cmprS',ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[Ind_2020,:,:,:,:],np.ones(Nc-Ind_2020))
+            ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[SwitchIndex::,:,:,:,:,:]    = np.einsum('pVnrS,c->cpVnrS',ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[SwitchIndex,:,:,:,:,:],np.ones(Nc-SwitchIndex))
+            ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[SwitchIndex::,:,:,:,:]                  = np.einsum('mprS,c->cmprS',ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[SwitchIndex,:,:,:,:],np.ones(Nc-SwitchIndex))
+            ParameterDict['3_SHA_TypeSplit_Vehicles'].Values[:,:,:,:,4::]                           = np.einsum('GrRp,t->GrRpt',ParameterDict['3_SHA_TypeSplit_Vehicles'].Values[:,:,:,:,4],np.ones(Nt-4)) # index 4 is year 2020.
         if 'reb' in SectorList:
-            ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[Ind_2020::,:,:,:,:,:]    = np.einsum('BVnrS,c->cBVnrS',ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[Ind_2020,:,:,:,:,:],np.ones(Nc-Ind_2020))
-            ParameterDict['3_MC_RECC_Buildings_RECC'].Values[Ind_2020::,:,:,:,:]                 = np.einsum('mBrS,c->cmBrS',ParameterDict['3_MC_RECC_Buildings_RECC'].Values[Ind_2020,:,:,:,:],np.ones(Nc-Ind_2020))
-            ParameterDict['3_SHA_TypeSplit_Buildings'].Values[:,:,4::,:]                         = np.einsum('BrS,t->BrtS',ParameterDict['3_SHA_TypeSplit_Buildings'].Values[:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
+            ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchIndex::,:,:,:,:,:]    = np.einsum('BVnrS,c->cBVnrS',ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchIndex,:,:,:,:,:],np.ones(Nc-SwitchIndex))
+            ParameterDict['3_MC_RECC_Buildings_RECC'].Values[SwitchIndex::,:,:,:,:]                 = np.einsum('mBrS,c->cmBrS',ParameterDict['3_MC_RECC_Buildings_RECC'].Values[SwitchIndex,:,:,:,:],np.ones(Nc-SwitchIndex))
+            ParameterDict['3_SHA_TypeSplit_Buildings'].Values[:,:,4::,:]                            = np.einsum('BrS,t->BrtS',ParameterDict['3_SHA_TypeSplit_Buildings'].Values[:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
         if 'nrb' in SectorList:            
-            ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[Ind_2020::,:,:,:,:,:] = np.einsum('NVnrS,c->cNVnrS',ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[Ind_2020,:,:,:,:,:],np.ones(Nc-Ind_2020))
-            ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[Ind_2020::,:,:,:,:]           = np.einsum('mNrS,c->cmNrS',ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[Ind_2020,:,:,:,:],np.ones(Nc-Ind_2020))
-            ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[:,:,4::,:]                   = np.einsum('NrS,t->NrtS',ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
+            ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[SwitchIndex::,:,:,:,:,:] = np.einsum('NVnrS,c->cNVnrS',ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[SwitchIndex,:,:,:,:,:],np.ones(Nc-SwitchIndex))
+            ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[SwitchIndex::,:,:,:,:]           = np.einsum('mNrS,c->cmNrS',ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[SwitchIndex,:,:,:,:],np.ones(Nc-SwitchIndex))
+            ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[:,:,4::,:]                      = np.einsum('NrS,t->NrtS',ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
         
     # 14) Define parameter for future vehicle stock:
     # a) calculated passenger vehicle stock
@@ -651,6 +653,15 @@ def main():
                                                 Unit='km per vehicle')
     
     # 15) Define parameter for future building stock:
+    # actual future res and nonres building stock
+    ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_act'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_resbuildings_act', ID='2_S_RECC_FinalProducts_Future_resbuildings_act',
+                                                UUID=None, P_Res=None, MetaData=None,
+                                                Indices='StGr', Values=np.zeros((NS,Nt,NG,Nr)), Uncert=None,
+                                                Unit='m2 per person')
+    ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings_act'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_NonResBuildings_act', ID='2_S_RECC_FinalProducts_Future_NonResBuildings_act',
+                                                UUID=None, P_Res=None, MetaData=None,
+                                                Indices='GrtS', Values=np.zeros((NG,Nr,Nt,NS)), Uncert=None,
+                                                Unit='m2 per person')    
     # 3_IO changing over time:
     ParameterDict['3_IO_Buildings_UsePhase'] = msc.Parameter(Name='3_IO_Buildings_UsePhase', ID='3_IO_Buildings_UsePhase',
                                                 UUID=None, P_Res=None, MetaData=None,
@@ -672,6 +683,9 @@ def main():
     ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,Heating_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
     ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,DomstHW_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
     ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,Cooling_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Cooling'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
+    
+    # expand 3_IO parameter for nonres buildings with 1 for post 2015 years:
+    ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[SwitchTime::,:,:,:,:] = 1
     
     # 16) Compile parameter for building energy conversion efficiency:
     ParameterDict['4_TC_ResidentialEnergyEfficiency'] = msc.Parameter(Name='4_TC_ResidentialEnergyEfficiency', ID='4_TC_ResidentialEnergyEfficiency',
@@ -1256,7 +1270,7 @@ def main():
                 TotalStockCurves_UsePhase_B_pC_LED_ref = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[LEDindex,:,Sector_reb_loc,:]
                 TotalStockCurves_UsePhase_B_pC         = np.maximum(TotalStockCurves_UsePhase_B_pC_test,TotalStockCurves_UsePhase_B_pC_LED_ref)
                 TotalStockCurves_UsePhase_B            = np.einsum('tr,tr->tr',TotalStockCurves_UsePhase_B_pC,RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]) 
-                RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[mS,:,Sector_reb_loc,:] = TotalStockCurves_UsePhase_B_pC.copy()
+                RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_act'].Values[mS,:,Sector_reb_loc,:] = TotalStockCurves_UsePhase_B_pC.copy()
             
                 # Include_REStrategy_LifeTimeExtension: Product lifetime extension.
                 # First, replicate lifetimes for post 2020 age-cohorts from 2020 values as the parameter file only specifies values up to 2020:
@@ -1323,7 +1337,7 @@ def main():
                 # Here so far: Units: Buildings: million m². for stocks, X/yr for flows.
                 StockCurves_Totl[:,Sector_reb_loc,mS,mR] = TotalStockCurves_UsePhase_B.sum(axis =1).copy()
                 StockCurves_Prod[:,Sector_reb_rge,mS,mR] = np.einsum('tcBr->tB',Stock_Detail_UsePhase_B).copy()
-                pCStocksCurves[:,Sector_reb_loc,:,mS,mR] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[mS,:,Sector_reb_loc,:].copy()
+                pCStocksCurves[:,Sector_reb_loc,:,mS,mR] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_act'].Values[mS,:,Sector_reb_loc,:].copy()
                 Population[:,:,mS,mR]                    = RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]
                 Inflow_Prod[:,Sector_reb_rge,mS,mR]      = np.einsum('tBr->tB',Inflow_Detail_UsePhase_B).copy()
                 Outflow_Prod[:,Sector_reb_rge,mS,mR]     = np.einsum('tcBr->tB',Outflow_Detail_UsePhase_B).copy()
@@ -1371,7 +1385,7 @@ def main():
                 TotalStockCurves_UsePhase_N_pC_LED_ref = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings'].Values[Sector_nrb_loc,:,:,LEDindex]
                 TotalStockCurves_UsePhase_N_pC         = np.maximum(TotalStockCurves_UsePhase_N_pC_test,TotalStockCurves_UsePhase_N_pC_LED_ref)
                 TotalStockCurves_UsePhase_N            = np.einsum('rt,tr->tr',TotalStockCurves_UsePhase_N_pC,RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]) 
-                RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings'].Values[Sector_nrb_loc,:,:,mS] = TotalStockCurves_UsePhase_N_pC.copy()
+                RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings_act'].Values[Sector_nrb_loc,:,:,mS] = TotalStockCurves_UsePhase_N_pC.copy()
             
                 # Include_REStrategy_LifeTimeExtension: Product lifetime extension.
                 Par_RECC_ProductLifetime_N = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_NonResbuildings'].Values.copy()
@@ -1434,7 +1448,7 @@ def main():
                 # Here so far: Units: Buildings: million m2. for stocks, X/yr for flows.
                 StockCurves_Totl[:,Sector_nrb_loc,mS,mR] = TotalStockCurves_UsePhase_N.sum(axis =1).copy()
                 StockCurves_Prod[:,Sector_nrb_rge,mS,mR] = np.einsum('tcNr->tN',Stock_Detail_UsePhase_N).copy()
-                pCStocksCurves[:,Sector_nrb_loc,:,mS,mR] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings'].Values[Sector_nrb_loc,:,:,mS].transpose().copy()
+                pCStocksCurves[:,Sector_nrb_loc,:,mS,mR] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings_act'].Values[Sector_nrb_loc,:,:,mS].transpose().copy()
                 Population[:,:,mS,mR]                    = RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]
                 Inflow_Prod[:,Sector_nrb_rge,mS,mR]      = np.einsum('tNr->tN',Inflow_Detail_UsePhase_N).copy()
                 Outflow_Prod[:,Sector_nrb_rge,mS,mR]     = np.einsum('tcNr->tN',Outflow_Detail_UsePhase_N).copy()
@@ -1603,9 +1617,9 @@ def main():
                 if 'pav' in SectorList:
                     pC_FutureStock_2015[mSS, Sector_pav_loc, :] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'].Values[mSS,0,Sector_pav_loc,:]
                 if 'reb' in SectorList:
-                    pC_FutureStock_2015[mSS, Sector_reb_loc, :] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[mSS,0,Sector_reb_loc,:]
+                    pC_FutureStock_2015[mSS, Sector_reb_loc, :] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_act'].Values[mSS,0,Sector_reb_loc,:]
                 if 'nrb' in SectorList:
-                    pC_FutureStock_2015[mSS, Sector_nrb_loc, :] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings'].Values[Sector_nrb_loc,:,0,mSS]
+                    pC_FutureStock_2015[mSS, Sector_nrb_loc, :] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings_act'].Values[Sector_nrb_loc,:,0,mSS]
             OutputDict['pC_FutureStock_2015']   = pC_FutureStock_2015.copy()
     
             # ABOVE: each sector separate, individual regional resolution. BELOW: all sectors together, global total.
@@ -2116,7 +2130,7 @@ def main():
             # Hop over to save computation time:
             # SysVar_StockServiceProvision_UsePhase_pav = np.einsum('Vrt,tcpr->tcprV', RECC_System.ParameterDict['3_IO_Vehicles_UsePhase_eff' ].Values[:,:,:,mS],   Stock_Detail_UsePhase_p)
             # SysVar_StockServiceProvision_UsePhase_reb = np.einsum('tcBVr,tcBr->tcBrV',RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,:,mS], Stock_Detail_UsePhase_B)
-            SysVar_StockServiceProvision_UsePhase_nrb = np.einsum('cNVr,tcNr->tcNrV',RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS], Stock_Detail_UsePhase_N)
+            # SysVar_StockServiceProvision_UsePhase_nrb = np.einsum('cNVr,tcNr->tcNrV',RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS], Stock_Detail_UsePhase_N)
             # Unit: million km/yr for vehicles, million m2 for buildings by three use types: heating, cooling, and DHW.
             
             # B) Calculate total operational energy use, by sector
@@ -2124,7 +2138,8 @@ def main():
             # SysVar_EnergyDemand_UsePhase_Total_pav  = np.einsum('cpVnr,tcprV->tcprnV', RECC_System.ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[:,:,:,:,:,mS], SysVar_StockServiceProvision_UsePhase_pav)
             # SysVar_EnergyDemand_UsePhase_Total_reb  = np.einsum('cBVnrt,tcBrV->tcBrnV',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values, SysVar_StockServiceProvision_UsePhase_reb)
             if 'nrb' in SectorList: 
-                SysVar_EnergyDemand_UsePhase_Total_nrb  = np.einsum('cNVnrt,tcNrV->tcNrnV',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values, SysVar_StockServiceProvision_UsePhase_nrb)
+                None 
+                # SysVar_EnergyDemand_UsePhase_Total_nrb  = np.einsum('cNVnrt,tcNrV->tcNrnV',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values, SysVar_StockServiceProvision_UsePhase_nrb)
             if 'nrbg' in SectorList: 
                 None
                 # SysVar_EnergyDemand_UsePhase_Total_nrbg = np.zeros((Nt,Nc,NN,No,Nn,NV))
@@ -2150,8 +2165,8 @@ def main():
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb  = np.zeros((Nt,Nr,NB,Nn))
                 SysVar_EnergyDemand_UsePhase_ByService_reb        = np.zeros((Nt,Nr,NV))
             if 'nrb' in SectorList: 
-                SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.einsum('Vrnt,tcNrV->trNn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:],   SysVar_EnergyDemand_UsePhase_Total_nrb[:,:,:,:,-1,:])
-                #SysVar_EnergyDemand_UsePhase_ByService_nrb        = np.einsum('Vrnt,tcNrV->trV', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:],   SysVar_EnergyDemand_UsePhase_Total_nrb[:,:,:,:,-1,:])
+                SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  =  np.einsum('Vrnt,cNVrt,cNVr,tcNr->trNn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_N[:,0:SwitchTime,:,:], optimize = True)
+                SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  += np.einsum('Vrnt,cNVrt,cNVr,tcNr->trNn', RECC_System.ParameterDict['3_SHA_EnergySupply_Buildings'].Values[:,mR,:,:,:,mS],ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[SwitchTime::,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_N[:,SwitchTime::,:,:], optimize = True)
             else:
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.zeros((Nt,Nr,NN,Nn))
                 #SysVar_EnergyDemand_UsePhase_ByService_nrb        = np.zeros((Nt,Nr,NV))
@@ -3144,6 +3159,8 @@ def main():
         REStratList.append('RiS')
     if ScriptConfig['IncludeRecycling'] == 'False':
         REStratList.append('NoR')
+    if ScriptConfig['No_EE_Improvements'] == 'True':        
+        REStratList.append('NoEE')
         
     FirstFlag = True
     if len(REStratList) > 0:

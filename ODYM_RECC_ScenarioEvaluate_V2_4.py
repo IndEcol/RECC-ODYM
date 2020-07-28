@@ -66,16 +66,16 @@ TimeSeries_All = np.zeros((10,45,25,2,3,2)) # NX x Nt x Nr x NV x NS x NR / indi
 # 0: system-wide GHG, no RES 1: system-wide GHG, all RES
 # 2: material-related GHG, no RES, 3: material-related GHG, all RES,
 
-PlotExpResolution = 150 # dpi 150 for overview or 500 for paper
+PlotExpResolution = 500 # dpi 150 for overview or 500 for paper
 
 # Number of scenarios:
 NS = 3 # SSP
 NR = 2 # RCP
     
 ###ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-ScenarioSetting = 'Evaluate_pav_reb_Cascade' # run eval and plot scripts for selected regions and sectors only
+#ScenarioSetting = 'Evaluate_pav_reb_Cascade' # run eval and plot scripts for selected regions and sectors only
 #ScenarioSetting = 'Evaluate_pav_reb_Cascade_all' # run eval and plot scripts for all regions and sectors
-#ScenarioSetting = 'Germany_detail_evaluate' # run eval and plot scripts for Germany case study only
+ScenarioSetting = 'Germany_detail_evaluate' # run eval and plot scripts for Germany case study only
 #ScenarioSetting = 'Global_all_evaluate' # run eval and plot scripts for all regions and all sectors
 #ScenarioSetting = 'Evaluate_TestRun' # Test run evaluate
 
@@ -399,12 +399,12 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
             fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')   
                 
         if ModelEvalListSheet.cell_value(Row+NE, 2) == 'Efficiency_Sufficiency_Scenario':
-            for mmxx in range(0,4):
+            for mmxx in range(0,6):
                 SingleSectList.append(ModelEvalListSheet.cell_value(Row+NE+mmxx, 3))
             # run the efficieny_sufficieny plots, with 4 extra single sectors in result list
             CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV = ODYM_RECC_BarPlot_Eff_Suff_V2_4.main(RegionalScope,MultiSectorList,SingleSectList)  
             SingleSectList = []
-            NE  +=4 # add for extra scenarios for efficiency-sufficiency plot
+            NE  +=6 # add for extra scenarios for efficiency-sufficiency plot
                 
     if Setting == 'Sensitivity_pav':
         SensitiFlag1     = True
