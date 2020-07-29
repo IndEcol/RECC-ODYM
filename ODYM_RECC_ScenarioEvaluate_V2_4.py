@@ -380,8 +380,8 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
                     #plt.text(Xoff[mS*2+mR]+0.2, 0.5, ("%3.0f" % Ann_savings[mS,mR]) + ' Mt',fontsize=16, rotation=90, fontweight='normal')
                     
             # plot text and labels
-            plt.text(0.85, 0.97, '2050 annual emissions',fontsize=11, rotation=90, fontweight='bold')          
-            plt.text(0.85, 2.2, '2016-50 cum. emissions',fontsize=11, rotation=90, fontweight='bold')          
+            plt.text(0.85, 0.97, '2050 annual emissions', fontsize=11, rotation=90, fontweight='bold')          
+            plt.text(0.85, 2.2,  '2016-50 cum. emissions',fontsize=11, rotation=90, fontweight='bold')          
 
             plt.title('RE strats. and GHG emissions, global, pav+reb.', fontsize = 18)
             
@@ -396,6 +396,8 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
         
             plt.show()
             fig_name = 'Overview_GHG_Global.png'
+            fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')   
+            fig_name = 'Overview_GHG_Global.svg'
             fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')   
                 
         if ModelEvalListSheet.cell_value(Row+NE, 2) == 'Efficiency_Sufficiency_Scenario':
@@ -523,13 +525,14 @@ mywb4.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_Tables_V2_4
 
 ind_5x5 = [0,2,4,6]
 fin_5x5 = ['GHG_SSP1_pav_5x5.png','GHG_SSP1_reb_5x5.png','GHGMat_SSP1_pav_5x5.png','GHGMat_SSP1_reb_5x5.png','PrimMat_5x5_pav.png','PrimMat_5x5_reb.png','SecMat_5x5_pav.png','SecMat_5x5_reb.png']
+fiv_5x5 = ['GHG_SSP1_pav_5x5.svg','GHG_SSP1_reb_5x5.svg','GHGMat_SSP1_pav_5x5.svg','GHGMat_SSP1_reb_5x5.svg','PrimMat_5x5_pav.svg','PrimMat_5x5_reb.svg','SecMat_5x5_pav.svg','SecMat_5x5_reb.svg']
 fit_5x5 = ['System-wide GHG, SSP1, pav, Mt/yr','System-wide GHG, SSP1, reb, Mt/yr','Matcycle GHG, SSP1, pav, Mt/yr','Matcycle GHG, SSP1, reb, Mt/yr','Total primary material, SSP1, pav, Mt/yr','Total primary material, SSP1, reb, Mt/yr','Total secondary material, SSP1, pav, Mt/yr','Total secondary material, SSP1, reb, Mt/yr']
 
 MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Paired' color map. 
 BaseBlue     = np.array([0.31,0.51,0.74,1])
 R26Green     = np.array([0.03,0.66,0.48,1])
 plt.rcParams['axes.labelsize'] = 7
-LegendLables = ['NoNewClimPol, no RES','NoNewClimPol, full RES','RCP2.6, no RES','RCP2.6, full RES']
+LegendLables = ['NoNewClimPol, no ME','NoNewClimPol, full ME','RCP2.6, no ME','RCP2.6, full ME']
 
 # System-wide GHG, mat. GHG, and material production, with country names on top of plots
 #for mmf in range(0,4):
@@ -632,8 +635,10 @@ for mmf in range(0,4):
             plt.sca(axs[4,xm])
             plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 6, fontweight = 'normal')
         plt.show()
-        fig_name = fin_5x5[2*mmf+Sect]
-        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')  
+        fig_name  = fin_5x5[2*mmf+Sect]
+        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name),  dpi = PlotExpResolution, bbox_inches='tight')  
+        fig_namev = fiv_5x5[2*mmf+Sect]
+        fig.savefig(os.path.join(RECC_Paths.results_path,fig_namev), dpi = PlotExpResolution, bbox_inches='tight')  
         
 # Excel export global data via pandas:
 # TimeSeries_All indices: NX x Nt x Nr x NV x NS x NR / indicators x time x regions x SSP x RCP 
@@ -641,7 +646,7 @@ ColIndex      = [str(mmx) for mmx in  range(2016,2061)]
 if len(PlotOrder_pav) == 25:        # only if data for all regions were exported
     # pav:
     DF_Data_pav   = np.einsum('XtrSR->XrSRt',TimeSeries_All[0:2,:,:,0,:,:]).reshape(2*25*3*2,45)
-    RowIndex      = pd.MultiIndex.from_product([['no RES','full RES'],Pav_RegionList20Plot,['LED','SSP1','SSP2'],['NoNewClimPol','RCP2.6']], names=('res. eff.','region','SSP','RCP'))
+    RowIndex      = pd.MultiIndex.from_product([['no ME','full ME'],Pav_RegionList20Plot,['LED','SSP1','SSP2'],['NoNewClimPol','RCP2.6']], names=('res. eff.','region','SSP','RCP'))
     DF_pav_global = pd.DataFrame(DF_Data_pav, index=RowIndex, columns=ColIndex)
     DF_pav_global.to_excel(os.path.join(RECC_Paths.results_path,'Fig_GHG_pav_5x5.xls'), merge_cells=False)
     #print(ColIndex)
@@ -649,7 +654,7 @@ if len(PlotOrder_pav) == 25:        # only if data for all regions were exported
 if len(PlotOrder_reb) == 25:        # only if data for all regions were exported
     # reb:
     DF_Data_reb   = np.einsum('XtrSR->XrSRt',TimeSeries_All[0:2,:,:,1,:,:]).reshape(2*25*3*2,45)
-    RowIndex      = pd.MultiIndex.from_product([['no RES','full RES'],Reb_RegionList20Plot,['LED','SSP1','SSP2'],['NoNewClimPol','RCP2.6']], names=('res. eff.','region','SSP','RCP'))
+    RowIndex      = pd.MultiIndex.from_product([['no ME','full ME'],Reb_RegionList20Plot,['LED','SSP1','SSP2'],['NoNewClimPol','RCP2.6']], names=('res. eff.','region','SSP','RCP'))
     DF_reb_global = pd.DataFrame(DF_Data_reb, index=RowIndex, columns=ColIndex)
     DF_reb_global.to_excel(os.path.join(RECC_Paths.results_path,'Fig_GHG_reb_5x5.xls'), merge_cells=False)
     

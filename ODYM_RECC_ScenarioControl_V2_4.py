@@ -22,9 +22,9 @@ import RECC_Paths # Import path file
 import ODYM_RECC_V2_4
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-#ScenarioSetting = 'pav_reb_Config_list'
+ScenarioSetting = 'pav_reb_Config_list'
 #ScenarioSetting = 'pav_reb_Config_list_all'
-ScenarioSetting = 'Germany_detail_config'
+#ScenarioSetting = 'Germany_detail_config'
 #ScenarioSetting = 'Germany_detail_config_all'
 #ScenarioSetting = 'Global_all'
 #ScenarioSetting = 'TestRun'

@@ -52,7 +52,7 @@ def main(RegionalScope,FolderList,SectorString):
     
     if SectorString == 'pav':
         NE      = 7 # no of Res. eff. scenarios for cascade
-        LWE     = ['No RE','higher yields', 're-use/longer use','material subst.','down-sizing','car-sharing','ride-sharing','All RE stratgs.']
+        LWE     = ['No ME','higher yields', 're-use/longer use','material subst.','down-sizing','car-sharing','ride-sharing','All ME stratgs.']
         Offset1 = 7.25
         Offset2 = 5.85
         Offset3 = 3.3
@@ -66,7 +66,7 @@ def main(RegionalScope,FolderList,SectorString):
         
     if SectorString == 'reb':
         NE      = 6 # no of Res. eff. scenarios for cascade
-        LWE     = ['No RE','higher yields', 're-use/longer use','material subst.','light design','more intense use','All RE stratgs.']
+        LWE     = ['No ME','higher yields', 're-use/longer use','material subst.','light design','more intense use','All ME stratgs.']
         Offset1 = 6.25
         Offset2 = 5.00
         Offset3 = 2.8
@@ -80,7 +80,7 @@ def main(RegionalScope,FolderList,SectorString):
         
     if SectorString == 'nrb':
         NE      = 6 # no of Res. eff. scenarios for cascade
-        LWE     = ['No RE','higher yields', 're-use/longer use','material subst.','light design','more intense use','All RE stratgs.']
+        LWE     = ['No ME','higher yields', 're-use/longer use','material subst.','light design','more intense use','All ME stratgs.']
         Offset1 = 6.25
         Offset2 = 5.00
         Offset3 = 2.8
@@ -94,7 +94,7 @@ def main(RegionalScope,FolderList,SectorString):
         
     if SectorString == 'pav_reb' or SectorString == 'pav_nrb':
         NE      = 8 # no of Res. eff. scenarios for cascade
-        LWE    = ['No RE','higher yields', 're-use/longer use','material subst.','down-sizing','car-sharing','ride-sharing','More intense bld. use','All RE stratgs.']
+        LWE    = ['No ME','higher yields', 're-use/longer use','material subst.','down-sizing','car-sharing','ride-sharing','More intense bld. use','All ME stratgs.']
         Offset1 = 8.25
         Offset2 = 6.85
         Offset3 = 4.3
@@ -108,7 +108,7 @@ def main(RegionalScope,FolderList,SectorString):
 
     if SectorString == 'pav_reb_nrb':
         NE      = 8 # no of Res. eff. scenarios for cascade
-        LWE    = ['No RE','higher yields', 're-use/longer use','material subst.','down-sizing','car-sharing','ride-sharing','More intense bld. use','All RE stratgs.']
+        LWE    = ['No ME','higher yields', 're-use/longer use','material subst.','down-sizing','car-sharing','ride-sharing','More intense bld. use','All ME stratgs.']
         Offset1 = 8.25
         Offset2 = 6.85
         Offset3 = 4.3
@@ -711,7 +711,7 @@ def main(RegionalScope,FolderList,SectorString):
                     ax1.plot(np.arange(2016,2061),Data[:,m],linestyle = '--', color = MyColorCycle[m,:], linewidth = 1.1,)                
                 ax1.plot(np.arange(2016,2061),Data[:,0],linestyle = '--', color = 'k', linewidth = 1.1,)               
                 #plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
-                plt.text(2027,Data[m,:].max()*1.02, 'Colors may deviate from legend colors due to overlap of RES wedges.',fontsize=8.5,fontweight='bold')
+                #plt.text(2027,Data[m,:].max()*1.02, 'Colors may deviate from legend colors due to overlap of RES wedges.',fontsize=8.5,fontweight='bold')
                 
                 plt.title(Title[nn] + ' \n' + RegionalScope + ', ' + SectorString + ', ' + Scens[mS] + '.', fontsize = 18)
                 plt.ylabel('Mt of CO2-eq.', fontsize = 18)
@@ -817,7 +817,7 @@ def main(RegionalScope,FolderList,SectorString):
                 fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')  
                 
     # Same data, but with line plot:
-    LegendLables = ['Primary material production, no RES','Primary material production, full RES','Secondary material production, no RES','Secondary material production, full RES']
+    LegendLables = ['Primary material production, no ME','Primary material production, full ME','Secondary material production, no ME','Secondary material production, full ME']
     if RegionalScope == 'Global':
         LWI = [0.8,1.4,0.8]
         for mRCP in range(0,NR):  # RCP
@@ -935,7 +935,9 @@ def main(RegionalScope,FolderList,SectorString):
                 plt.show()
                 fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line.png'
                 fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')               
-            
+                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line.svg'
+                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')      
+                
     ##### line Plot overview of primary steel and steel recycling
     if RegionalScope == 'Global':
         MyColorCycle = pylab.cm.Paired(np.arange(0,1,0.2))
@@ -976,7 +978,7 @@ def main(RegionalScope,FolderList,SectorString):
                         AnnEmsV_SecondarySteel[t,s,c,r] = Resultsheet2.cell_value(sps+ 2*s +c,t+8)
                         
         Title      = ['primary_steel','secondary_steel']            
-        ScensL     = ['SSP2, no REFs','SSP2, full REF spectrum','SSP1, no REFs','SSP1, full REF spectrum','LED, no REFs','LED, full REF spectrum']
+        ScensL     = ['SSP2, no ME','SSP2, full ME spectrum','SSP1, no ME','SSP1, full ME spectrum','LED, no ME','LED, full ME spectrum']
         
         #mS = 1
         #mR = 1
