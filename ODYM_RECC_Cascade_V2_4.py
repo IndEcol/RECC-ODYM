@@ -164,7 +164,8 @@ def main(RegionalScope,FolderList,SectorString):
     RecCredit        = np.zeros((12,NR,NE)) # different indices compiled x RCP x RES.
     
     TimeSeries_R     = np.zeros((10,NE,45,3,2)) # NX x NE x Nt x NS x NR / indicators x RES x time x SSP x RCP
-    # 0: system-wide GHG, 1: material-related GHG
+    # 0: system-wide GHG, 1: material-related GHG, 2: primar production, all materials, 3: secondary production, all materials.
+    # 4: share of el + H2 in total use phase energy consumption, 5: electricity suppy GHG use phase, 6: In-use stock, all materials.
     
     for r in range(0,NE): # RE scenario
         Path = os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls')
@@ -479,6 +480,32 @@ def main(RegionalScope,FolderList,SectorString):
             break # that gives us the right index from the result table.
         wci += 1         
     
+    en1 = 1
+    while True:
+        if Resultsheet2.cell_value(en1, 0) == 'energy consumption, use phase: electricity':
+            break # that gives us the right index from the result table.
+        en1 += 1         
+    en2 = 1
+    while True:
+        if Resultsheet2.cell_value(en2, 0) == 'energy consumption, use phase: hydrogen':
+            break # that gives us the right index from the result table.
+        en2 += 2         
+    en3 = 1
+    while True:
+        if Resultsheet2.cell_value(en3, 0) == 'energy consumption, use phase: all':
+            break # that gives us the right index from the result table.
+        en3 += 1
+    en4 = 1
+    while True:
+        if Resultsheet2.cell_value(en4, 0) == 'GHG emissions, use phase scope 2 (electricity) _7i':
+            break # that gives us the right index from the result table.
+        en4 += 1    
+    am1 = 1
+    while True:
+        if Resultsheet2.cell_value(am1, 0) == 'In-use stock, all materials':
+            break # that gives us the right index from the result table.
+        am1 += 1         
+    
     for r in range(0,NE): # RE scenario
         Path = os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls')
         Resultfile   = xlrd.open_workbook(Path)
@@ -516,6 +543,17 @@ def main(RegionalScope,FolderList,SectorString):
                     TimeSeries_R[1,r,t,s,c] = Resultsheet2.cell_value(mci+ 2*s +c,t+8) 
                     TimeSeries_R[2,r,t,s,c] = Resultsheet2.cell_value(mp1+ 2*s +c,t+8) 
                     TimeSeries_R[3,r,t,s,c] = Resultsheet2.cell_value(mp2+ 2*s +c,t+8) 
+                    try: # works only if total energy is not 0.
+                        ElH2share = (Resultsheet2.cell_value(en1+ 2*s +c,t+8) + Resultsheet2.cell_value(en2+ 2*s +c,t+8))/Resultsheet2.cell_value(en3+ 2*s +c,t+8)
+                        TimeSeries_R[4,r,t,s,c] = ElH2share
+                    except:
+                        None
+                    try: 
+                        TimeSeries_R[5,r,t,s,c] = Resultsheet2.cell_value(en4+ 2*s +c,t+8) / Resultsheet2.cell_value(en1+ 2*s +c,t+8) # ton/MJ
+                    except: 
+                        None
+                    TimeSeries_R[6,r,t,s,c] = Resultsheet2.cell_value(am1+ 2*s +c,t+8)   
+                    TimeSeries_R[7,r,t,s,c] = Resultsheet2.cell_value(en3+ 2*s +c,t+8)     
                 MatAnnEms2030[s,c,r]      = Resultsheet2.cell_value(mci+ 2*s +c,22)
                 MatAnnEms2050[s,c,r]      = Resultsheet2.cell_value(mci+ 2*s +c,42)
                 AvgDecadalMatEms[s,c,r,0] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(13,23)])/10
