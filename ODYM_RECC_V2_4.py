@@ -583,12 +583,17 @@ def main():
     ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values = np.einsum('pS,r->prS',ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values[:,0,:],np.ones(Nr))
     ParameterDict['6_PR_EoL_RR_Improvement'].Values             = np.einsum('gmwW,r->grmwW',ParameterDict['6_PR_EoL_RR_Improvement'].Values[:,0,:,:,:],np.ones(Nr))
     
-    # 8) Define a multi-regional RE strategy scaleup parameter
+    # 8) Define a multi-regional RE strategy and building renovation scaleup parameter
     ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'] = msc.Parameter(Name='3_SHA_RECC_REStrategyScaleUp_r', ID='3_SHA_RECC_REStrategyScaleUp_r',
                                                       UUID=None, P_Res=None, MetaData=None,
                                                       Indices='trSR', Values=np.zeros((Nt,Nr,NS,NR)), Uncert=None,
-                                                      Unit='kg/unit')
+                                                      Unit='1')
     ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values        = np.einsum('RtS,r->trSR',ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[:,0,:,:],np.ones(Nr)).copy()
+    ParameterDict['3_SHA_BuildinRenovationScaleUp_r'] = msc.Parameter(Name='3_SHA_BuildinRenovationScaleUp_r', ID='3_SHA_BuildinRenovationScaleUp_r',
+                                                      UUID=None, P_Res=None, MetaData=None,
+                                                      Indices='trSR', Values=np.zeros((Nt,Nr,NS,NR)), Uncert=None,
+                                                      Unit='1')
+    ParameterDict['3_SHA_BuildinRenovationScaleUp_r'].Values        = np.einsum('RtS,r->trSR',ParameterDict['3_SHA_BuildinRenovationScaleUp'].Values[:,0,:,:],np.ones(Nr)).copy()
     
     # 9) LED scenario data from proxy scenarios:
     # 2_P_RECC_Population_SSP_32R
@@ -669,15 +674,17 @@ def main():
     # Historic age-cohorts:
     # ParameterDict['3_IO_Buildings_UsePhase_Historic'] is a combination of climate and socioeconomic 3_IO determinants.
     # We single out the former and keep them constant and let the socioeconomic factors change according to the '3_IO_Buildings_UsePhase_Future_...' parameters.
-    Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:Nc-Nt+1,:,Heating_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,0,:],np.ones((Nc-Nt+1,NB))) * 100
+    Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:SwitchTime,:,Heating_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,0,:],np.ones((SwitchTime,NB))) * 100
     Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating[np.isnan(Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating)] = 0
-    ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,Heating_loc,:,:]  = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating,np.ones(Nt))
-    Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW     = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:Nc-Nt+1,:,DomstHW_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,0,:],np.ones((Nc-Nt+1,NB))) * 100
+    ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,Heating_loc,:,:] = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating,np.ones(Nt))
+    Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW     = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:SwitchTime,:,DomstHW_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,0,:],np.ones((SwitchTime,NB))) * 100
     Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW[np.isnan(Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW)] = 0
-    ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,DomstHW_loc,:,:]  = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW,np.ones(Nt))
-    Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:Nc-Nt+1,:,Cooling_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Cooling'].Values[Sector_reb_loc,:,0,:],np.ones((Nc-Nt+1,NB))) * 100
+    ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,DomstHW_loc,:,:] = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW,np.ones(Nt))
+    Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:SwitchTime,:,Cooling_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Cooling'].Values[Sector_reb_loc,:,0,:],np.ones((SwitchTime,NB))) * 100
     Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling[np.isnan(Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling)] = 0
-    ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,Cooling_loc,:,:]  = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling,np.ones(Nt))
+    ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,Cooling_loc,:,:] = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling,np.ones(Nt))
+    # Correct for if some of the corrections lead to IO > 1 which may be the case when hist. IO data are incomplete and thus set to 1 already.
+    ParameterDict['3_IO_Buildings_UsePhase'].Values[ParameterDict['3_IO_Buildings_UsePhase'].Values > 1] = 1
     # Future age-cohorts:
     ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,Heating_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
     ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,DomstHW_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
@@ -784,6 +791,7 @@ def main():
     GWP_MaterialCycle_5di_9di        = np.zeros((Nt,NS,NR))
     GWP_RecyclingCredit              = np.zeros((Nt,NS,NR))
     GWP_ForestCO2Uptake              = np.zeros((Nt,NS,NR))
+    GWP_WoodCycle                    = np.zeros((Nt,NS,NR)) # net GHG impact of wood use: forest uptake + wood-related emissions from waste mgt. Pos sign for flow from system to environment.
     GWP_EnergyRecoveryWasteWood      = np.zeros((Nt,NS,NR))
     GWP_ByEnergyCarrier_UsePhase_d   = np.zeros((Nt,Nr,Nn,NS,NR))
     GWP_ByEnergyCarrier_UsePhase_i   = np.zeros((Nt,Nr,Nn,NS,NR))
@@ -820,7 +828,10 @@ def main():
     WasteMgtLosses_To_Landfill       = np.zeros((Nt,Ne,NS,NR))
     Population                       = np.zeros((Nt,Nr,NS,NR))
     pCStocksCurves                   = np.zeros((Nt,NG,Nr,NS,NR))
+    Passenger_km                     = np.zeros((Nt,NS,NR))
     Vehicle_km                       = np.zeros((Nt,NS,NR))
+    Service_IO_ResBuildings          = np.zeros((Nt,NV,NS,NR))
+    Service_IO_NonResBuildings       = np.zeros((Nt,NV,NS,NR))
     ReUse_Materials                  = np.zeros((Nt,Nm,NS,NR))
     Carbon_Wood_Inflow               = np.zeros((Nt,NS,NR))
     Carbon_Wood_Outflow              = np.zeros((Nt,NS,NR))
@@ -1346,10 +1357,10 @@ def main():
                 RECC_System.ParameterDict['3_MC_RECC_Buildings_t'].Values[:,:,:,:,:,mS] = np.einsum('cmBr,t->mBrct',RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS],np.ones(Nt)) # mBrctS
                 if ScriptConfig['Include_Renovation_reb'] == 'True' and ScriptConfig['No_EE_Improvements'] == 'False': 
                     RenPot_E   = np.einsum('rcB,rB->rcB',RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:],RECC_System.ParameterDict['3_SHA_EnergySavingsPot_Renovation_ResBuildings'].Values[:,mS,:]) # Unit: 1
-                    RenPot_E_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RenPot_E) # Unit: 1, Defined as share of stock crB that is renovated by year t * energy saving potential
+                    RenPot_E_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildinRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot_E) # Unit: 1, Defined as share of stock crB that is renovated by year t * energy saving potential
                     RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cBVnr,trcB->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NB))-RenPot_E_t)) # cBVnrt
                     # Add renovation material intensity to building material intensity:
-                    RenPot_M_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crB that is renovated by year t
+                    RenPot_M_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildinRenovationScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crB that is renovated by year t
                     MC_Ren = RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS]*RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Relative'].Values + RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values
                     RECC_System.ParameterDict['3_MC_RECC_Buildings_t'].Values[:,:,:,0:SwitchTime,:,mS] += np.einsum('cmBr,trcB->mBrct',MC_Ren[0:SwitchTime,:,:,:],RenPot_M_t)
                 else:
@@ -1456,7 +1467,7 @@ def main():
                 # Include renovation
                 if ScriptConfig['Include_Renovation_nrb'] == 'True' and ScriptConfig['No_EE_Improvements'] == 'False': 
                     RenPot   = np.einsum('rcN,rN->rcN',RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_NonResBuildings'].Values[:,0:SwitchTime,:],RECC_System.ParameterDict['3_SHA_EnergySavingsPot_Renovation_NonResBuildings'].Values[:,mS,:]) # Unit: 1
-                    RenPot_t = np.einsum('tr,rcN->trcN',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RenPot) # Unit: 1
+                    RenPot_t = np.einsum('tr,rcN->trcN',RECC_System.ParameterDict['3_SHA_BuildinRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot) # Unit: 1
                     RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cNVnr,trcN->cNVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NN))-RenPot_t)) # cNVnrt
                 else:
                     RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cNVnr,trcN->cNVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NN)))) # cNVnrt
@@ -2128,10 +2139,13 @@ def main():
                         
             # A) Calculate intensity of operation, by sector
             # Hop over to save computation time:
-            # SysVar_StockServiceProvision_UsePhase_pav = np.einsum('Vrt,tcpr->tcprV', RECC_System.ParameterDict['3_IO_Vehicles_UsePhase_eff' ].Values[:,:,:,mS],   Stock_Detail_UsePhase_p)
-            # SysVar_StockServiceProvision_UsePhase_reb = np.einsum('tcBVr,tcBr->tcBrV',RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,:,mS], Stock_Detail_UsePhase_B)
-            # SysVar_StockServiceProvision_UsePhase_nrb = np.einsum('cNVr,tcNr->tcNrV',RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS], Stock_Detail_UsePhase_N)
+            # SysVar_StockServiceProvision_UsePhase_pav = np.einsum('Vrt,tcpr->tcprV',  RECC_System.ParameterDict['3_IO_Vehicles_UsePhase_eff' ].Values[:,:,:,mS],     Stock_Detail_UsePhase_p)
+            # SysVar_StockServiceProvision_UsePhase_reb = np.einsum('tcBVr,tcBr->tcBrV',RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,:,mS],     Stock_Detail_UsePhase_B)
+            # SysVar_StockServiceProvision_UsePhase_nrb = np.einsum('cNVr,tcNr->tcNrV', RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS], Stock_Detail_UsePhase_N)
             # Unit: million km/yr for vehicles, million m2 for buildings by three use types: heating, cooling, and DHW.
+            # Aggreated computation of building service for export:
+            SysVar_StockServiceProvision_UsePhase_reb_agg = np.einsum('tcBVr,tcBr->tV',RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,:,mS],     Stock_Detail_UsePhase_B)
+            SysVar_StockServiceProvision_UsePhase_nrb_agg = np.einsum('cNVr,tcNr->tV' ,RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS], Stock_Detail_UsePhase_N)
             
             # B) Calculate total operational energy use, by sector
             # Hop over to save computation time:
@@ -2159,16 +2173,32 @@ def main():
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav  = np.zeros((Nt,Nr,Np,Nn))
                 SysVar_EnergyDemand_UsePhase_ByService_pav        = np.zeros((Nt,Nr,NV))
             if 'reb' in SectorList:
-                SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb  =  np.einsum('Vrnt,cBVrt,tcBVr,tcBr->trBn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:], optimize = True)
+                # Note that for hist. c, 3_EI_Products_UsePhase_resbuildings_t contains EI for final energy (F_16_7), and for future c, it contains useful energy (F_7_0a).
+                SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb  = np.einsum('Vrnt,cBVrt,tcBVr,tcBr->trBn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:], optimize = True)
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb += np.einsum('Vrnt,cBVrt,tcBVr,tcBr->trBn', RECC_System.ParameterDict['3_SHA_EnergySupply_Buildings'].Values[:,mR,:,:,:,mS],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[SwitchTime::,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_B[:,SwitchTime::,:,:], optimize = True)
-                SysVar_EnergyDemand_UsePhase_ByService_reb        =  np.einsum('Vrnt,cBVrt,tcBVr,tcBr->trV',  RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:], optimize = True)
+                SysVar_EnergyDemand_UsePhase_ByService_reb        = np.einsum('Vrnt,cBVrt,tcBVr,tcBr->trV',  RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:], optimize = True)
                 SysVar_EnergyDemand_UsePhase_ByService_reb       += np.einsum('Vrnt,cBVrt,tcBVr,tcBr->trV',  RECC_System.ParameterDict['3_SHA_EnergySupply_Buildings'].Values[:,mR,:,:,:,mS],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[SwitchTime::,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_B[:,SwitchTime::,:,:], optimize = True)
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all += np.einsum('trpn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
+                # Diagnose variables
+    #            Aa_S       = np.einsum('tcBr->t', Stock_Detail_UsePhase_B) # total stock
+    #            Aa_S_H     = np.einsum('tcBr,tcBr->t',RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,0,:,mS],Stock_Detail_UsePhase_B) # total heated stock
+    #            Aa_S_C     = np.einsum('tcBr,tcBr->t',RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,1,:,mS],Stock_Detail_UsePhase_B) # total cooled stock
+    #            Aa_E_usef  = np.einsum('cBVrt,tcBVr,tcBr->t', ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[:,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,:,mS],Stock_Detail_UsePhase_B[:,:,:,:], optimize = True)
+    #            Aa_E_U_hist= np.einsum('cBVrt,tcBVr,tcBr->t', ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:], optimize = True)
+    #            Aa_E_U_fut = np.einsum('cBVrt,tcBVr,tcBr->tV', ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[SwitchTime::,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_B[:,SwitchTime::,:,:], optimize = True)
+    #            Aa_E_final = np.einsum('trBn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
+    #            Aa_E_f_hist= np.einsum('Vrnt,cBVrt,tcBVr,tcBr->t', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:], optimize = True)
+    #            Aa_E_f_fut = np.einsum('Vrnt,cBVrt,tcBVr,tcBr->tV', RECC_System.ParameterDict['3_SHA_EnergySupply_Buildings'].Values[:,mR,:,:,:,mS],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[SwitchTime::,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_B[:,SwitchTime::,:,:], optimize = True)
+    #            # assume that energy carrier split changes with age-cohort rather than with time
+    #            Aa_E_f_futc= np.einsum('Vrnc,cBVrt,tcBVr,tcBr->tV', RECC_System.ParameterDict['3_SHA_EnergySupply_Buildings'].Values[:,mR,:,:,1::,mS],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[SwitchTime::,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_B[:,SwitchTime::,:,:], optimize = True)
+    #            Aa_sha_fut = np.einsum('Vrnt->Vnt', RECC_System.ParameterDict['3_SHA_EnergySupply_Buildings'].Values[:,mR,:,:,:,mS])
+    #            Aa_sha     = RECC_System.ParameterDict['3_SHA_EnergySupply_Buildings'].Values[:,mR,0,:,:,mS]
+    #            Aa_test    = Aa_E_f_fut[:,1] / Aa_E_U_fut[:,1]
             else:
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb  = np.zeros((Nt,Nr,NB,Nn))
                 SysVar_EnergyDemand_UsePhase_ByService_reb        = np.zeros((Nt,Nr,NV))
             if 'nrb' in SectorList: 
-                SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  =  np.einsum('Vrnt,cNVrt,cNVr,tcNr->trNn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_N[:,0:SwitchTime,:,:], optimize = True)
+                SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.einsum('Vrnt,cNVrt,cNVr,tcNr->trNn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_N[:,0:SwitchTime,:,:], optimize = True)
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb += np.einsum('Vrnt,cNVrt,cNVr,tcNr->trNn', RECC_System.ParameterDict['3_SHA_EnergySupply_Buildings'].Values[:,mR,:,:,:,mS],ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[SwitchTime::,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_N[:,SwitchTime::,:,:], optimize = True)
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all += np.einsum('trpn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
             else:
@@ -2354,6 +2384,7 @@ def main():
                         SysVar_GHGEms_GWP_bio_o[0,ntt] += 44/12 * mass_C * GWP_bio # convert from C to CO2                        
             SysVar_GHGEms_GWP_bio = np.einsum('Xtr->Xt',SysVar_GHGEms_GWP_bio_r) + SysVar_GHGEms_GWP_bio_o
             # not used anymore! Have time and process-explicit carbon flow and stock accounting now.
+            
             SysVar_CO2UptakeEmissions_Forests = np.zeros((NX,Nt,Nm))
             SysVar_CO2UptakeEmissions_Forests[CO2_loc,:,Wood_loc] = -1 * 44/12 * RECC_System.FlowDict['F_0_1'].Values[:,Carbon_loc] # negative sign because emissions are measured in X_0 direction.
             SysVar_CO2UptakeEmissions_Forests[:,0,:] = 0
@@ -2412,6 +2443,7 @@ def main():
             GWP_AllBuildings_indir[:,mS,mR]             = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings)[GWP100_loc,:].copy()
             GWP_ByEnergyCarrier_UsePhase_d[:,:,:,mS,mR] = np.einsum('xX,Xtrn->xtrn' ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_DirectEmissions_UsePhase_Vehicles_n + SysVar_DirectEmissions_UsePhase_ResBuildings_n)[GWP100_loc,:,:,:].copy()
             GWP_ByEnergyCarrier_UsePhase_i[:,:,:,mS,mR] = np.einsum('xX,Xtrn->xtrn' ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_n + SysVar_IndirectGHGEms_EnergySupply_UsePhase_ResBuildings_n)[GWP100_loc,:,:,:].copy()
+            GWP_WoodCycle[:,mS,mR]                      = GWP_ForestCO2Uptake[:,mS,mR].copy() + GWP_EnergyRecoveryWasteWood[:,mS,mR].copy() # net wood use emissions, not exported.
             # Mass flows
             Material_Inflow[:,:,:,mS,mR]                = np.einsum('trgm->tgm',RECC_System.FlowDict['F_6_7'].Values[:,:,:,:,0]).copy()
             if 'ind' in SectorList:
@@ -2440,9 +2472,12 @@ def main():
             EnergyCons_UP_total[:,:,mS,mR]              = SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all.copy()
             EnergyCons_total[:,:,mS,mR]                 = SysVar_TotalEnergyDemand.copy()
             # Service flows
+            Passenger_km[:,mS,mR]                       = np.einsum('rt,tr->t',RECC_System.ParameterDict['1_F_Function_Future'].Values[Sector_pav_loc,:,:,mS],RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]).copy()
             # Hop over to save memory:
             # Vehicle_km[:,mS,mR]                         = np.einsum('tcpr->t',SysVar_StockServiceProvision_UsePhase_pav[:,:,:,:,Service_Driving])
             Vehicle_km[:,mS,mR]                         = np.einsum('rt,tcpr->t', RECC_System.ParameterDict['3_IO_Vehicles_UsePhase_eff' ].Values[Service_Drivg,:,:,mS],   Stock_Detail_UsePhase_p)
+            Service_IO_ResBuildings[:,:,mR,mS]          = SysVar_StockServiceProvision_UsePhase_reb_agg.copy()
+            Service_IO_NonResBuildings[:,:,mR,mS]       = SysVar_StockServiceProvision_UsePhase_nrb_agg.copy()
             # Parameters        
             Vehicle_FuelEff[:,:,:,mS,mR]                = np.einsum('tpnr->tpr',RECC_System.ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[SwitchTime-1::,:,Service_Drivg,:,:,mS])
             ResBuildng_EnergyCons[:,:,:,mS,mR]          = np.einsum('VtBnr->tBr',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchTime-1::,:,Service_Reb,:,:,mS])
@@ -2648,8 +2683,15 @@ def main():
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Buildings'].Values[0,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of newly built downsized res. buildings','%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
             for mB in range(0,len(Sector_reb_rge)): # building lightweighting parameter is modified by script, result exported here.
                 newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[mB,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of newly built light-weighted ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_reb_rge[mB]],'%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    #vehicle km 
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Vehicle_km,newrowoffset,len(ColLabels),'km driven by pass. vehicles','million km/yr',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #passenger and vehicle km, building service
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Passenger_km,newrowoffset,len(ColLabels),'passenger-km supplied by pass. vehicles','million km/yr',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Vehicle_km,newrowoffset,len(ColLabels),'vehicle-km driven by pass. vehicles','million km/yr',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'reb' in SectorList:
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_ResBuildings[:,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total heated floor space, res. buildings','million m2',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_ResBuildings[:,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total cooled floor space, res. buildings','million m2',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'nrb' in SectorList:
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_NonResBuildings[:,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total heated floor space, nonres. buildings','million m2',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_NonResBuildings[:,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total cooled floor space, nonres. buildings','million m2',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # Use phase indirect GHG, primary prodution GHG, material cycle and recycling credit
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,GWP_UsePhase_7i_Scope2_El,newrowoffset,len(ColLabels),'GHG emissions, use phase scope 2 (electricity) _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (electricity, for use phase energy)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,GWP_UsePhase_7i_OtherIndir,newrowoffset,len(ColLabels),'GHG emissions, use phase other indirect (non-el.) _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (other than el., for use phase energy)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)

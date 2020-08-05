@@ -60,9 +60,16 @@ Reb_RegionList20Plot = ['Global','Glob_North','Glob_South','China','G7', \
 'Canada','UK','France','Oth_EU15','Japan',\
 'Italy','Poland','Spain','Oth_EU12-H','EU12-M']
 
-PlotOrder_pav      = [] # Will contain positions of countries/regions in 5x5 plot
-PlotOrder_reb      = [] # Will contain positions of countries/regions in 5x5 plot
-TimeSeries_All = np.zeros((20,45,25,2,3,2)) # NX x Nt x Nr x NV x NS x NR / indicators x time x regions x sectors x SSP x RCP
+Pav_axis_7x2        = [5000,5000,2500,2500,800,500,500]
+Reb_axis_7x2        = [12000,12000,6000,4000,4000,800,800]
+All_RegionList7     = ['Global','Global_North','Global_South','G7','R32CHN','R32IND','R5.2SSA_Other']
+All_RegionList7Plot = ['Global','Global_North','Global_South','G7','China','India','Sub-Saharan Africa']
+
+PlotOrder_pav       = [] # Will contain positions of countries/regions in 5x5 plot
+PlotOrder_reb       = [] # Will contain positions of countries/regions in 5x5 plot
+PlotOrder_7_pav     = [] # Will contain positions of countries/regions in 7x2 plot
+PlotOrder_7_reb     = [] # Will contain positions of countries/regions in 7x2 plot
+TimeSeries_All = np.zeros((30,45,25,2,3,2)) # NX x Nt x Nr x NV x NS x NR / indicators x time x regions x sectors x SSP x RCP
 # 0: system-wide GHG, no RES 1: system-wide GHG, all RES
 # 2: material-related GHG, no RES, 3: material-related GHG, all RES,
 
@@ -246,6 +253,20 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
             TimeSeries_All[13,:,RegPos,SectorIndex,:,:] =TimeSeries_R[6,-1,:,:,:] # all materials stock (sum), full RES
             TimeSeries_All[14,:,RegPos,SectorIndex,:,:] =TimeSeries_R[7,0,:,:,:]  # use phase total energy consumption, no RES
             TimeSeries_All[15,:,RegPos,SectorIndex,:,:] =TimeSeries_R[7,-1,:,:,:] # use phase total energy consumption, full RES
+            # net GHG impact of wood use: forest uptake + wood-related emissions from waste mgt. Pos sign for flow from system to environment:
+            TimeSeries_All[16,:,RegPos,SectorIndex,:,:] =TimeSeries_R[8,0,:,:,:]  # net GHG impact of wood use, no RES
+            TimeSeries_All[17,:,RegPos,SectorIndex,:,:] =TimeSeries_R[8,-1,:,:,:] # net GHG impact of wood use, full RES
+            TimeSeries_All[18,:,RegPos,SectorIndex,:,:] =TimeSeries_R[9,0,:,:,:]  # passenger-km, no RES
+            TimeSeries_All[19,:,RegPos,SectorIndex,:,:] =TimeSeries_R[9,-1,:,:,:] # passenger-km, full RES
+            TimeSeries_All[20,:,RegPos,SectorIndex,:,:] =TimeSeries_R[10,0,:,:,:] # heated building space, no RES
+            TimeSeries_All[21,:,RegPos,SectorIndex,:,:] =TimeSeries_R[10,-1,:,:,:]# heated building space, full RES
+            TimeSeries_All[22,:,RegPos,SectorIndex,:,:] =TimeSeries_R[11,0,:,:,:] # cooled building space, no RES
+            TimeSeries_All[23,:,RegPos,SectorIndex,:,:] =TimeSeries_R[11,-1,:,:,:]# cooled building space, full RES
+            # calculate service intensities
+            TimeSeries_All[24,:,RegPos,SectorIndex,:,:] =TimeSeries_All[18,:,RegPos,SectorIndex,:,:] / TimeSeries_All[0,:,RegPos,SectorIndex,:,:]  # pkm/t GHG
+            TimeSeries_All[25,:,RegPos,SectorIndex,:,:] =TimeSeries_All[19,:,RegPos,SectorIndex,:,:] / TimeSeries_All[1,:,RegPos,SectorIndex,:,:]  # pkm/t GHG
+            TimeSeries_All[26,:,RegPos,SectorIndex,:,:] =TimeSeries_All[18,:,RegPos,SectorIndex,:,:] / TimeSeries_All[12,:,RegPos,SectorIndex,:,:] # pkm/t Matstocks
+            TimeSeries_All[27,:,RegPos,SectorIndex,:,:] =TimeSeries_All[19,:,RegPos,SectorIndex,:,:] / TimeSeries_All[13,:,RegPos,SectorIndex,:,:] # pkm/t Matstocks
             
         RCP_Matstocks = 1 # MatStocks are plotted for RCP2.6 only
         
@@ -531,16 +552,148 @@ mywb4.save(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_Tables_V2_4
 # 2: primary materials with and without RES
 # 3: secondary material with and without RES
 
-ind_5x5 = [0,2,4,6,8,14]
-fin_5x5 = ['GHG_SSP1_pav_5x5.png','GHG_SSP1_reb_5x5.png','GHGMat_SSP1_pav_5x5.png','GHGMat_SSP1_reb_5x5.png','PrimMat_5x5_pav.png','PrimMat_5x5_reb.png','SecMat_5x5_pav.png','SecMat_5x5_reb.png','ElH2Share_5x5_pav.png','ElH2Share_5x5_reb.png','UsePhaseEn_5x5_pav.png','UsePhaseEn_5x5_reb.png']
-fiv_5x5 = ['GHG_SSP1_pav_5x5.svg','GHG_SSP1_reb_5x5.svg','GHGMat_SSP1_pav_5x5.svg','GHGMat_SSP1_reb_5x5.svg','PrimMat_5x5_pav.svg','PrimMat_5x5_reb.svg','SecMat_5x5_pav.svg','SecMat_5x5_reb.svg','ElH2Share_5x5_pav.svg','ElH2Share_5x5_reb.svg','UsePhaseEn_5x5_pav.svg','UsePhaseEn_5x5_reb.svg']
-fit_5x5 = ['System-wide GHG, SSP1, pav, Mt/yr','System-wide GHG, SSP1, reb, Mt/yr','Matcycle GHG, SSP1, pav, Mt/yr','Matcycle GHG, SSP1, reb, Mt/yr','Total primary material, SSP1, pav, Mt/yr','Total primary material, SSP1, reb, Mt/yr','Total secondary material, SSP1, pav, Mt/yr','Total secondary material, SSP1, reb, Mt/yr','Share of El and H2 in use phase en. cons, SSP1, pav, 1','Share of El and H2 in use phase en. cons, SSP1, reb, 1','Use phase en. cons, SSP1, pav, 1','Use phase en. cons, SSP1, reb, 1']
+ind_5x5 = [0,2,4,6,8,14,16,18,20,22,24,26]
+fin_5x5 = ['GHG_pav_5x5','GHG_reb_5x5','GHGMat_pav_5x5','GHGMat_reb_5x5','PrimMat_5x5_pav','PrimMat_5x5_reb','SecMat_5x5_pav','SecMat_5x5_reb',\
+           'ElH2Share_5x5_pav','ElH2Share_5x5_reb','UsePhaseEn_5x5_pav','UsePhaseEn_5x5_reb','WoodCycleGHG_pav','WoodCycleGHG_reb','passenger_km',\
+           'no_data_here','no_data_here','heated_m2','no_data_here','cooled_m2','passenger_km_perGHG','no_data_here','passenger_km_perMatStocks','no_data_here']
+fit_5x5 = ['System-wide GHG, pav, Mt/yr','System-wide GHG, reb, Mt/yr','Matcycle GHG, pav, Mt/yr','Matcycle GHG, reb, Mt/yr','Total primary material, pav, Mt/yr',\
+           'Total primary material, reb, Mt/yr','Total secondary material, pav, Mt/yr','Total secondary material, reb, Mt/yr','Share of El and H2 in use phase en. cons, pav, 1',\
+           'Share of El and H2 in use phase en. cons, reb, 1','Use phase en. cons, pav, 1','Use phase en. cons, reb, 1','Wood cycle GHG, pav, Mt/yr',\
+           'Wood cycle GHG, reb, Mt/yr','passenger-km, Mkm','no_data','no_data','buildings, heated_m2','no_data','buildings, cooled_m2'\
+           'passenger-km per GHG km/t','no_data_here','passenger-km per material stocks, km/t','no_data_here']
 
 MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Paired' color map. 
 BaseBlue     = np.array([0.31,0.51,0.74,1])
 R26Green     = np.array([0.03,0.66,0.48,1])
 plt.rcParams['axes.labelsize'] = 7
-LegendLables = ['NoNewClimPol, no ME','NoNewClimPol, full ME','RCP2.6, no ME','RCP2.6, full ME']
+LegendLabels = ['NoNewClimPol, no ME','NoNewClimPol, full ME','RCP2.6, no ME','RCP2.6, full ME']
+SEScenLabels = ['LED','SSP1','SSP2']
+
+# System-wide GHG, mat. GHG, and material production, with country names inside plots        
+Pav_label_offset = [2017,2023,2018,2050,2045,2040,2017,2026,2020,2033,2017,2017,2017,2017,2017,2033,2037,2015,2026,2028,2040,2045,2040,2040,2050]        
+Pav_label_pos    = [0.06,0.83,0.83,0.83,0.83,0.83,0.06,0.06,0.83,0.83,0.83,0.83,0.06,0.06,0.06,0.83,0.83,0.06,0.83,0.83,0.83,0.83,0.83,0.83,0.83]        
+Reb_label_offset = [2038,2023,2023,2038,2048,2040,2045,2023,2025,2023,2042,2014,2020,2030,2025,2035,2050,2035,2025,2040,2045,2035,2040,2020,2032]
+Reb_label_pos    = [0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.06,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83]        
+
+for mmf in range(0,len(ind_5x5)):
+    for Sect in range(0,2):
+        for SEScen in range(0,3):
+            if Sect == 0:
+                RegionList20Plot = Pav_RegionList20Plot
+                PlotOrder        = PlotOrder_pav
+                AxisMax          = Pav_axis_5x5
+            if Sect == 1:
+                RegionList20Plot = Reb_RegionList20Plot        
+                PlotOrder        = PlotOrder_reb
+                AxisMax          = Reb_axis_5x5
+            fig, axs = plt.subplots(5, 5, sharex=True, gridspec_kw={'hspace': 0.22, 'wspace': 0.5})
+            for plotNo in PlotOrder:
+                if mmf == 0: # only for GHG total plot
+                    for mmn in range(0,45): # plot grey bar where net emisisons are negative:
+                        if TimeSeries_All[1,mmn,plotNo,Sect,SEScen,1] < 0:
+                            axs[plotNo//5, plotNo%5].fill_between([2016+mmn,2016+mmn+1], [0,0],[AxisMax[plotNo],AxisMax[plotNo]],linestyle = '--', facecolor =np.array([0.3,0.3,0.3,0.3]), linewidth = 0.0)
+                axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,SEScen,0],color=BaseBlue, lw=0.8,  linestyle='-')    # Baseline, no RES
+                axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,SEScen,0],color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
+                axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,SEScen,1],color=R26Green, lw=0.8,  linestyle='-')    # RCP2.6, no RES
+                axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,SEScen,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
+                axs[plotNo//5, plotNo%5].set_ylim(bottom=0)
+                if mmf == 0:
+                    if Sect == 0:
+                        axs[plotNo//5, plotNo%5].text(Pav_label_offset[plotNo], Pav_label_pos[plotNo]*AxisMax[plotNo], RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
+                    if Sect == 1:
+                        axs[plotNo//5, plotNo%5].text(Reb_label_offset[plotNo], Reb_label_pos[plotNo]*AxisMax[plotNo], RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
+                else:
+                    axs[plotNo//5, plotNo%5].text(2015, 0.12*TimeSeries_All[ind_5x5[mmf]:ind_5x5[mmf]+2,:,plotNo,Sect,SEScen,:].max(), RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
+                axs[plotNo//5, plotNo%5].tick_params(axis='x', labelsize=6)
+                axs[plotNo//5, plotNo%5].tick_params(axis='y', labelsize=6)
+                for axis in ['top','bottom','left','right']:
+                    axs[plotNo//5, plotNo%5].spines[axis].set_linewidth(0.3)
+                if mmf == 0 and SEScen == 1:
+                    axs[plotNo//5, plotNo%5].axis([2012, 2063, 0, AxisMax[plotNo]])
+                else:
+                    if mmf == 6: # for wood cycle GHG, which are negative:
+                        axs[plotNo//5, plotNo%5].axis([2012, 2063, 1.1*TimeSeries_All[ind_5x5[mmf]:ind_5x5[mmf]+2,:,plotNo,Sect,SEScen,:].min(), 1.1*TimeSeries_All[ind_5x5[mmf]:ind_5x5[mmf]+2,:,plotNo,Sect,SEScen,:].max()])
+                    else:
+                        axs[plotNo//5, plotNo%5].axis([2012, 2063, 0, 1.1*TimeSeries_All[ind_5x5[mmf]:ind_5x5[mmf]+2,:,plotNo,Sect,SEScen,:].max()])
+                axs[plotNo//5, plotNo%5].tick_params(axis='both',width = 0.3)
+        
+            plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.8,  linestyle='-')  # Baseline, no RES
+            plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.99, linestyle='--') # Baseline, full RES
+            plt.plot([2010,2011],[0,0],color=R26Green, lw=0.8,  linestyle='-')  # RCP2.6, no RES
+            plt.plot([2010,2011],[0,0],color=R26Green, lw=0.99, linestyle='--') # RCP2.6, full RES
+            plt.legend(LegendLabels,shadow = False,  prop={'size':7}, loc = 'upper right',bbox_to_anchor=(3.5, 1))    
+            
+            fig.suptitle(fit_5x5[2*mmf+Sect] +'_'+ SEScenLabels[SEScen], fontsize=14)
+            for xm in range(0,5):
+                plt.sca(axs[4,xm])
+                plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 6, fontweight = 'normal')
+            plt.show()
+            fig_name  = fin_5x5[2*mmf+Sect] +'_'+ SEScenLabels[SEScen]
+            fig.savefig(os.path.join(RECC_Paths.results_path,fig_name+'.png'), dpi = PlotExpResolution, bbox_inches='tight')  
+            fig.savefig(os.path.join(RECC_Paths.results_path,fig_name+'.svg'), dpi = PlotExpResolution, bbox_inches='tight')  
+            
+# Main paper Fig. 1 (subset of above plots), plot Global, GN, GS, G7, China, India, SSA
+Pav_label_offset7 = [2017,2023,2018,2050,2017,2017,2012.5]        
+Pav_label_pos7    = [0.06,0.83,0.83,0.83,0.06,0.83,0.06]        
+Reb_label_offset7 = [2038,2023,2023,2048,2038,2042,2012.5]
+Reb_label_pos7    = [0.83,0.83,0.83,0.83,0.83,0.83,0.83]        
+SEScen = 1
+
+for reg in All_RegionList7:
+    PlotOrder_7_pav.append(Pav_RegionList20.index(reg))
+    PlotOrder_7_reb.append(Reb_RegionList20.index(reg))
+
+fig, axs = plt.subplots(2, 7, sharex=True, gridspec_kw={'hspace': 0.10, 'wspace': 0.4}, figsize=(15,5))
+for plotNo in np.arange(0,7):
+    # first row: pav
+    Sect = 0
+    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_pav[plotNo],Sect,SEScen,0],color=BaseBlue, lw=0.8,  linestyle='-')   # Baseline, no RES
+    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_pav[plotNo],Sect,SEScen,0],color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
+    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_pav[plotNo],Sect,SEScen,1],color=R26Green, lw=0.8,  linestyle='-')   # RCP2.6, no RES
+    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_pav[plotNo],Sect,SEScen,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
+    axs[0, plotNo].set_ylim(bottom=0)
+    # second row: reb
+    Sect = 1
+    for mmn in range(0,45): # plot grey bar where net emisisons are negative:
+        if TimeSeries_All[1,mmn,PlotOrder_7_reb[plotNo],Sect,SEScen,1] < 0:
+            axs[1, plotNo].fill_between([2016+mmn,2016+mmn+1], [0,0],[Reb_axis_7x2[plotNo],Reb_axis_7x2[plotNo]],linestyle = '--', facecolor =np.array([0.15,0.15,0.15,0.15]), linewidth = 0.0)
+    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_reb[plotNo],Sect,SEScen,0],color=BaseBlue, lw=0.8,  linestyle='-')   # Baseline, no RES
+    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_reb[plotNo],Sect,SEScen,0],color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
+    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_reb[plotNo],Sect,SEScen,1],color=R26Green, lw=0.8,  linestyle='-')   # RCP2.6, no RES
+    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_reb[plotNo],Sect,SEScen,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
+    axs[1, plotNo].set_ylim(bottom=0)
+    
+    axs[0, plotNo].text(Pav_label_offset7[plotNo], Pav_label_pos7[plotNo]*Pav_axis_7x2[plotNo], All_RegionList7Plot[plotNo], fontsize=9, rotation=0, fontweight='normal')
+    axs[1, plotNo].text(Reb_label_offset7[plotNo], Reb_label_pos7[plotNo]*Reb_axis_7x2[plotNo], All_RegionList7Plot[plotNo], fontsize=9, rotation=0, fontweight='normal')
+    
+    axs[0, plotNo].tick_params(axis='x', labelsize=9)
+    axs[0, plotNo].tick_params(axis='y', labelsize=9)
+    axs[1, plotNo].tick_params(axis='x', labelsize=9)
+    axs[1, plotNo].tick_params(axis='y', labelsize=9)
+    
+    for axis in ['top','bottom','left','right']:
+        axs[0, plotNo].spines[axis].set_linewidth(0.5)
+        axs[1, plotNo].spines[axis].set_linewidth(0.5)
+    axs[0, plotNo].axis([2012, 2063, 0, Pav_axis_7x2[plotNo]])
+    axs[0, plotNo].tick_params(axis='both',width = 0.5)
+    axs[1, plotNo].axis([2012, 2063, 0, Reb_axis_7x2[plotNo]])
+    axs[1, plotNo].tick_params(axis='both',width = 0.5)
+
+plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.8,  linestyle='-')  # Baseline, no RES
+plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.99, linestyle='--') # Baseline, full RES
+plt.plot([2010,2011],[0,0],color=R26Green, lw=0.8,  linestyle='-')  # RCP2.6, no RES
+plt.plot([2010,2011],[0,0],color=R26Green, lw=0.99, linestyle='--') # RCP2.6, full RES
+plt.legend(LegendLabels,shadow = False,  prop={'size':9}, loc = 'upper right',bbox_to_anchor=(2.6, 1))    
+
+fig.suptitle('System-wide GHG, pav+reb, Mt/yr, SSP1', fontsize=14)
+for xm in range(0,7):
+    plt.sca(axs[1,xm])
+    plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 9, fontweight = 'normal')
+plt.show()
+fig_name  = 'Fig1_select_GHG_pav_reb_SSP1'
+fig.savefig(os.path.join(RECC_Paths.results_path,fig_name+'.png'), dpi = PlotExpResolution, bbox_inches='tight')  
+fig.savefig(os.path.join(RECC_Paths.results_path,fig_name+'.svg'), dpi = PlotExpResolution, bbox_inches='tight')  
+
 
 # System-wide GHG, mat. GHG, and material production, with country names on top of plots
 #for mmf in range(0,4):
@@ -588,65 +741,66 @@ LegendLables = ['NoNewClimPol, no ME','NoNewClimPol, full ME','RCP2.6, no ME','R
 #        fig_name = fin_5x5[2*mmf+Sect]
 #        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')  
 
-# System-wide GHG, mat. GHG, and material production, with country names inside plots        
-Pav_label_offset = [2017,2023,2018,2050,2045,2040,2017,2026,2020,2033,2017,2017,2017,2017,2017,2033,2037,2015,2026,2028,2040,2045,2040,2040,2050]        
-Pav_label_pos    = [0.06,0.83,0.83,0.83,0.83,0.83,0.06,0.06,0.83,0.83,0.83,0.83,0.06,0.06,0.06,0.83,0.83,0.06,0.83,0.83,0.83,0.83,0.83,0.83,0.83]        
-Reb_label_offset = [2038,2023,2023,2038,2048,2040,2045,2023,2025,2023,2042,2014,2020,2030,2025,2035,2050,2035,2025,2040,2045,2035,2040,2020,2032]
-Reb_label_pos    = [0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.06,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83]        
-
-for mmf in range(0,6):
-    for Sect in range(0,2):
-        if Sect == 0:
-            RegionList20Plot = Pav_RegionList20Plot
-            PlotOrder        = PlotOrder_pav
-            AxisMax          = Pav_axis_5x5
-        if Sect == 1:
-            RegionList20Plot = Reb_RegionList20Plot        
-            PlotOrder        = PlotOrder_reb
-            AxisMax          = Reb_axis_5x5
-        fig, axs = plt.subplots(5, 5, sharex=True, gridspec_kw={'hspace': 0.22, 'wspace': 0.5})
-        for plotNo in PlotOrder:
-            if mmf == 0: # only for GHG total plot
-                for mmn in range(0,45): # plot grey bar where net emisisons are negative:
-                    if TimeSeries_All[1,mmn,plotNo,Sect,1,1] < 0:
-                        axs[plotNo//5, plotNo%5].fill_between([2016+mmn,2016+mmn+1], [0,0],[AxisMax[plotNo],AxisMax[plotNo]],linestyle = '--', facecolor =np.array([0.3,0.3,0.3,0.3]), linewidth = 0.0)
-            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,1,0],color=BaseBlue, lw=0.8,  linestyle='-')    # Baseline, no RES
-            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,1,0],color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
-            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,1,1],color=R26Green, lw=0.8,  linestyle='-')    # RCP2.6, no RES
-            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,1,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
-            axs[plotNo//5, plotNo%5].set_ylim(bottom=0)
-            if mmf == 0:
-                if Sect == 0:
-                    axs[plotNo//5, plotNo%5].text(Pav_label_offset[plotNo], Pav_label_pos[plotNo]*AxisMax[plotNo], RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
-                if Sect == 1:
-                    axs[plotNo//5, plotNo%5].text(Reb_label_offset[plotNo], Reb_label_pos[plotNo]*AxisMax[plotNo], RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
-            else:
-                axs[plotNo//5, plotNo%5].text(2015, 0.12*TimeSeries_All[ind_5x5[mmf]:ind_5x5[mmf]+2,:,plotNo,Sect,1,:].max(), RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
-            axs[plotNo//5, plotNo%5].tick_params(axis='x', labelsize=6)
-            axs[plotNo//5, plotNo%5].tick_params(axis='y', labelsize=6)
-            for axis in ['top','bottom','left','right']:
-                axs[plotNo//5, plotNo%5].spines[axis].set_linewidth(0.3)
-            if mmf == 0:
-                axs[plotNo//5, plotNo%5].axis([2012, 2063, 0, AxisMax[plotNo]])
-            else:
-                axs[plotNo//5, plotNo%5].axis([2012, 2063, 0, 1.1*TimeSeries_All[ind_5x5[mmf]:ind_5x5[mmf]+2,:,plotNo,Sect,1,:].max()])
-            axs[plotNo//5, plotNo%5].tick_params(axis='both',width = 0.3)
-    
-        plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.8,  linestyle='-')  # Baseline, no RES
-        plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.99, linestyle='--') # Baseline, full RES
-        plt.plot([2010,2011],[0,0],color=R26Green, lw=0.8,  linestyle='-')  # RCP2.6, no RES
-        plt.plot([2010,2011],[0,0],color=R26Green, lw=0.99, linestyle='--') # RCP2.6, full RES
-        plt.legend(LegendLables,shadow = False,  prop={'size':7}, loc = 'upper right',bbox_to_anchor=(3.5, 1))    
-        
-        fig.suptitle(fit_5x5[2*mmf+Sect], fontsize=14)
-        for xm in range(0,5):
-            plt.sca(axs[4,xm])
-            plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 6, fontweight = 'normal')
-        plt.show()
-        fig_name  = fin_5x5[2*mmf+Sect]
-        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name),  dpi = PlotExpResolution, bbox_inches='tight')  
-        fig_namev = fiv_5x5[2*mmf+Sect]
-        fig.savefig(os.path.join(RECC_Paths.results_path,fig_namev), dpi = PlotExpResolution, bbox_inches='tight')  
+# OLD version of 5x5 plots for SSP1 only.
+## System-wide GHG, mat. GHG, and material production, with country names inside plots        
+#Pav_label_offset = [2017,2023,2018,2050,2045,2040,2017,2026,2020,2033,2017,2017,2017,2017,2017,2033,2037,2015,2026,2028,2040,2045,2040,2040,2050]        
+#Pav_label_pos    = [0.06,0.83,0.83,0.83,0.83,0.83,0.06,0.06,0.83,0.83,0.83,0.83,0.06,0.06,0.06,0.83,0.83,0.06,0.83,0.83,0.83,0.83,0.83,0.83,0.83]        
+#Reb_label_offset = [2038,2023,2023,2038,2048,2040,2045,2023,2025,2023,2042,2014,2020,2030,2025,2035,2050,2035,2025,2040,2045,2035,2040,2020,2032]
+#Reb_label_pos    = [0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.06,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83,0.83]        
+#
+#for mmf in range(0,6):
+#    for Sect in range(0,2):
+#        if Sect == 0:
+#            RegionList20Plot = Pav_RegionList20Plot
+#            PlotOrder        = PlotOrder_pav
+#            AxisMax          = Pav_axis_5x5
+#        if Sect == 1:
+#            RegionList20Plot = Reb_RegionList20Plot        
+#            PlotOrder        = PlotOrder_reb
+#            AxisMax          = Reb_axis_5x5
+#        fig, axs = plt.subplots(5, 5, sharex=True, gridspec_kw={'hspace': 0.22, 'wspace': 0.5})
+#        for plotNo in PlotOrder:
+#            if mmf == 0: # only for GHG total plot
+#                for mmn in range(0,45): # plot grey bar where net emisisons are negative:
+#                    if TimeSeries_All[1,mmn,plotNo,Sect,1,1] < 0:
+#                        axs[plotNo//5, plotNo%5].fill_between([2016+mmn,2016+mmn+1], [0,0],[AxisMax[plotNo],AxisMax[plotNo]],linestyle = '--', facecolor =np.array([0.3,0.3,0.3,0.3]), linewidth = 0.0)
+#            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,1,0],color=BaseBlue, lw=0.8,  linestyle='-')    # Baseline, no RES
+#            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,1,0],color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
+#            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,1,1],color=R26Green, lw=0.8,  linestyle='-')    # RCP2.6, no RES
+#            axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,1,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
+#            axs[plotNo//5, plotNo%5].set_ylim(bottom=0)
+#            if mmf == 0:
+#                if Sect == 0:
+#                    axs[plotNo//5, plotNo%5].text(Pav_label_offset[plotNo], Pav_label_pos[plotNo]*AxisMax[plotNo], RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
+#                if Sect == 1:
+#                    axs[plotNo//5, plotNo%5].text(Reb_label_offset[plotNo], Reb_label_pos[plotNo]*AxisMax[plotNo], RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
+#            else:
+#                axs[plotNo//5, plotNo%5].text(2015, 0.12*TimeSeries_All[ind_5x5[mmf]:ind_5x5[mmf]+2,:,plotNo,Sect,1,:].max(), RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
+#            axs[plotNo//5, plotNo%5].tick_params(axis='x', labelsize=6)
+#            axs[plotNo//5, plotNo%5].tick_params(axis='y', labelsize=6)
+#            for axis in ['top','bottom','left','right']:
+#                axs[plotNo//5, plotNo%5].spines[axis].set_linewidth(0.3)
+#            if mmf == 0:
+#                axs[plotNo//5, plotNo%5].axis([2012, 2063, 0, AxisMax[plotNo]])
+#            else:
+#                axs[plotNo//5, plotNo%5].axis([2012, 2063, 0, 1.1*TimeSeries_All[ind_5x5[mmf]:ind_5x5[mmf]+2,:,plotNo,Sect,1,:].max()])
+#            axs[plotNo//5, plotNo%5].tick_params(axis='both',width = 0.3)
+#    
+#        plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.8,  linestyle='-')  # Baseline, no RES
+#        plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.99, linestyle='--') # Baseline, full RES
+#        plt.plot([2010,2011],[0,0],color=R26Green, lw=0.8,  linestyle='-')  # RCP2.6, no RES
+#        plt.plot([2010,2011],[0,0],color=R26Green, lw=0.99, linestyle='--') # RCP2.6, full RES
+#        plt.legend(LegendLables,shadow = False,  prop={'size':7}, loc = 'upper right',bbox_to_anchor=(3.5, 1))    
+#        
+#        fig.suptitle(fit_5x5[2*mmf+Sect], fontsize=14)
+#        for xm in range(0,5):
+#            plt.sca(axs[4,xm])
+#            plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 6, fontweight = 'normal')
+#        plt.show()
+#        fig_name  = fin_5x5[2*mmf+Sect]
+#        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name),  dpi = PlotExpResolution, bbox_inches='tight')  
+#        fig_namev = fiv_5x5[2*mmf+Sect]
+#        fig.savefig(os.path.join(RECC_Paths.results_path,fig_namev), dpi = PlotExpResolution, bbox_inches='tight')  
         
 #GHG intensity plot
 RegionList20Plot = Pav_RegionList20Plot

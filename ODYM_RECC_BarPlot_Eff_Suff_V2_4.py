@@ -66,7 +66,7 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
     Sector = ['suff_eff']
     Title  = ['Cum_GHG_2016_2050','Cum_GHG_2040_2050','Annual_GHG_2050']
     Scens  = ['LED','SSP1','SSP2']
-    LWE    = ['No climate policy','energy efficiency','energy supply', 'supply-side ME','demand-side ME','sufficiency-rel. ME','residual']
+    LWE    = ['No climate policy','energy efficiency','low carbon en. supply', 'supply-side ME','demand-side ME','sufficiency-rel. ME','residual']
     
     for nn in range(0,3):
         Data = np.zeros((3,11))

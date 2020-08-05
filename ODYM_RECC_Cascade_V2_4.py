@@ -163,9 +163,11 @@ def main(RegionalScope,FolderList,SectorString):
     RecCreditAvgDec  = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
     RecCredit        = np.zeros((12,NR,NE)) # different indices compiled x RCP x RES.
     
-    TimeSeries_R     = np.zeros((10,NE,45,3,2)) # NX x NE x Nt x NS x NR / indicators x RES x time x SSP x RCP
+    TimeSeries_R     = np.zeros((20,NE,45,3,2)) # NX x NE x Nt x NS x NR / indicators x RES x time x SSP x RCP
     # 0: system-wide GHG, 1: material-related GHG, 2: primar production, all materials, 3: secondary production, all materials.
     # 4: share of el + H2 in total use phase energy consumption, 5: electricity suppy GHG use phase, 6: In-use stock, all materials.
+    # 7: use phase energy consumption, 8: wood use carbon balance (forest and waste mgt.),
+    # 9: passenger-km, 10: heated building space, 11: cooled building space.
     
     for r in range(0,NE): # RE scenario
         Path = os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls')
@@ -473,13 +475,12 @@ def main(RegionalScope,FolderList,SectorString):
     while True:
         if Resultsheet2.cell_value(fci, 0) == 'GHG emissions, energy recovery from waste wood (biogenic C plus energy substitution within System)':
             break # that gives us the right index from the result table.
-        fci += 1 
+        fci += 1               
     wci = 1
     while True:
         if Resultsheet2.cell_value(wci, 0) == 'GHG sequestration by forests (w. neg. sign)':
             break # that gives us the right index from the result table.
         wci += 1         
-    
     en1 = 1
     while True:
         if Resultsheet2.cell_value(en1, 0) == 'energy consumption, use phase: electricity':
@@ -504,8 +505,23 @@ def main(RegionalScope,FolderList,SectorString):
     while True:
         if Resultsheet2.cell_value(am1, 0) == 'In-use stock, all materials':
             break # that gives us the right index from the result table.
-        am1 += 1         
-    
+        am1 += 1        
+    pkm = 1
+    while True:
+        if Resultsheet2.cell_value(pkm, 0) == 'passenger-km supplied by pass. vehicles':
+            break # that gives us the right index from the result table.
+        pkm += 1            
+    bs1 = 1
+    while True:
+        if Resultsheet2.cell_value(bs1, 0) == 'Total heated floor space, res. buildings':
+            break # that gives us the right index from the result table.
+        bs1 += 1 
+    bs2 = 1
+    while True:
+        if Resultsheet2.cell_value(bs2, 0) == 'Total cooled floor space, res. buildings':
+            break # that gives us the right index from the result table.
+        bs2 += 1 
+        
     for r in range(0,NE): # RE scenario
         Path = os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls')
         Resultfile   = xlrd.open_workbook(Path)
@@ -554,6 +570,10 @@ def main(RegionalScope,FolderList,SectorString):
                         None
                     TimeSeries_R[6,r,t,s,c] = Resultsheet2.cell_value(am1+ 2*s +c,t+8)   
                     TimeSeries_R[7,r,t,s,c] = Resultsheet2.cell_value(en3+ 2*s +c,t+8)     
+                    TimeSeries_R[8,r,t,s,c] = Resultsheet2.cell_value(fci+ 2*s +c,t+8) + Resultsheet2.cell_value(wci+ 2*s +c,t+8)
+                    TimeSeries_R[9,r,t,s,c] = Resultsheet2.cell_value(pkm+ 2*s +c,t+8) 
+                    TimeSeries_R[10,r,t,s,c]= Resultsheet2.cell_value(bs1+ 2*s +c,t+8) 
+                    TimeSeries_R[11,r,t,s,c]= Resultsheet2.cell_value(bs2+ 2*s +c,t+8) 
                 MatAnnEms2030[s,c,r]      = Resultsheet2.cell_value(mci+ 2*s +c,22)
                 MatAnnEms2050[s,c,r]      = Resultsheet2.cell_value(mci+ 2*s +c,42)
                 AvgDecadalMatEms[s,c,r,0] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(13,23)])/10
@@ -855,7 +875,7 @@ def main(RegionalScope,FolderList,SectorString):
                 fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')  
                 
     # Same data, but with line plot:
-    LegendLables = ['Primary material production, no ME','Primary material production, full ME','Secondary material production, no ME','Secondary material production, full ME']
+    LegendLabels = ['Primary material production, no ME','Primary material production, full ME','Secondary material production, no ME','Secondary material production, full ME']
     if RegionalScope == 'Global':
         LWI = [0.8,1.4,0.8]
         for mRCP in range(0,NR):  # RCP
@@ -909,7 +929,7 @@ def main(RegionalScope,FolderList,SectorString):
                 plt.plot(2016,0,color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='--')
                 plt.plot(2016,0,color=np.array([0.3,0.3,0.3,1]), lw=LWI[1],  linestyle='-')
                 plt.plot(2016,0,color=np.array([0.3,0.3,0.3,1]), lw=LWI[1],  linestyle='--') 
-                plt.legend(LegendLables,shadow = False, prop={'size':7}, loc = 'upper right',bbox_to_anchor=(2.5, 1))  
+                plt.legend(LegendLabels,shadow = False, prop={'size':7}, loc = 'upper right',bbox_to_anchor=(2.5, 1))  
     
                 plt.show()
                 fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Rcens[mRCP] + '_line.png'
@@ -960,21 +980,21 @@ def main(RegionalScope,FolderList,SectorString):
                 plt.sca(ax4)
                 plt.ylabel('Mt/yr', fontsize = 12)
     
+                plt.show()
+                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line.png'
+                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')               
+                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line.svg'
+                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')      
+
 #                fig  = plt.figure(figsize=(5,8))
 #                ax1  = plt.axes([0.08,0.08,0.85,0.9])
 #                plt.plot([2016,2017],[0,0],color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='-')
 #                plt.plot([2016,2017],[0,0],color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='--')
 #                plt.plot([2016,2017],[0,0],color=np.array([0.5,0.5,0.5,1]), lw=LWI[1],  linestyle='-')
 #                plt.plot([2016,2017],[0,0],color=np.array([0.5,0.5,0.5,1]), lw=LWI[1],  linestyle='--') 
-#                plt.legend(LegendLables,shadow = False, prop={'size':8}, loc = 'upper right')   
+#                plt.legend(LegendLabels,shadow = False, prop={'size':8}, loc = 'upper right')   
 #                plt.show()
-#                fig.savefig(os.path.join(RECC_Paths.results_path,'Legend.png'), dpi = PlotExpResolution, bbox_inches='tight')  
-                
-                plt.show()
-                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line.png'
-                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')               
-                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line.svg'
-                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')      
+#                fig.savefig(os.path.join('Legend.png'), dpi = PlotExpResolution, bbox_inches='tight')  
                 
     ##### line Plot overview of primary steel and steel recycling
     if RegionalScope == 'Global':
