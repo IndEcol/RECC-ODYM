@@ -273,11 +273,11 @@ def main(RegionalScope,FolderList,SectorString):
                 for mm in range(0,NE-1):
                     plt.text(Data[m,:].min()*0.9, Offset1-mm, LWE[mm] + ': ' + ("%3.0f" % Data[m,mm]),fontsize=14,fontweight='bold')          
                 
-                plt.text(Data[m,:].min()*0.59, 10.5, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
+                plt.text(Data[m,:].min()*0.59, 10.5, 'Baseline: ' + ("%3.0f" % Base[m]) + r' Mt CO$_2$-eq/yr.',fontsize=14,fontweight='bold')
         
                 plt.title(RegionalScope + '_' + SectorString + '_' + Titles[npp] + '_' + Scens[m] + '_' + Rcens[c], fontsize = 18)
                 plt.ylabel('RE strategies.', fontsize = 18)
-                plt.xlabel('Mt of CO2-eq.', fontsize = 14)
+                plt.xlabel(r'Mt of CO$_2$-eq.', fontsize = 14)
                 #plt.xticks([0.25,1.25,2.25,3.25,4.25,5.25])
                 plt.yticks([])
                 #ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')

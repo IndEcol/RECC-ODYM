@@ -29,7 +29,7 @@ import RECC_Paths # Import path file
 
 # The following SINGLE REGION scripts are called whenever there is a single cascade (for reb, pav, ...) or sensitivity analysis for a given region.
 import ODYM_RECC_Cascade_V2_4
-import ODYM_RECC_BarPlot_Eff_Suff_V2_4
+import ODYM_RECC_BarPlot_ME_Industry_Demand_V2_4
 import ODYM_RECC_Sensitivity_V2_4
 import ODYM_RECC_Table_Extract_V2_4
 
@@ -69,11 +69,11 @@ PlotOrder_pav       = [] # Will contain positions of countries/regions in 5x5 pl
 PlotOrder_reb       = [] # Will contain positions of countries/regions in 5x5 plot
 PlotOrder_7_pav     = [] # Will contain positions of countries/regions in 7x2 plot
 PlotOrder_7_reb     = [] # Will contain positions of countries/regions in 7x2 plot
-TimeSeries_All = np.zeros((30,45,25,2,3,2)) # NX x Nt x Nr x NV x NS x NR / indicators x time x regions x sectors x SSP x RCP
+TimeSeries_All      = np.zeros((30,45,25,2,3,2)) # NX x Nt x Nr x NV x NS x NR / indicators x time x regions x sectors x SSP x RCP
 # 0: system-wide GHG, no RES 1: system-wide GHG, all RES
 # 2: material-related GHG, no RES, 3: material-related GHG, all RES,
 
-PlotExpResolution = 500 # dpi 150 for overview or 500 for paper
+PlotExpResolution = 500 # dpi 100 for overview or 500 for paper
 
 # Number of scenarios:
 NS = 3 # SSP
@@ -81,9 +81,8 @@ NR = 2 # RCP
     
 ###ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
 #ScenarioSetting = 'Evaluate_pav_reb_Cascade' # run eval and plot scripts for selected regions and sectors only
-ScenarioSetting = 'Evaluate_pav_reb_Cascade_all' # run eval and plot scripts for all regions and sectors
-#ScenarioSetting = 'Germany_detail_evaluate' # run eval and plot scripts for Germany case study only
-#ScenarioSetting = 'Global_all_evaluate' # run eval and plot scripts for all regions and all sectors
+#ScenarioSetting = 'Evaluate_pav_reb_Cascade_all' # run eval and plot scripts for all regions and sectors
+ScenarioSetting = 'Germany_detail_evaluate' # run eval and plot scripts for Germany case study only
 #ScenarioSetting = 'Evaluate_TestRun' # Test run evaluate
 
 # open scenario sheet
@@ -429,11 +428,11 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
             fig_name = 'Overview_GHG_Global.svg'
             fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')   
                 
-        if ModelEvalListSheet.cell_value(Row+NE, 2) == 'Efficiency_Sufficiency_Scenario':
+        if ModelEvalListSheet.cell_value(Row+NE, 2) == 'ME_industry_demandside_Scenario':
             for mmxx in range(0,6):
                 SingleSectList.append(ModelEvalListSheet.cell_value(Row+NE+mmxx, 3))
-            # run the efficieny_sufficieny plots, with 4 extra single sectors in result list
-            CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV = ODYM_RECC_BarPlot_Eff_Suff_V2_4.main(RegionalScope,MultiSectorList,SingleSectList)  
+            # run the efficieny_sufficieny plots, with 6 extra single sectors in result list
+            CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV = ODYM_RECC_BarPlot_ME_Industry_Demand_V2_4.main(RegionalScope,MultiSectorList,SingleSectList)  
             SingleSectList = []
             NE  +=6 # add for extra scenarios for efficiency-sufficiency plot
                 
@@ -556,11 +555,11 @@ ind_5x5 = [0,2,4,6,8,14,16,18,20,22,24,26]
 fin_5x5 = ['GHG_pav_5x5','GHG_reb_5x5','GHGMat_pav_5x5','GHGMat_reb_5x5','PrimMat_5x5_pav','PrimMat_5x5_reb','SecMat_5x5_pav','SecMat_5x5_reb',\
            'ElH2Share_5x5_pav','ElH2Share_5x5_reb','UsePhaseEn_5x5_pav','UsePhaseEn_5x5_reb','WoodCycleGHG_pav','WoodCycleGHG_reb','passenger_km',\
            'no_data_here','no_data_here','heated_m2','no_data_here','cooled_m2','passenger_km_perGHG','no_data_here','passenger_km_perMatStocks','no_data_here']
-fit_5x5 = ['System-wide GHG, pav, Mt/yr','System-wide GHG, reb, Mt/yr','Matcycle GHG, pav, Mt/yr','Matcycle GHG, reb, Mt/yr','Total primary material, pav, Mt/yr',\
-           'Total primary material, reb, Mt/yr','Total secondary material, pav, Mt/yr','Total secondary material, reb, Mt/yr','Share of El and H2 in use phase en. cons, pav, 1',\
-           'Share of El and H2 in use phase en. cons, reb, 1','Use phase en. cons, pav, 1','Use phase en. cons, reb, 1','Wood cycle GHG, pav, Mt/yr',\
-           'Wood cycle GHG, reb, Mt/yr','passenger-km, Mkm','no_data','no_data','buildings, heated_m2','no_data','buildings, cooled_m2'\
-           'passenger-km per GHG km/t','no_data_here','passenger-km per material stocks, km/t','no_data_here']
+fit_5x5 = [r'System-wide GHG, pav, Mt CO$_2$-eq/yr,',r'System-wide GHG, reb, Mt CO$_2$-eq/yr,',r'Matcycle GHG, pav, Mt CO$_2$-eq/yr,',r'Matcycle GHG, reb, Mt CO$_2$-eq/yr,','Total primary material, pav, Mt/yr,',\
+           'Total primary material, reb, Mt/yr,','Total secondary material, pav, Mt/yr,','Total secondary material, reb, Mt/yr,',r'Share of El and H$_2$ in use phase en. cons, pav, 1,',\
+           r'Share of El and H$_2$ in use phase en. cons, reb, 1,','Use phase energy cons, pav, TJ,','Use phase energy cons, reb, TJ,',r'Wood cycle GHG, pav, Mt CO$_2$-eq/yr,',\
+           r'Wood cycle GHG, reb, Mt CO$_2$-eq/yr,','passenger-km, Mkm,','no_data','no_data','buildings, heated m², Mm²,','no_data','buildings, cooled m², Mm²,',\
+           'passenger-km per GHG km/t,','no_data_here','passenger-km per material stocks, km/t,','no_data_here']
 
 MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select 12 colors from the 'Paired' color map. 
 BaseBlue     = np.array([0.31,0.51,0.74,1])
@@ -597,7 +596,8 @@ for mmf in range(0,len(ind_5x5)):
                 axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]  ,:,plotNo,Sect,SEScen,1],color=R26Green, lw=0.8,  linestyle='-')    # RCP2.6, no RES
                 axs[plotNo//5, plotNo%5].plot(np.arange(2016,2061), TimeSeries_All[ind_5x5[mmf]+1,:,plotNo,Sect,SEScen,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
                 axs[plotNo//5, plotNo%5].set_ylim(bottom=0)
-                if mmf == 0:
+                # Place region labels:
+                if mmf == 0 and SEScen == 1:
                     if Sect == 0:
                         axs[plotNo//5, plotNo%5].text(Pav_label_offset[plotNo], Pav_label_pos[plotNo]*AxisMax[plotNo], RegionList20Plot[plotNo], fontsize=6, rotation=0, fontweight='normal')
                     if Sect == 1:
@@ -608,6 +608,7 @@ for mmf in range(0,len(ind_5x5)):
                 axs[plotNo//5, plotNo%5].tick_params(axis='y', labelsize=6)
                 for axis in ['top','bottom','left','right']:
                     axs[plotNo//5, plotNo%5].spines[axis].set_linewidth(0.3)
+                # Scale axes:
                 if mmf == 0 and SEScen == 1:
                     axs[plotNo//5, plotNo%5].axis([2012, 2063, 0, AxisMax[plotNo]])
                 else:
@@ -623,7 +624,7 @@ for mmf in range(0,len(ind_5x5)):
             plt.plot([2010,2011],[0,0],color=R26Green, lw=0.99, linestyle='--') # RCP2.6, full RES
             plt.legend(LegendLabels,shadow = False,  prop={'size':7}, loc = 'upper right',bbox_to_anchor=(3.5, 1))    
             
-            fig.suptitle(fit_5x5[2*mmf+Sect] +'_'+ SEScenLabels[SEScen], fontsize=14)
+            fig.suptitle(fit_5x5[2*mmf+Sect] +' '+ SEScenLabels[SEScen], fontsize=14)
             for xm in range(0,5):
                 plt.sca(axs[4,xm])
                 plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 6, fontweight = 'normal')
@@ -685,7 +686,7 @@ plt.plot([2010,2011],[0,0],color=R26Green, lw=0.8,  linestyle='-')  # RCP2.6, no
 plt.plot([2010,2011],[0,0],color=R26Green, lw=0.99, linestyle='--') # RCP2.6, full RES
 plt.legend(LegendLabels,shadow = False,  prop={'size':9}, loc = 'upper right',bbox_to_anchor=(2.6, 1))    
 
-fig.suptitle('System-wide GHG, pav+reb, Mt/yr, SSP1', fontsize=14)
+fig.suptitle(r'System-wide GHG, pav+reb, Mt CO$_2$-eq/yr, SSP1', fontsize=14)
 for xm in range(0,7):
     plt.sca(axs[1,xm])
     plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 9, fontweight = 'normal')
@@ -824,7 +825,7 @@ plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.8,  linestyle='-')  # Baseline, 
 plt.plot([2010,2011],[0,0],color=R26Green, lw=0.8, linestyle='-') # RCP2.6, full RES
 plt.legend(['NoNewClimPol','RCP2.6'],shadow = False,  prop={'size':7}, loc = 'upper right',bbox_to_anchor=(3.2, 1))    
 
-fig.suptitle('GHG intensity of electricity by region, g CO2-eqkWh', fontsize=14)
+fig.suptitle(r'GHG intensity of electricity by region, g CO$_2$-eq/kWh', fontsize=14)
 for xm in range(0,5):
     plt.sca(axs[4,xm])
     plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 6, fontweight = 'normal')

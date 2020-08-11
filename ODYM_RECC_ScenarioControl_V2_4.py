@@ -24,8 +24,8 @@ import ODYM_RECC_V2_4
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
 #ScenarioSetting = 'pav_reb_Config_list'
 #ScenarioSetting = 'pav_reb_Config_list_all'
-#ScenarioSetting = 'Germany_detail_config'
-ScenarioSetting = 'Germany_detail_config_all'
+ScenarioSetting = 'Germany_detail_config'
+#ScenarioSetting = 'Germany_detail_config_all'
 #ScenarioSetting = 'Global_all'
 #ScenarioSetting = 'TestRun'
 
@@ -42,7 +42,7 @@ while True:
         RegionalScope = ModelConfigListSheet.cell_value(Row, 2)
         print(RegionalScope)
         Config = {}
-        for m in range(3,27):
+        for m in range(3,28):
             Config[ModelConfigListSheet.cell_value(2, m)] = ModelConfigListSheet.cell_value(Row, m)
     except:
         break
@@ -80,6 +80,7 @@ while True:
     sheet['D199'] = Config['Include_Renovation_reb']
     sheet['D200'] = Config['Include_Renovation_nrb']
     sheet['D201'] = Config['No_EE_Improvements']
+    sheet['D215'] = Config['PlotResolution']
     
     mywb.save(os.path.join(RECC_Paths.recc_path,'RECC_Config_V2_4.xlsx'))
 

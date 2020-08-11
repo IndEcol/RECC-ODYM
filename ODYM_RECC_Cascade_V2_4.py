@@ -10,10 +10,11 @@ def main(RegionalScope,FolderList,SectorString):
     import numpy as np
     import matplotlib.pyplot as plt  
     import pylab
+    import pandas as pd
     import os
     import RECC_Paths # Import path file   #
     
-    PlotExpResolution = 150 # dpi 150 for overview or 500 for paper
+    PlotExpResolution = 250 # dpi 150 for overview or 500 for paper
     
     # FileOrder needs to be kept:
     # pav:
@@ -58,7 +59,7 @@ def main(RegionalScope,FolderList,SectorString):
         Offset3 = 3.3
         XTicks  = [0.25,1.25,2.25,3.25,4.25,5.25,6.25,7.25]
         Offset4 = 7.7
-        LWE_area= ['higher yields', 're-use & LTE','material subst.','down-sizing','car-sharing','ride-sharing']   
+        LWE_area= ['total, no ME','higher yields', 're-use & LTE','material subst.','down-sizing','car-sharing','ride-sharing','residual, full ME']   
         PlotCtrl= 0 
         ColOrder= [0,1,2,3,4,5,6,7]
         MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.  
@@ -72,7 +73,7 @@ def main(RegionalScope,FolderList,SectorString):
         Offset3 = 2.8
         XTicks  = [0.25,1.25,2.25,3.25,4.25,5.25,6.25]
         Offset4 = 6.7
-        LWE_area= ['higher yields', 're-use & LTE','material subst.','light design','more intense use']    
+        LWE_area= ['total, no ME','higher yields', 're-use & LTE','material subst.','light design','more intense use','residual, full ME']    
         PlotCtrl= 1
         ColOrder= [0,1,2,3,4,5,6]
         MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.   
@@ -86,7 +87,7 @@ def main(RegionalScope,FolderList,SectorString):
         Offset3 = 2.8
         XTicks  = [0.25,1.25,2.25,3.25,4.25,5.25,6.25]
         Offset4 = 6.7
-        LWE_area= ['higher yields', 're-use & LTE','material subst.','light design','more intense use']    
+        LWE_area= ['total, no ME','higher yields', 're-use & LTE','material subst.','light design','more intense use','residual, full ME']    
         PlotCtrl= 1
         ColOrder= [0,1,2,3,4,5,6]
         MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.14)) # select 12 colors from the 'Paired' color map.   
@@ -100,7 +101,7 @@ def main(RegionalScope,FolderList,SectorString):
         Offset3 = 4.3
         XTicks  = [0.25,1.25,2.25,3.25,4.25,5.25,6.25,7.25,8.25]
         Offset4 = 8.7
-        LWE_area   = ['higher yields', 're-use & LTE','material subst.','down-sizing','car-sharing','ride-sharing','More intense bld. use']      
+        LWE_area= ['total, no ME','higher yields', 're-use & LTE','material subst.','down-sizing','car-sharing','ride-sharing','More intense bld. use','residual, full ME']      
         PlotCtrl= 1
         ColOrder= [11,4,0,18,8,16,2,6,15]
         MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map. 
@@ -114,7 +115,7 @@ def main(RegionalScope,FolderList,SectorString):
         Offset3 = 4.3
         XTicks  = [0.25,1.25,2.25,3.25,4.25,5.25,6.25,7.25,8.25]
         Offset4 = 8.7
-        LWE_area   = ['higher yields', 're-use & LTE','material subst.','down-sizing','car-sharing','ride-sharing','More intense bld. use']     
+        LWE_area= ['total, no ME','higher yields', 're-use & LTE','material subst.','down-sizing','car-sharing','ride-sharing','More intense bld. use','residual, full ME']     
         PlotCtrl= 1
         ColOrder= [11,4,0,18,8,16,2,6,15]
         MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map. 
@@ -164,10 +165,12 @@ def main(RegionalScope,FolderList,SectorString):
     RecCredit        = np.zeros((12,NR,NE)) # different indices compiled x RCP x RES.
     
     TimeSeries_R     = np.zeros((20,NE,45,3,2)) # NX x NE x Nt x NS x NR / indicators x RES x time x SSP x RCP
+    # 2 system scopes x 3 indicators x SSP-Scenario x RCP scenario x RES scenario 
     # 0: system-wide GHG, 1: material-related GHG, 2: primar production, all materials, 3: secondary production, all materials.
     # 4: share of el + H2 in total use phase energy consumption, 5: electricity suppy GHG use phase, 6: In-use stock, all materials.
     # 7: use phase energy consumption, 8: wood use carbon balance (forest and waste mgt.),
     # 9: passenger-km, 10: heated building space, 11: cooled building space.
+    CascDataExp      = np.zeros((2,3,NS,NR,NE)) 
     
     for r in range(0,NE): # RE scenario
         Path = os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls')
@@ -202,10 +205,13 @@ def main(RegionalScope,FolderList,SectorString):
             for rcp in range(0,NR): # RCP
                 if nn == 0:
                     Data = np.einsum('SE->ES',CumEms2050[:,rcp,:])
+                    CascDataExp[0,0,:,:,:] = CumEms2050.copy()
                 if nn == 1:
                     Data = np.einsum('SE->ES',10*AvgDecadalEms[:,rcp,:,2])
+                    CascDataExp[0,1,:,:,:] = 10*AvgDecadalEms[:,:,:,2].copy()
                 if nn == 2:
                     Data = np.einsum('SE->ES',AnnEms2050[:,rcp,:])
+                    CascDataExp[0,2,:,:,:] = AnnEms2050.copy()
                     
                 inc = -100 * (Data[0,m] - Data[-1,m])/Data[0,m]
             
@@ -242,7 +248,7 @@ def main(RegionalScope,FolderList,SectorString):
                 plt.text(Offset2, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
                 plt.text(Offset3, 0.94  *Right, Scens[m],fontsize=18,fontweight='bold') 
                 plt.title('RE strats. and GHG emissions, ' + SectorString + '.', fontsize = 18)
-                plt.ylabel(Title[nn] + ', Mt.', fontsize = 18)
+                plt.ylabel(Title[nn] + r', Mt CO$_2$-eq.', fontsize = 18)
                 plt.xticks(XTicks)
                 plt.yticks(fontsize =18)
                 ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
@@ -254,7 +260,6 @@ def main(RegionalScope,FolderList,SectorString):
                 fig_name = RegionalScope + '_' + SectorString + '_' + Title[nn] + '_' + Scens[m] + '_' + Rcens[rcp] + '.png'
                 fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
                 
-    
     ### Area plot RE
     AnnEms             = np.zeros((Nt,NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
     MatEms             = np.zeros((Nt,NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
@@ -506,21 +511,23 @@ def main(RegionalScope,FolderList,SectorString):
         if Resultsheet2.cell_value(am1, 0) == 'In-use stock, all materials':
             break # that gives us the right index from the result table.
         am1 += 1        
-    pkm = 1
-    while True:
-        if Resultsheet2.cell_value(pkm, 0) == 'passenger-km supplied by pass. vehicles':
-            break # that gives us the right index from the result table.
-        pkm += 1            
-    bs1 = 1
-    while True:
-        if Resultsheet2.cell_value(bs1, 0) == 'Total heated floor space, res. buildings':
-            break # that gives us the right index from the result table.
-        bs1 += 1 
-    bs2 = 1
-    while True:
-        if Resultsheet2.cell_value(bs2, 0) == 'Total cooled floor space, res. buildings':
-            break # that gives us the right index from the result table.
-        bs2 += 1 
+    if SectorString.find('pav') >= 0:
+        pkm = 1
+        while True:
+            if Resultsheet2.cell_value(pkm, 0) == 'passenger-km supplied by pass. vehicles':
+                break # that gives us the right index from the result table.
+            pkm += 1            
+    if SectorString.find('reb') >= 0:            
+        bs1 = 1
+        while True:
+            if Resultsheet2.cell_value(bs1, 0) == 'Total heated floor space, res. buildings':
+                break # that gives us the right index from the result table.
+            bs1 += 1 
+        bs2 = 1
+        while True:
+            if Resultsheet2.cell_value(bs2, 0) == 'Total cooled floor space, res. buildings':
+                break # that gives us the right index from the result table.
+            bs2 += 1 
         
     for r in range(0,NE): # RE scenario
         Path = os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls')
@@ -571,9 +578,11 @@ def main(RegionalScope,FolderList,SectorString):
                     TimeSeries_R[6,r,t,s,c] = Resultsheet2.cell_value(am1+ 2*s +c,t+8)   
                     TimeSeries_R[7,r,t,s,c] = Resultsheet2.cell_value(en3+ 2*s +c,t+8)     
                     TimeSeries_R[8,r,t,s,c] = Resultsheet2.cell_value(fci+ 2*s +c,t+8) + Resultsheet2.cell_value(wci+ 2*s +c,t+8)
-                    TimeSeries_R[9,r,t,s,c] = Resultsheet2.cell_value(pkm+ 2*s +c,t+8) 
-                    TimeSeries_R[10,r,t,s,c]= Resultsheet2.cell_value(bs1+ 2*s +c,t+8) 
-                    TimeSeries_R[11,r,t,s,c]= Resultsheet2.cell_value(bs2+ 2*s +c,t+8) 
+                    if SectorString.find('pav') >= 0:
+                        TimeSeries_R[9,r,t,s,c] = Resultsheet2.cell_value(pkm+ 2*s +c,t+8) 
+                    if SectorString.find('reb') >= 0:
+                        TimeSeries_R[10,r,t,s,c]= Resultsheet2.cell_value(bs1+ 2*s +c,t+8) 
+                        TimeSeries_R[11,r,t,s,c]= Resultsheet2.cell_value(bs2+ 2*s +c,t+8) 
                 MatAnnEms2030[s,c,r]      = Resultsheet2.cell_value(mci+ 2*s +c,22)
                 MatAnnEms2050[s,c,r]      = Resultsheet2.cell_value(mci+ 2*s +c,42)
                 AvgDecadalMatEms[s,c,r,0] = sum([Resultsheet2.cell_value(mci+ 2*s +c,t) for t in range(13,23)])/10
@@ -684,10 +693,13 @@ def main(RegionalScope,FolderList,SectorString):
             for rcp in range(0,NR): # RCP
                 if nn == 0:
                     Data = np.einsum('SE->ES',MatCumEms2050[:,rcp,:])
+                    CascDataExp[1,0,:,:,:] = MatCumEms2050.copy()
                 if nn == 1:
                     Data = np.einsum('SE->ES',10*AvgDecadalMatEms[:,rcp,:,2])
+                    CascDataExp[1,1,:,:,:] = 10*AvgDecadalMatEms[:,:,:,2].copy()
                 if nn == 2:
                     Data = np.einsum('SE->ES',MatAnnEms2050[:,rcp,:])
+                    CascDataExp[1,2,:,:,:] = MatAnnEms2050.copy()
                     
                 inc = -100 * (Data[0,m] - Data[-1,m])/Data[0,m]
             
@@ -724,7 +736,7 @@ def main(RegionalScope,FolderList,SectorString):
                 plt.text(Offset2, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
                 plt.text(Offset3, 0.94  *Right, Scens[m],fontsize=18,fontweight='bold') 
                 plt.title('RE strats. and mat GHG emissions, ' + SectorString + '.', fontsize = 18)
-                plt.ylabel(Title[nn] + ', Mt.', fontsize = 18)
+                plt.ylabel(Title[nn] + r', Mt CO$_2$-eq.', fontsize = 18)
                 plt.xticks(XTicks)
                 plt.yticks(fontsize =18)
                 ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
@@ -738,11 +750,13 @@ def main(RegionalScope,FolderList,SectorString):
 
     # Area plot, stacked, GHG emissions, system and material production
     MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select colors from the 'Paired' color map.            
-    grey0_9      = np.array([0.9,0.9,0.9,1])
+    grey0_9      = np.array([0.8,0.8,0.8,1])
     
-    Title      = ['GHG_System','GHG_matcycles']
+    Title      = ['GHG, system-wide','GHG, material cycles']
+    FName      = ['GHG_System','GHG_matcycles']
     Scens      = ['LED','SSP1','SSP2']
-    Rcens      = ['Base','RCP2_6']      
+    Rcens      = ['Base','RCP2_6']   
+    DataArea   = np.zeros((2,Nt,NS,NR,NE)) # 2 system scopes x Nt x SSP x RCP x RE scenarios
     
     for nn in range(0,len(Title)):
         #mS = 1
@@ -750,11 +764,13 @@ def main(RegionalScope,FolderList,SectorString):
         for mRCP in range(0,NR):
             for mS in range(0,NS): # SSP               
                 if nn == 0:
-                    Data = AnnEms[:,mS,mRCP,:]
+                    Data                 = AnnEms[:,mS,mRCP,:]
+                    DataArea[nn,:,:,:,:] = AnnEms.copy()
                 
                 if nn == 1:
-                    Data = MatEms[:,mS,mRCP,:]                
-                
+                    Data                 = MatEms[:,mS,mRCP,:]                
+                    DataArea[nn,:,:,:,:] = MatEms.copy()
+                    
                 fig  = plt.figure(figsize=(8,5))
                 ax1  = plt.axes([0.08,0.08,0.85,0.9])
                 
@@ -768,22 +784,27 @@ def main(RegionalScope,FolderList,SectorString):
                     ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:], alpha=0.75)) # create proxy artist for legend
                     ax1.plot(np.arange(2016,2061),Data[:,m],linestyle = '--', color = MyColorCycle[m,:], linewidth = 1.1,)                
                 ax1.plot(np.arange(2016,2061),Data[:,0],linestyle = '--', color = 'k', linewidth = 1.1,)               
+                PltLegx, = plt.plot([0,1],[0,1],linestyle = '--', color = 'k', linewidth = 1.1)
+                ProxyHandlesList.append(PltLegx)
                 #plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
-                #plt.text(2027,Data[m,:].max()*1.02, 'Colors may deviate from legend colors due to overlap of RES wedges.',fontsize=8.5,fontweight='bold')
+                plt.text(2027,Data[m,:].max()*1.02, 'Colors may deviate from legend colors due to overlap of RES wedges.',fontsize=8.5,fontweight='bold')
                 
-                plt.title(Title[nn] + ' \n' + RegionalScope + ', ' + SectorString + ', ' + Scens[mS] + '.', fontsize = 18)
-                plt.ylabel('Mt of CO2-eq.', fontsize = 18)
+                plt.title(Title[nn] + ' \n' + RegionalScope + ', ' + SectorString + ', ' + Scens[mS] + ', ' + Rcens[mRCP] + '.', fontsize = 18)
+                plt.ylabel(r'Mt of CO$_2$-eq.', fontsize = 18)
                 plt.xlabel('Year', fontsize = 18)
                 plt.xticks(fontsize=18)
                 plt.yticks(fontsize=18)
                 if PlotCtrl == 0: # vehicles, legend lower left
                     plt.legend(handles = reversed(ProxyHandlesList),labels = LWE_area, shadow = False, prop={'size':12},ncol=1, loc = 'lower left')# ,bbox_to_anchor=(1.91, 1)) 
                 if PlotCtrl == 1: # buildings, upper right
-                        plt.legend(handles = reversed(ProxyHandlesList),labels = LWE_area, shadow = False, prop={'size':12},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
+                    plt.legend(handles = reversed(ProxyHandlesList),labels = LWE_area, shadow = False, prop={'size':12},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
                 ax1.set_xlim([2015, 2061])
-                
+#                if nn == 0:
+#                    ax1.set_ylim([0, 220])
+#                if nn == 1:
+#                    ax1.set_ylim([0, 10.5])
                 plt.show()
-                fig_name = RegionalScope + '_' + SectorString + '_' + Title[nn] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '.png'
+                fig_name = RegionalScope + '_' + SectorString + '_' + FName[nn] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '.png'
                 fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
                
               
@@ -1072,9 +1093,35 @@ def main(RegionalScope,FolderList,SectorString):
             fig_name = RegionalScope + '_' + SectorString + '_' + Title[nn] + '.png'
             fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
             
+    # Save data to xls
+    # For Germany paper plot
+    ColIndex       = [str(mmx) for mmx in  range(2016,2061)]
+    RowIndex       = pd.MultiIndex.from_product([['System-wide GHG','Material cycle GHG'],['LED','SSP1','SSP2'],['Base','RCP2_6'],LWE_area[0:-1]], names=('System scope','SSP','RCP','ME strategy'))
+    DF_GHGA_global = pd.DataFrame(np.einsum('ItSRE->ISREt',DataArea).reshape(12*NE,45), index=RowIndex, columns=ColIndex)
+    DF_GHGA_global.to_excel(os.path.join(RECC_Paths.results_path,'GHG_Area_Data_' + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)
     
+    if SectorString == 'pav_reb' or SectorString == 'pav_nrb' or SectorString == 'pav_reb_nrb':
+        ColIndex       = [str(mmx) for mmx in  range(2016,2061)]
+        RowIndex       = pd.MultiIndex.from_product([['Steel','Aluminium','Copper','Cement','Plastics','Timber'],['LED','SSP1','SSP2'],['Base','RCP2_6'],['No ME','+ higher yields', '+ re-use/longer use','+ material subst.','+ down-sizing','+ car-sharing','+ ride-sharing','+ more intense bld. use = All ME stratgs.']], names=('Material','SSP','RCP','ME cascade steps'))
+        DF_PriM_global = pd.DataFrame(np.einsum('tmSRE->mSREt',MatProduction_Prim).reshape(288,45), index=RowIndex, columns=ColIndex)
+        DF_PriM_global.to_excel(os.path.join(RECC_Paths.results_path,'PrimaryMaterial_'   + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)
+        DF_SecM_global = pd.DataFrame(np.einsum('tmSRE->mSREt',MatProduction_Sec).reshape(288,45),  index=RowIndex, columns=ColIndex)
+        DF_SecM_global.to_excel(os.path.join(RECC_Paths.results_path,'SecondaryMaterial_' + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)
+        
+        ColIndex       = ['No ME','+ higher yields', '+ re-use/longer use','+ material subst.','+ down-sizing','+ car-sharing','+ ride-sharing','+ more intense bld. use = All ME stratgs.']
+        RowIndex       = pd.MultiIndex.from_product([['System-wide GHG','Material cycle GHG'],['Cumulative GHG, 2016-2050','Avg. annual GHG, 2040-2050','Annual GHG, 2050'],['LED','SSP1','SSP2'],['Base','RCP2_6']], names=('System scope','Indicator','SSP','RCP'))
+        DF_GHGC_global = pd.DataFrame(CascDataExp.reshape(36,8), index=RowIndex, columns=ColIndex)
+        DF_GHGC_global.to_excel(os.path.join(RECC_Paths.results_path,'GHG_Cascade_Data_'  + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)
+        
     return ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, RecCreditAvgDec, CumEms2050, AnnEms2050, MatStocks, TimeSeries_R, MatEms
 
 # code for script to be run as standalone function
 if __name__ == "__main__":
     main()
+
+#
+#
+#
+    
+    
+    

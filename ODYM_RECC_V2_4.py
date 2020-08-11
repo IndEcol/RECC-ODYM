@@ -355,7 +355,7 @@ def main():
     #Ind_2020      = 120 #index of year 2020
     IsClose_Remainder_Small = 1e-15 
     IsClose_Remainder_Large = 1e-7 
-    DPIRES        = 50 # 50 for overview or 500 for paper plots
+    DPI_RES        = ScriptConfig['Plot1Max'] # 50 for overview or 500 for paper plots, defined in ModelConfig_List
     
     # Determine location of the indices of individual sectors in the region-specific list and in the list of all goods
     # indices of sectors with same regional scope in complete goods list
@@ -589,11 +589,11 @@ def main():
                                                       Indices='trSR', Values=np.zeros((Nt,Nr,NS,NR)), Uncert=None,
                                                       Unit='1')
     ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values        = np.einsum('RtS,r->trSR',ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[:,0,:,:],np.ones(Nr)).copy()
-    ParameterDict['3_SHA_BuildinRenovationScaleUp_r'] = msc.Parameter(Name='3_SHA_BuildinRenovationScaleUp_r', ID='3_SHA_BuildinRenovationScaleUp_r',
+    ParameterDict['3_SHA_BuildingRenovationScaleUp_r'] = msc.Parameter(Name='3_SHA_BuildingRenovationScaleUp_r', ID='3_SHA_BuildingRenovationScaleUp_r',
                                                       UUID=None, P_Res=None, MetaData=None,
                                                       Indices='trSR', Values=np.zeros((Nt,Nr,NS,NR)), Uncert=None,
                                                       Unit='1')
-    ParameterDict['3_SHA_BuildinRenovationScaleUp_r'].Values        = np.einsum('RtS,r->trSR',ParameterDict['3_SHA_BuildinRenovationScaleUp'].Values[:,0,:,:],np.ones(Nr)).copy()
+    ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values        = np.einsum('RtS,r->trSR',ParameterDict['3_SHA_BuildingRenovationScaleUp'].Values[:,0,:,:],np.ones(Nr)).copy()
     
     # 9) LED scenario data from proxy scenarios:
     # 2_P_RECC_Population_SSP_32R
@@ -1357,10 +1357,10 @@ def main():
                 RECC_System.ParameterDict['3_MC_RECC_Buildings_t'].Values[:,:,:,:,:,mS] = np.einsum('cmBr,t->mBrct',RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS],np.ones(Nt)) # mBrctS
                 if ScriptConfig['Include_Renovation_reb'] == 'True' and ScriptConfig['No_EE_Improvements'] == 'False': 
                     RenPot_E   = np.einsum('rcB,rB->rcB',RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:],RECC_System.ParameterDict['3_SHA_EnergySavingsPot_Renovation_ResBuildings'].Values[:,mS,:]) # Unit: 1
-                    RenPot_E_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildinRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot_E) # Unit: 1, Defined as share of stock crB that is renovated by year t * energy saving potential
+                    RenPot_E_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot_E) # Unit: 1, Defined as share of stock crB that is renovated by year t * energy saving potential
                     RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cBVnr,trcB->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NB))-RenPot_E_t)) # cBVnrt
                     # Add renovation material intensity to building material intensity:
-                    RenPot_M_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildinRenovationScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crB that is renovated by year t
+                    RenPot_M_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crB that is renovated by year t
                     MC_Ren = RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS]*RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Relative'].Values + RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values
                     RECC_System.ParameterDict['3_MC_RECC_Buildings_t'].Values[:,:,:,0:SwitchTime,:,mS] += np.einsum('cmBr,trcB->mBrct',MC_Ren[0:SwitchTime,:,:,:],RenPot_M_t)
                 else:
@@ -1467,7 +1467,7 @@ def main():
                 # Include renovation
                 if ScriptConfig['Include_Renovation_nrb'] == 'True' and ScriptConfig['No_EE_Improvements'] == 'False': 
                     RenPot   = np.einsum('rcN,rN->rcN',RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_NonResBuildings'].Values[:,0:SwitchTime,:],RECC_System.ParameterDict['3_SHA_EnergySavingsPot_Renovation_NonResBuildings'].Values[:,mS,:]) # Unit: 1
-                    RenPot_t = np.einsum('tr,rcN->trcN',RECC_System.ParameterDict['3_SHA_BuildinRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot) # Unit: 1
+                    RenPot_t = np.einsum('tr,rcN->trcN',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot) # Unit: 1
                     RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cNVnr,trcN->cNVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NN))-RenPot_t)) # cNVnrt
                 else:
                     RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cNVnr,trcN->cNVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NN)))) # cNVnrt
@@ -2476,8 +2476,8 @@ def main():
             # Hop over to save memory:
             # Vehicle_km[:,mS,mR]                         = np.einsum('tcpr->t',SysVar_StockServiceProvision_UsePhase_pav[:,:,:,:,Service_Driving])
             Vehicle_km[:,mS,mR]                         = np.einsum('rt,tcpr->t', RECC_System.ParameterDict['3_IO_Vehicles_UsePhase_eff' ].Values[Service_Drivg,:,:,mS],   Stock_Detail_UsePhase_p)
-            Service_IO_ResBuildings[:,:,mR,mS]          = SysVar_StockServiceProvision_UsePhase_reb_agg.copy()
-            Service_IO_NonResBuildings[:,:,mR,mS]       = SysVar_StockServiceProvision_UsePhase_nrb_agg.copy()
+            Service_IO_ResBuildings[:,:,mS,mR]          = SysVar_StockServiceProvision_UsePhase_reb_agg.copy()
+            Service_IO_NonResBuildings[:,:,mS,mR]       = SysVar_StockServiceProvision_UsePhase_nrb_agg.copy()
             # Parameters        
             Vehicle_FuelEff[:,:,:,mS,mR]                = np.einsum('tpnr->tpr',RECC_System.ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[SwitchTime-1::,:,Service_Drivg,:,:,mS])
             ResBuildng_EnergyCons[:,:,:,mS,mR]          = np.einsum('VtBnr->tBr',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchTime-1::,:,Service_Reb,:,:,mS])
@@ -2503,12 +2503,12 @@ def main():
     #        Aa = np.einsum('tme->tme',Element_Material_Composition[:,:,:,mS,mR])           # Element composition over years
     #        Aa = np.einsum('tme->tme',Element_Material_Composition_raw[:,:,:,mS,mR])       # Element composition over years, with zero entries
     #        Aa = np.einsum('tgm->tgm',Manufacturing_Output[:,:,:,mS,mR])                   # Manufacturing_output_by_material
-    #        
             
-    #        # Extract calibration
-    #        E_Calib_Vehicles  = np.einsum('trgn->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,0:7])
-    #        E_Calib_Buildings = np.einsum('trgn->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,0:7])
-    #        E_Calib_NRBuildgs = np.einsum('trgn->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,0:7])
+    #        # Extract calibration for SSP1:
+            if mS == 1:
+                E_Calib_Vehicles  = np.einsum('trgn->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,0:7])
+                E_Calib_Buildings = np.einsum('trgn->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,0:7])
+                E_Calib_NRBuildgs = np.einsum('trgn->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,0:7])
             
             # Determine exit flags            
             ExitFlags['Positive_Inflow_F6_7_R32_SSP_'  + str(mS) + '_RCP_' + str(mR)] = np.isclose(RECC_System.FlowDict['F_6_7'].Values.min(),0, IsClose_Remainder_Small)
@@ -2812,7 +2812,6 @@ def main():
     for mm in range(0,Nm):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,RenovationMaterialInflow_7[:,mm,:,:],newrowoffset,len(ColLabels),'Inflow of renovation material into use phase, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part: renovation inflow)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
         
-    
     # Post calibration 2015 parameter values
     Calib_Result_workbook = xlwt.Workbook(encoding = 'ascii') # Export file
     Calib_Result_workbook.add_sheet('Cover')
@@ -2848,7 +2847,13 @@ def main():
         for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
             pav_Sheet.write(m,5,label = ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,m-2,0,1])
             m+=1
-                    
+        # energy consumption, use phase
+        pav_Sheet.write(1,6,label = '2015 use phase energy consumption, across all segments and drive technologies, by model region. Unit: TJ/yr. Value for SSP1.', style = mystyle)
+        m=2
+        for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+            pav_Sheet.write(m,6,label = E_Calib_Vehicles[0,m-2])
+            m+=1
+            
     if 'reb' in SectorList:
         reb_Sheet = Calib_Result_workbook.add_sheet('residential buildings')
         reb_Sheet.write(0,1,label = '2015 post calibration values, by model region', style = mystyle)
@@ -2858,11 +2863,38 @@ def main():
             reb_Sheet.write(m,1,label = Rname, style = mystyle)
             m+=1
         # pC stock values
-        reb_Sheet.write(1,2,label = '2015 per capita stock values, total (all building types and energy standars), by model region. Unit: m2 per person.', style = mystyle)
+        reb_Sheet.write(1,2,label = '2015 per capita stock values, total (all building types and energy standards), by model region. Unit: m2 per person.', style = mystyle)
         m=2
         for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
             reb_Sheet.write(m,2,label = TotalStockCurves_UsePhase_B_pC[0,m-2])
             m+=1
+        # energy consumption, use phase
+        reb_Sheet.write(1,3,label = '2015 use phase energy consumption, across all building types and energy standards, by model region. Unit: TJ/yr. Value for SSP1.', style = mystyle)
+        m=2
+        for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+            reb_Sheet.write(m,3,label = E_Calib_Buildings[0,m-2])
+            m+=1            
+
+    if 'nrb' in SectorList:
+        nrb_Sheet = Calib_Result_workbook.add_sheet('nonres. buildings')
+        nrb_Sheet.write(0,1,label = '2015 post calibration values, by model region', style = mystyle)
+        nrb_Sheet.write(1,1,label = 'region', style = mystyle)
+        m=2
+        for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+            nrb_Sheet.write(m,1,label = Rname, style = mystyle)
+            m+=1
+        # pC stock values
+        nrb_Sheet.write(1,2,label = '2015 per capita stock values, total (all building types and energy standards), by model region. Unit: m2 per person.', style = mystyle)
+        m=2
+        for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+            nrb_Sheet.write(m,2,label = TotalStockCurves_UsePhase_N_pC[0,m-2])
+            m+=1
+        # energy consumption, use phase
+        nrb_Sheet.write(1,3,label = '2015 use phase energy consumption, across all building types and energy standards, by model region. Unit: TJ/yr. Value for SSP1.', style = mystyle)
+        m=2
+        for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+            nrb_Sheet.write(m,3,label = E_Calib_NRBuildgs[0,m-2])
+            m+=1     
     
     # PLOT
     MyColorCycle = pylab.cm.Paired(np.arange(0,1,0.2))
@@ -2897,7 +2929,7 @@ def main():
     fig_name = 'GHG_Ems_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
+    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
     
@@ -2916,7 +2948,7 @@ def main():
     fig_name = 'GHG_PP_WithEST'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
+    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
     
@@ -2940,7 +2972,7 @@ def main():
     fig_name = 'PSteel_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    #fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
+    #fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
     
@@ -2964,7 +2996,7 @@ def main():
     fig_name = 'Cement_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    #fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
+    #fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
     
@@ -2988,7 +3020,7 @@ def main():
     fig_name = 'SteelRecycling_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    #fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
+    #fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
     
@@ -3013,7 +3045,7 @@ def main():
     fig_name = 'GHG_UsePhase_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
+    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
     
@@ -3033,7 +3065,7 @@ def main():
     #    fig_name = 'ImplementationCurves_' + IndexTable.Classification[IndexTable.index.get_loc('Region')].Items[0]
     #    # include figure in logfile:
     #    fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    #    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
+    #    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     #    Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     #    Figurecounter += 1
     
@@ -3044,8 +3076,9 @@ def main():
     #grey0_9      = np.array([0.9,0.9,0.9,1])
     
     SSPScens   = ['LED','SSP1','SSP2']
-    RCPScens   = ['No climate policy','2 degrees C energy mix']
+    RCPScens   = ['No climate policy','RCP2.6 energy mix']
     Area       = ['use phase','use phase, scope 2 (el)','use phase, other indirect','primary material product.','manufact. & recycling','total (+ forest & biogen. C)']     
+    DataAExp   = np.zeros((NS,NR,Nt,6))
     
     for mS in range(0,NS): # SSP
         for mR in range(0,NR): # RCP
@@ -3071,20 +3104,29 @@ def main():
             ProxyHandlesList.append(plta) # create proxy artist for legend    
             #plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
             
+            #copy data to export array
+            DataAExp[mS,mR,:,0] = GWP_UsePhase_7d[:,mS,mR].copy()
+            DataAExp[mS,mR,:,1] = GWP_UsePhase_7i_Scope2_El[:,mS,mR].copy()
+            DataAExp[mS,mR,:,2] = GWP_UsePhase_7i_OtherIndir[:,mS,mR].copy()
+            DataAExp[mS,mR,:,3] = GWP_PrimaryMaterial_3di[:,mS,mR].copy()
+            DataAExp[mS,mR,:,4] = GWP_MaterialCycle_5di_9di[:,mS,mR].copy()
+            DataAExp[mS,mR,:,5] = GWP_System_3579di[:,mS,mR].copy()
+            
             plt.title('GHG emissions, stacked by process group, \n' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.', fontsize = 18)
-            plt.ylabel('Mt of CO2-eq.', fontsize = 18)
+            plt.ylabel(r'Mt of CO$_2$-eq.', fontsize = 18)
             plt.xlabel('Year', fontsize = 18)
             plt.xticks(fontsize=18)
             plt.yticks(fontsize=18)
             plt.legend(handles = reversed(ProxyHandlesList),labels = reversed(Area), shadow = False, prop={'size':14},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
             ax1.set_xlim([2015, 2060])
+            #ax1.set_ylim([0, 220])
             
             plt.show()
             fig_name = 'GWP_TimeSeries_AllProcesses_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
             # include figure in logfile:
             fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
             # comment out to save disk space in archive:
-            fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
+            fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1
     
@@ -3121,7 +3163,7 @@ def main():
             # include figure in logfile:
             fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
             # comment out to save disk space in archive:
-            fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPIRES, bbox_inches='tight')
+            fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1
     
@@ -3152,6 +3194,12 @@ def main():
     Result_workbook_GHG.save(os.path.join(ProjectSpecs_Path_Result,'SysVar_TotalGHGFootprint.xls'))
     Calib_Result_workbook.save(os.path.join(ProjectSpecs_Path_Result,'CalibResults.xls'))
     ExitFlag_Export.save(os.path.join(ProjectSpecs_Path_Result,'ExitFlag_Export.xls'))
+    
+    # Export area plot as multi-index Excel file:
+    ColIndex       = [str(mmx) for mmx in  range(2015,2061)]
+    RowIndex       = pd.MultiIndex.from_product([['use phase','use phase, scope 2 (el)','use phase, other indirect','primary material product.','manufact. & recycling','total (+ forest & biogen. C)'],['LED','SSP1','SSP2'],['Base','RCP2_6']], names=('System scope','SSP','RCP'))
+    DF_GHGA_global = pd.DataFrame(np.einsum('SRts->sSRt',DataAExp).reshape(36,46), index=RowIndex, columns=ColIndex)
+    DF_GHGA_global.to_excel(os.path.join(ProjectSpecs_Path_Result,'GHG_Area_Data.xls'), merge_cells=False)    
     
     ## 5.3) Export as .mat file
     #Mylog.info('### 5.4 - Export to Matlab')
