@@ -14,7 +14,7 @@ def main(RegionalScope,FolderList,SectorString):
     import os
     import RECC_Paths # Import path file   #
     
-    PlotExpResolution = 250 # dpi 150 for overview or 500 for paper
+    PlotExpResolution = 100 # dpi 150 for overview or 500 for paper
     
     # FileOrder needs to be kept:
     # pav:

@@ -73,7 +73,7 @@ TimeSeries_All      = np.zeros((30,45,25,2,3,2)) # NX x Nt x Nr x NV x NS x NR /
 # 0: system-wide GHG, no RES 1: system-wide GHG, all RES
 # 2: material-related GHG, no RES, 3: material-related GHG, all RES,
 
-PlotExpResolution = 500 # dpi 100 for overview or 500 for paper
+PlotExpResolution = 300 # dpi 100 for overview or 500 for paper
 
 # Number of scenarios:
 NS = 3 # SSP
@@ -81,8 +81,8 @@ NR = 2 # RCP
     
 ###ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
 #ScenarioSetting = 'Evaluate_pav_reb_Cascade' # run eval and plot scripts for selected regions and sectors only
-#ScenarioSetting = 'Evaluate_pav_reb_Cascade_all' # run eval and plot scripts for all regions and sectors
-ScenarioSetting = 'Germany_detail_evaluate' # run eval and plot scripts for Germany case study only
+ScenarioSetting = 'Evaluate_pav_reb_Cascade_all' # run eval and plot scripts for all regions and sectors
+#ScenarioSetting = 'Germany_detail_evaluate' # run eval and plot scripts for Germany case study only
 #ScenarioSetting = 'Evaluate_TestRun' # Test run evaluate
 
 # open scenario sheet
@@ -411,7 +411,7 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
             plt.text(0.85, 0.97, '2050 annual emissions', fontsize=11, rotation=90, fontweight='bold')          
             plt.text(0.85, 2.2,  '2016-50 cum. emissions',fontsize=11, rotation=90, fontweight='bold')          
 
-            plt.title('RE strats. and GHG emissions, global, pav+reb.', fontsize = 18)
+            #plt.title('RE strats. and GHG emissions, global, pav+reb.', fontsize = 18)
             
             plt.ylabel('GHG reductions, system-wide, %.', fontsize = 18)
             plt.xticks(XTicks)
@@ -644,28 +644,81 @@ for reg in All_RegionList7:
     PlotOrder_7_pav.append(Pav_RegionList20.index(reg))
     PlotOrder_7_reb.append(Reb_RegionList20.index(reg))
 
+#fig, axs = plt.subplots(2, 7, sharex=True, gridspec_kw={'hspace': 0.10, 'wspace': 0.4}, figsize=(15,5))
+#for plotNo in np.arange(0,7):
+#    # first row: pav
+#    Sect = 0
+#    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_pav[plotNo],Sect,SEScen,0],color=BaseBlue, lw=0.8,  linestyle='-')   # Baseline, no RES
+#    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_pav[plotNo],Sect,SEScen,0],color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
+#    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_pav[plotNo],Sect,SEScen,1],color=R26Green, lw=0.8,  linestyle='-')   # RCP2.6, no RES
+#    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_pav[plotNo],Sect,SEScen,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
+#    axs[0, plotNo].set_ylim(bottom=0)
+#    # second row: reb
+#    Sect = 1
+#    for mmn in range(0,45): # plot grey bar where net emisisons are negative:
+#        if TimeSeries_All[1,mmn,PlotOrder_7_reb[plotNo],Sect,SEScen,1] < 0:
+#            axs[1, plotNo].fill_between([2016+mmn,2016+mmn+1], [0,0],[Reb_axis_7x2[plotNo],Reb_axis_7x2[plotNo]],linestyle = '--', facecolor =np.array([0.15,0.15,0.15,0.15]), linewidth = 0.0)
+#    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_reb[plotNo],Sect,SEScen,0],color=BaseBlue, lw=0.8,  linestyle='-')   # Baseline, no RES
+#    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_reb[plotNo],Sect,SEScen,0],color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
+#    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_reb[plotNo],Sect,SEScen,1],color=R26Green, lw=0.8,  linestyle='-')   # RCP2.6, no RES
+#    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_reb[plotNo],Sect,SEScen,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
+#    axs[1, plotNo].set_ylim(bottom=0)
+#    
+#    axs[0, plotNo].text(Pav_label_offset7[plotNo], Pav_label_pos7[plotNo]*Pav_axis_7x2[plotNo], All_RegionList7Plot[plotNo], fontsize=9, rotation=0, fontweight='normal')
+#    axs[1, plotNo].text(Reb_label_offset7[plotNo], Reb_label_pos7[plotNo]*Reb_axis_7x2[plotNo], All_RegionList7Plot[plotNo], fontsize=9, rotation=0, fontweight='normal')
+#    
+#    axs[0, plotNo].tick_params(axis='x', labelsize=9)
+#    axs[0, plotNo].tick_params(axis='y', labelsize=9)
+#    axs[1, plotNo].tick_params(axis='x', labelsize=9)
+#    axs[1, plotNo].tick_params(axis='y', labelsize=9)
+#    
+#    for axis in ['top','bottom','left','right']:
+#        axs[0, plotNo].spines[axis].set_linewidth(0.5)
+#        axs[1, plotNo].spines[axis].set_linewidth(0.5)
+#    axs[0, plotNo].axis([2012, 2063, 0, Pav_axis_7x2[plotNo]])
+#    axs[0, plotNo].tick_params(axis='both',width = 0.5)
+#    axs[1, plotNo].axis([2012, 2063, 0, Reb_axis_7x2[plotNo]])
+#    axs[1, plotNo].tick_params(axis='both',width = 0.5)
+#
+#plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.8,  linestyle='-')  # Baseline, no RES
+#plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.99, linestyle='--') # Baseline, full RES
+#plt.plot([2010,2011],[0,0],color=R26Green, lw=0.8,  linestyle='-')  # RCP2.6, no RES
+#plt.plot([2010,2011],[0,0],color=R26Green, lw=0.99, linestyle='--') # RCP2.6, full RES
+#plt.legend(LegendLabels,shadow = False,  prop={'size':9}, loc = 'upper right',bbox_to_anchor=(2.6, 1))    
+#
+#fig.suptitle(r'System-wide GHG, pav+reb, Mt CO$_2$-eq/yr, SSP1', fontsize=14)
+#for xm in range(0,7):
+#    plt.sca(axs[1,xm])
+#    plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 9, fontweight = 'normal')
+#plt.show()
+#fig_name  = 'Fig1_select_GHG_pav_reb_SSP1'
+#fig.savefig(os.path.join(RECC_Paths.results_path,fig_name+'.png'), dpi = PlotExpResolution, bbox_inches='tight')  
+#fig.savefig(os.path.join(RECC_Paths.results_path,fig_name+'.svg'), dpi = PlotExpResolution, bbox_inches='tight')  
+
+# Gt version
+LegendLabels = ['No new climate policy, no material efficiency strategies','No new climate policy, full material efficiency strategies','RCP2.6 (2°C policy mix), no material efficiency strategies','RCP2.6 (2°C policy mix), full material efficiency strategies']
 fig, axs = plt.subplots(2, 7, sharex=True, gridspec_kw={'hspace': 0.10, 'wspace': 0.4}, figsize=(15,5))
 for plotNo in np.arange(0,7):
     # first row: pav
     Sect = 0
-    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_pav[plotNo],Sect,SEScen,0],color=BaseBlue, lw=0.8,  linestyle='-')   # Baseline, no RES
-    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_pav[plotNo],Sect,SEScen,0],color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
-    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_pav[plotNo],Sect,SEScen,1],color=R26Green, lw=0.8,  linestyle='-')   # RCP2.6, no RES
-    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_pav[plotNo],Sect,SEScen,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
+    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_pav[plotNo],Sect,SEScen,0]/1000,color=BaseBlue, lw=0.8,  linestyle='-')   # Baseline, no RES
+    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_pav[plotNo],Sect,SEScen,0]/1000,color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
+    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_pav[plotNo],Sect,SEScen,1]/1000,color=R26Green, lw=0.8,  linestyle='-')   # RCP2.6, no RES
+    axs[0, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_pav[plotNo],Sect,SEScen,1]/1000,color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
     axs[0, plotNo].set_ylim(bottom=0)
     # second row: reb
     Sect = 1
     for mmn in range(0,45): # plot grey bar where net emisisons are negative:
         if TimeSeries_All[1,mmn,PlotOrder_7_reb[plotNo],Sect,SEScen,1] < 0:
-            axs[1, plotNo].fill_between([2016+mmn,2016+mmn+1], [0,0],[Reb_axis_7x2[plotNo],Reb_axis_7x2[plotNo]],linestyle = '--', facecolor =np.array([0.15,0.15,0.15,0.15]), linewidth = 0.0)
-    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_reb[plotNo],Sect,SEScen,0],color=BaseBlue, lw=0.8,  linestyle='-')   # Baseline, no RES
-    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_reb[plotNo],Sect,SEScen,0],color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
-    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_reb[plotNo],Sect,SEScen,1],color=R26Green, lw=0.8,  linestyle='-')   # RCP2.6, no RES
-    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_reb[plotNo],Sect,SEScen,1],color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
+            axs[1, plotNo].fill_between([2016+mmn,2016+mmn+1], [0,0],[Reb_axis_7x2[plotNo]/1000,Reb_axis_7x2[plotNo]/1000],linestyle = '--', facecolor =np.array([0.15,0.15,0.15,0.15]), linewidth = 0.0)
+    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_reb[plotNo],Sect,SEScen,0]/1000,color=BaseBlue, lw=0.8,  linestyle='-')   # Baseline, no RES
+    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_reb[plotNo],Sect,SEScen,0]/1000,color=BaseBlue, lw=0.99, linestyle='--')  # Baseline, full RES
+    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[0,:,PlotOrder_7_reb[plotNo],Sect,SEScen,1]/1000,color=R26Green, lw=0.8,  linestyle='-')   # RCP2.6, no RES
+    axs[1, plotNo].plot(np.arange(2016,2061), TimeSeries_All[1,:,PlotOrder_7_reb[plotNo],Sect,SEScen,1]/1000,color=R26Green, lw=0.99, linestyle='--')  # RCP2.6, full RES
     axs[1, plotNo].set_ylim(bottom=0)
     
-    axs[0, plotNo].text(Pav_label_offset7[plotNo], Pav_label_pos7[plotNo]*Pav_axis_7x2[plotNo], All_RegionList7Plot[plotNo], fontsize=9, rotation=0, fontweight='normal')
-    axs[1, plotNo].text(Reb_label_offset7[plotNo], Reb_label_pos7[plotNo]*Reb_axis_7x2[plotNo], All_RegionList7Plot[plotNo], fontsize=9, rotation=0, fontweight='normal')
+    axs[0, plotNo].text(Pav_label_offset7[plotNo], Pav_label_pos7[plotNo]*Pav_axis_7x2[plotNo]/1000, All_RegionList7Plot[plotNo], fontsize=9, rotation=0, fontweight='normal')
+    axs[1, plotNo].text(Reb_label_offset7[plotNo], Reb_label_pos7[plotNo]*Reb_axis_7x2[plotNo]/1000, All_RegionList7Plot[plotNo], fontsize=9, rotation=0, fontweight='normal')
     
     axs[0, plotNo].tick_params(axis='x', labelsize=9)
     axs[0, plotNo].tick_params(axis='y', labelsize=9)
@@ -675,26 +728,25 @@ for plotNo in np.arange(0,7):
     for axis in ['top','bottom','left','right']:
         axs[0, plotNo].spines[axis].set_linewidth(0.5)
         axs[1, plotNo].spines[axis].set_linewidth(0.5)
-    axs[0, plotNo].axis([2012, 2063, 0, Pav_axis_7x2[plotNo]])
+    axs[0, plotNo].axis([2012, 2063, 0, Pav_axis_7x2[plotNo]/1000])
     axs[0, plotNo].tick_params(axis='both',width = 0.5)
-    axs[1, plotNo].axis([2012, 2063, 0, Reb_axis_7x2[plotNo]])
+    axs[1, plotNo].axis([2012, 2063, 0, Reb_axis_7x2[plotNo]/1000])
     axs[1, plotNo].tick_params(axis='both',width = 0.5)
 
 plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.8,  linestyle='-')  # Baseline, no RES
 plt.plot([2010,2011],[0,0],color=BaseBlue, lw=0.99, linestyle='--') # Baseline, full RES
 plt.plot([2010,2011],[0,0],color=R26Green, lw=0.8,  linestyle='-')  # RCP2.6, no RES
 plt.plot([2010,2011],[0,0],color=R26Green, lw=0.99, linestyle='--') # RCP2.6, full RES
-plt.legend(LegendLabels,shadow = False,  prop={'size':9}, loc = 'upper right',bbox_to_anchor=(2.6, 1))    
+plt.legend(LegendLabels,shadow = False,  prop={'size':9}, loc = 'bottom left',bbox_to_anchor=(-4.8, -0.3))    # x, y 
 
-fig.suptitle(r'System-wide GHG, pav+reb, Mt CO$_2$-eq/yr, SSP1', fontsize=14)
+# fig.suptitle(r'System-wide GHG, pav+reb, Mt CO$_2$-eq/yr, SSP1', fontsize=14)
 for xm in range(0,7):
     plt.sca(axs[1,xm])
     plt.xticks([2020,2030,2040,2050,2060], ['2020','2030','2040','2050','2060'], rotation =90, fontsize = 9, fontweight = 'normal')
 plt.show()
-fig_name  = 'Fig1_select_GHG_pav_reb_SSP1'
+fig_name  = 'Fig1_select_GHG_pav_reb_SSP1_Gt'
 fig.savefig(os.path.join(RECC_Paths.results_path,fig_name+'.png'), dpi = PlotExpResolution, bbox_inches='tight')  
-fig.savefig(os.path.join(RECC_Paths.results_path,fig_name+'.svg'), dpi = PlotExpResolution, bbox_inches='tight')  
-
+fig.savefig(os.path.join(RECC_Paths.results_path,fig_name+'.svg'), dpi = PlotExpResolution, bbox_inches='tight') 
 
 # System-wide GHG, mat. GHG, and material production, with country names on top of plots
 #for mmf in range(0,4):

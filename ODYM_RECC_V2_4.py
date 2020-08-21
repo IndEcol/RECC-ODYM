@@ -116,7 +116,7 @@ def main():
     Mylog.info('### 1.3 Organize model output folder and logger')
     #Copy Config file and model script into that folder
     shutil.copy(ProjectSpecs_Name_ConFile, os.path.join(ProjectSpecs_Path_Result, ProjectSpecs_Name_ConFile))
-    shutil.copy(Name_Script + '.py'      , os.path.join(ProjectSpecs_Path_Result, Name_Script + '.py'))
+    #shutil.copy(Name_Script + '.py'      , os.path.join(ProjectSpecs_Path_Result, Name_Script + '.py'))
     
     #####################################################
     #     Section 2) Read classifications and data      #
@@ -811,8 +811,8 @@ def main():
     FabricationScrap                 = np.zeros((Nt,Nw,NS,NR))
     EnergyCons_UP_Vh                 = np.zeros((Nt,NS,NR))
     EnergyCons_UP_Bd                 = np.zeros((Nt,NS,NR))
-    EnergyCons_UP_Mn                 = np.zeros((Nt,NS,NR))
-    EnergyCons_UP_Wm                 = np.zeros((Nt,NS,NR))
+    EnergyCons_Mn                    = np.zeros((Nt,NS,NR))
+    EnergyCons_Wm                    = np.zeros((Nt,NS,NR))
     EnergyCons_UP_Service            = np.zeros((Nt,Nr,NV,NS,NR))
     EnergyCons_UP_total              = np.zeros((Nt,Nn,NS,NR))
     EnergyCons_total                 = np.zeros((Nt,Nn,NS,NR))
@@ -1149,7 +1149,10 @@ def main():
                 Total_Vehicle_km_pav_tr_pC          = np.zeros((Nt,Nr))
                 TotalStockCurves_UsePhase_p_pC_test = np.zeros((Nt,Nr)) 
                 for nrr in range(0,Nr):
-                    for ntt in range(0,Nt):            
+                    for ntt in range(0,Nt):   
+                        # convert abs. change in vehicle OR to relative change:
+                        MIP_RideSharing_Occupancy_rel = (RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] + RECC_System.ParameterDict['6_MIP_RideSharing_Occupancy'].Values[mS,nrr]) / RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS]
+                        # calculate future stock levels:
                         s0        = (1 - RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100)*(1 - RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,nrr,ntt,mS] / 100) \
                                   * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Drivg,nrr,ntt,mS])
                         s_CaS     = (RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100)*(1 - RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,nrr,ntt,mS] / 100) \
@@ -1157,10 +1160,10 @@ def main():
                                   * (RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr])
                         s_RiS     = (1 - RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100)*(RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,nrr,ntt,mS] / 100) \
                                   * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Drivg,nrr,ntt,mS]) \
-                                  / (RECC_System.ParameterDict['6_MIP_RideSharing_Occupancy'].Values[mS,nrr])
+                                  / (MIP_RideSharing_Occupancy_rel)
                         s_CaS_RiS = (RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100)*(RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,nrr,ntt,mS] / 100) \
                                   * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Drivg,nrr,ntt,mS]) \
-                                  / (RECC_System.ParameterDict['6_MIP_RideSharing_Occupancy'].Values[mS,nrr] / RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr])
+                                  / (MIP_RideSharing_Occupancy_rel / RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr])
     
                         s_total   = s0.copy() + s_CaS.copy() + s_RiS.copy() + s_CaS_RiS.copy()
                         TotalStockCurves_UsePhase_p_pC_test[ntt,nrr] = s_total.copy()
@@ -2463,8 +2466,8 @@ def main():
             # Energy flows
             EnergyCons_UP_Vh[:,mS,mR]                   = np.einsum('trpn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav).copy()
             EnergyCons_UP_Bd[:,mS,mR]                   = np.einsum('trBn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb).copy() + np.einsum('trNn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb).copy() + np.einsum('toNn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg).copy()
-            EnergyCons_UP_Mn[:,mS,mR]                   = SysVar_EnergyDemand_Manufacturing.sum(axis =1).copy()
-            EnergyCons_UP_Wm[:,mS,mR]                   = SysVar_EnergyDemand_WasteMgt.sum(axis =1).copy() +  SysVar_EnergyDemand_Remelting.sum(axis =1).copy()
+            EnergyCons_Mn[:,mS,mR]                      = SysVar_EnergyDemand_Manufacturing.sum(axis =1).copy()
+            EnergyCons_Wm[:,mS,mR]                      = SysVar_EnergyDemand_WasteMgt.sum(axis =1).copy() +  SysVar_EnergyDemand_Remelting.sum(axis =1).copy()
             EnergyCons_UP_Service[:,:,Service_Drivg,mS,mR] = SysVar_EnergyDemand_UsePhase_ByService_pav[:,:,Service_Drivg].copy()
             EnergyCons_UP_Service[:,:,Heating_loc,mS,mR]= SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,Heating_loc].copy()
             EnergyCons_UP_Service[:,:,Cooling_loc,mS,mR]= SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,Cooling_loc].copy()
@@ -2646,8 +2649,8 @@ def main():
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_total[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, use phase: ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'Tt / yr',ScriptConfig['RegionalScope'],'F_15_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Vh,newrowoffset,len(ColLabels),'Energy cons., use phase, vehicles','TJ/yr',ScriptConfig['RegionalScope'],'E_16_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Bd,newrowoffset,len(ColLabels),'Energy cons., use phase, res+non-res buildings','TJ/yr',ScriptConfig['RegionalScope'],'E_16_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Mn,newrowoffset,len(ColLabels),'Energy cons., use phase, manufacturing','TJ/yr',ScriptConfig['RegionalScope'],'E_16_5','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Wm,newrowoffset,len(ColLabels),'Energy cons., use phase, waste mgt. and remelting','TJ/yr',ScriptConfig['RegionalScope'],'E_16_9','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_Mn,newrowoffset,len(ColLabels),'Energy cons., manufacturing','TJ/yr',ScriptConfig['RegionalScope'],'E_16_5','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_Wm,newrowoffset,len(ColLabels),'Energy cons., waste mgt. and remelting','TJ/yr',ScriptConfig['RegionalScope'],'E_16_9','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # stocks
     if 'pav' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Totl[:,Sector_pav_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, pass. vehicles','million units',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -2874,7 +2877,7 @@ def main():
         for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
             reb_Sheet.write(m,3,label = E_Calib_Buildings[0,m-2])
             m+=1            
-
+    
     if 'nrb' in SectorList:
         nrb_Sheet = Calib_Result_workbook.add_sheet('nonres. buildings')
         nrb_Sheet.write(0,1,label = '2015 post calibration values, by model region', style = mystyle)
@@ -3280,7 +3283,7 @@ def main():
     OutputDict['Name_Scenario'] = Name_Scenario + '__' + TimeString + DescrString # return new scenario folder name to ScenarioControl script
         
     return OutputDict
-                    
+                        
 # code for script to be run as standalone function
 #if __name__ == "__main__":
 #    main()
