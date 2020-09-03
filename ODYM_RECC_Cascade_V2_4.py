@@ -164,7 +164,7 @@ def main(RegionalScope,FolderList,SectorString):
     RecCreditAvgDec  = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
     RecCredit        = np.zeros((12,NR,NE)) # different indices compiled x RCP x RES.
     
-    TimeSeries_R     = np.zeros((20,NE,45,3,2)) # NX x NE x Nt x NS x NR / indicators x RES x time x SSP x RCP
+    TimeSeries_R     = np.zeros((20,NE,45,3,2)) # NX x NE x Nt x NS x NR / indicators x RES x time x SSP x RCP # starts counting at 2016!
     # 2 system scopes x 3 indicators x SSP-Scenario x RCP scenario x RES scenario 
     # 0: system-wide GHG, 1: material-related GHG, 2: primar production, all materials, 3: secondary production, all materials.
     # 4: share of el + H2 in total use phase energy consumption, 5: electricity suppy GHG use phase, 6: In-use stock, all materials.
@@ -1113,7 +1113,7 @@ def main(RegionalScope,FolderList,SectorString):
         DF_GHGC_global = pd.DataFrame(CascDataExp.reshape(36,8), index=RowIndex, columns=ColIndex)
         DF_GHGC_global.to_excel(os.path.join(RECC_Paths.results_path,'GHG_Cascade_Data_'  + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)
         
-    return ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, RecCreditAvgDec, CumEms2050, AnnEms2050, MatStocks, TimeSeries_R, MatEms
+    return ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, RecCreditAvgDec, CumEms2050, CumEms2060, AnnEms2050, MatStocks, TimeSeries_R, MatEms
 
 # code for script to be run as standalone function
 if __name__ == "__main__":
