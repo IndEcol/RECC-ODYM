@@ -351,7 +351,8 @@ def main():
     DomstHW_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('DHW')
     Service_Drivg = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Driving')
     Service_Reb   = np.array([Heating_loc,Cooling_loc,DomstHW_loc])
-    Ind_2015      = 115 #index of year 2020
+    Ind_2015      = 115 #index of year 2015
+    #Ind_2017      = 117 #index of year 2017
     #Ind_2020      = 120 #index of year 2020
     IsClose_Remainder_Small = 1e-15 
     IsClose_Remainder_Large = 1e-7 
@@ -627,23 +628,8 @@ def main():
         ParameterDict['4_PY_EoL_RecoveryRate'].Values            = np.zeros(ParameterDict['4_PY_EoL_RecoveryRate'].Values.shape)
         ParameterDict['4_PY_MaterialProductionRemelting'].Values = np.zeros(ParameterDict['4_PY_MaterialProductionRemelting'].Values.shape)
         
-    # 13) No energy efficiency improvements (counterfactual reference)
-    # Freeze type split and archetypes at 2020 levels:
-    if ScriptConfig['No_EE_Improvements'] == 'True':
-        SwitchIndex = Ind_2015 # choose between Ind_2015 (for continuation from 2015 onwards) or Ind_2020 (for cont. from 2020 onwards).
-        if 'pav' in SectorList:
-            ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[SwitchIndex::,:,:,:,:,:]    = np.einsum('pVnrS,c->cpVnrS',ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[SwitchIndex,:,:,:,:,:],np.ones(Nc-SwitchIndex))
-            ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[SwitchIndex::,:,:,:,:]                  = np.einsum('mprS,c->cmprS',ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[SwitchIndex,:,:,:,:],np.ones(Nc-SwitchIndex))
-            ParameterDict['3_SHA_TypeSplit_Vehicles'].Values[:,:,:,:,4::]                           = np.einsum('GrRp,t->GrRpt',ParameterDict['3_SHA_TypeSplit_Vehicles'].Values[:,:,:,:,4],np.ones(Nt-4)) # index 4 is year 2020.
-        if 'reb' in SectorList:
-            ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchIndex::,:,:,:,:,:]    = np.einsum('BVnrS,c->cBVnrS',ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchIndex,:,:,:,:,:],np.ones(Nc-SwitchIndex))
-            ParameterDict['3_MC_RECC_Buildings_RECC'].Values[SwitchIndex::,:,:,:,:]                 = np.einsum('mBrS,c->cmBrS',ParameterDict['3_MC_RECC_Buildings_RECC'].Values[SwitchIndex,:,:,:,:],np.ones(Nc-SwitchIndex))
-            ParameterDict['3_SHA_TypeSplit_Buildings'].Values[:,:,4::,:]                            = np.einsum('BrS,t->BrtS',ParameterDict['3_SHA_TypeSplit_Buildings'].Values[:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
-        if 'nrb' in SectorList:            
-            ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[SwitchIndex::,:,:,:,:,:] = np.einsum('NVnrS,c->cNVnrS',ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[SwitchIndex,:,:,:,:,:],np.ones(Nc-SwitchIndex))
-            ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[SwitchIndex::,:,:,:,:]           = np.einsum('mNrS,c->cmNrS',ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[SwitchIndex,:,:,:,:],np.ones(Nc-SwitchIndex))
-            ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[:,:,4::,:]                      = np.einsum('NrS,t->NrtS',ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
-        
+    # 13) Currently not used.
+      
     # 14) Define parameter for future vehicle stock:
     # a) calculated passenger vehicle stock
     ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_passvehicles', ID='2_S_RECC_FinalProducts_Future_passvehicles',
@@ -703,7 +689,29 @@ def main():
     ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[Cooling_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_ResidentialEnergyEfficiency_Scenario_Cooling'].Values[Cooling_loc,:,:,Electric_loc,:,:] / 100
     ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[DomstHW_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_ResidentialEnergyEfficiency_Scenario_Heating'].Values[DomstHW_loc,:,:,Electric_loc,:,:] / 100
     
-    # 17) Derive energy supply multipliers for buildings for future age-cohorts
+    # 17) No energy efficiency improvements (counterfactual reference)
+    # Freeze type split and archetypes at 2015/17/2020 levels:
+    if ScriptConfig['No_EE_Improvements'] == 'True':
+        SwitchIndex = Ind_2015 # choose between Ind_2015/17/20 (for continuation from 2015/17/20 onwards.
+        if 'pav' in SectorList:
+            for nnr in range(0,Nr):
+                for nnS in range(0,NS):
+                    if ParameterDict['8_FLAG_VehicleDownsizingDirection'].Values[nnr,nnS] == 0: # don't consider type split reset for cases, where type split change involves larger vehicles.
+                        ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[SwitchIndex::,:,:,:,nnr,nnS]    = np.einsum('pVn,c->cpVn',ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[SwitchIndex,:,:,:,nnr,nnS],np.ones(Nc-SwitchIndex))
+                        ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[SwitchIndex::,:,:,nnr,nnS]  = np.einsum('mp,c->cmp',ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[SwitchIndex,:,:,nnr,nnS],np.ones(Nc-SwitchIndex))
+            ParameterDict['3_SHA_TypeSplit_Vehicles'].Values[:,:,:,:,4::]                           = np.einsum('GrRp,t->GrRpt',ParameterDict['3_SHA_TypeSplit_Vehicles'].Values[:,:,:,:,4],np.ones(Nt-4)) # index 4 is year 2020.
+        if 'reb' in SectorList:
+            ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchIndex::,:,:,:,:,:]    = np.einsum('BVnrS,c->cBVnrS',ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchIndex,:,:,:,:,:],np.ones(Nc-SwitchIndex))
+            ParameterDict['3_MC_RECC_Buildings_RECC'].Values[SwitchIndex::,:,:,:,:]                 = np.einsum('mBrS,c->cmBrS',ParameterDict['3_MC_RECC_Buildings_RECC'].Values[SwitchIndex,:,:,:,:],np.ones(Nc-SwitchIndex))
+            ParameterDict['3_SHA_TypeSplit_Buildings'].Values[:,:,4::,:]                            = np.einsum('BrS,t->BrtS',ParameterDict['3_SHA_TypeSplit_Buildings'].Values[:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
+            ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[:,:,:,:,4::,:]                 = np.einsum('VRrnS,t->VRrntS',ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[:,:,:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
+        if 'nrb' in SectorList:            
+            ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[SwitchIndex::,:,:,:,:,:] = np.einsum('NVnrS,c->cNVnrS',ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[SwitchIndex,:,:,:,:,:],np.ones(Nc-SwitchIndex))
+            ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[SwitchIndex::,:,:,:,:]           = np.einsum('mNrS,c->cmNrS',ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[SwitchIndex,:,:,:,:],np.ones(Nc-SwitchIndex))
+            ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[:,:,4::,:]                      = np.einsum('NrS,t->NrtS',ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
+            ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[:,:,:,:,4::,:]                 = np.einsum('VRrnS,t->VRrntS',ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[:,:,:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
+    
+    # 18) Derive energy supply multipliers for buildings for future age-cohorts
     # From energy carrier split and conversion efficiency, the multipliers converting 1 MJ of final building energy demand into different energy carriers are determined.
     ParameterDict['3_SHA_EnergySupply_Buildings'] = msc.Parameter(Name='3_SHA_EnergySupply_Buildings', ID='3_SHA_EnergySupply_Buildings',
                                                 UUID=None, P_Res=None, MetaData=None,
@@ -716,13 +724,13 @@ def main():
     ParameterDict['3_SHA_EnergySupply_Buildings'].Values = np.divide(ParameterDict['3_SHA_EnergySupply_Buildings'].Values, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)
     ParameterDict['3_SHA_EnergySupply_Buildings'].Values = np.divide(ParameterDict['3_SHA_EnergySupply_Buildings'].Values, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)
     
-    # 18) Make sure that all share parameters are non-negative and add up to 100%:
+    # 19) Make sure that all share parameters are non-negative and add up to 100%:
     # not necessary as data fulfil constraints.
     #ParameterDict['3_SHA_TypeSplit_Buildings'].Values[ParameterDict['3_SHA_TypeSplit_Buildings'].Values < 0] = 0
     #ParameterDict['3_SHA_TypeSplit_Buildings'].Values = ParameterDict['3_SHA_TypeSplit_Buildings'].Values / np.einsum('rtS,B->BrtS',ParameterDict['3_SHA_TypeSplit_Buildings'].Values.sum(axis=0),np.ones(NB))
     #ParameterDict['3_SHA_TypeSplit_Buildings'].Values[np.isnan(ParameterDict['3_SHA_TypeSplit_Buildings'].Values)] = 0
     
-    # 19) Extrapolate appliances beyond 2050:
+    # 20) Extrapolate appliances beyond 2050:
     for noS in range(0,NS):
         for noR in range(0,NR):
             for noa in range(0,Na):
@@ -733,7 +741,7 @@ def main():
                 for noT in range(151,161):
                     ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,noT,noS,noR,noa] = ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,150,noS,noR,noa] * np.power(1+growthrate,noT-150)
         
-    # 20) GWP_bio factor interpolation
+    # 21) GWP_bio factor interpolation
     Idx_Time = [1900,1910,1920,1930,1940,1950,1960,1970,1980,1990,2000]
     Idx_Time_Rel = [i -1900 for i in Idx_Time]
     tnew = np.linspace(0, 100, num=101, endpoint=True)
@@ -742,7 +750,7 @@ def main():
     ParameterDict['6_MIP_GWP_Bio'].Values[0:101] = f2(tnew).copy()    
     ParameterDict['6_MIP_GWP_Bio'].Values[101::] = -1
         
-    # 21) calculate Stocks on 1. Jan 2016:    
+    # 22) calculate Stocks on 1. Jan 2016:    
     pC_AgeCohortHist           = np.zeros((NG,Nr))
     #pC_FutureStock             = np.zeros((NS,NG,Nr))
     # a) from historic data:

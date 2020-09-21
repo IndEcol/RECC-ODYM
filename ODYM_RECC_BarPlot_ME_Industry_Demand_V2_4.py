@@ -4,7 +4,7 @@ Created on Wed Oct 17 10:37:00 2018
 
 @author: spauliuk
 """
-def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
+def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList):
     
     import xlrd
     import numpy as np
@@ -64,11 +64,13 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
     MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map.                       
     
     Sector = ['suff_eff']
-    Title  = ['Cum_GHG_2016_2050','Cum_GHG_2040_2050','Annual_GHG_2050']
+    Title  = ['Cum_GHG_2016_2050_Mt','Cum_GHG_2040_2050_Mt','Annual_GHG_2050_Mt']
+    Label  = ['Cum. GHG 2016-2050','Cum. GHG 2040-2050','Annual GHG 2050']
     Scens  = ['LED','SSP1','SSP2']
     LWE    = ['No climate policy','energy efficiency','low carbon en. supply', 'industrial ME','demand-side ME','residual']
     DataAL = ['(1): No energy eff., no clim. policy, no ME (reference)','(2): (1) + energy efficiency','(3): (2) + low carbon en. supply', '(4): (3) + industrial ME','(5): (4) + demand-side ME = residual',\
               '(6): (1) + industrial ME','(7): (6) + demand-side ME','(8): (7) + energy efficiency','(9): (8) + low carbon en. supply = residual'] # Labels for export
+        
     DataA  = np.zeros((3,9,3)) # for pandas export
     
     for nn in range(0,3):
@@ -109,11 +111,20 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
             Data[:,8] = AnnEmsV2050[:,1,8].copy() # left cascade
             DataA[:,:,2] = Data.copy()
             
+        Data  = Data  / 1000 # Mt -> Gt conversion            
+            
         # stacked bar plot with EE-EST-ME cascade on the right side                 
-        Left  = Data[2,0]
         Xoffs1 = [1,3,5]
         Xoffs2 = [1.7,3.7,5.7]
         bw = 0.5
+        if RegionalScope == 'Global' and SectorString == 'pav_reb':
+            YMax = 20
+        elif RegionalScope == 'Global_North' and SectorString == 'pav_reb':
+            YMax = 10
+        elif RegionalScope == 'Global_South' and SectorString == 'pav_reb':
+            YMax = 10       
+        else:
+            YMax = Data[2,0] * 1.1        
         
         fig  = plt.figure(figsize=(5,8))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
@@ -139,26 +150,33 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
         #plt.text(6.85, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
         #plt.text(4.3, 0.94  *Right, Scens[m],fontsize=18,fontweight='bold') 
         #plt.title('Energy, efficiency, and sufficiency, ' + Sector[0] + '.', fontsize = 18)
-        plt.ylabel(Title[nn] + r', Mt CO$_2$-eq.', fontsize = 18)
+        plt.ylabel(Label[nn] + r', Gt CO$_2$-eq.', fontsize = 18)
         plt.xticks([1.6,3.6,5.6])
         plt.yticks(fontsize =18)
         ax1.set_xticklabels(Scens, rotation =0, fontsize = 21, fontweight = 'normal')
         plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':12},ncol=1, loc = 'upper left' ) 
         #plt.axis([-0.2, 7.7, 0.9*Right, 1.02*Left])
-        plt.axis([-0.2, 7, 0, 1.03*Left])
+        plt.axis([-0.2, 7, 0, YMax])
     
         plt.show()
-        fig_name = Title[nn] + Region + '_ ' + Sector[0] + '_rightcascade.png'
+        fig_name = Title[nn] + Region + '_' + SectorString + '_' + Sector[0] + '_rightcascade.png'
         fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 500, bbox_inches='tight')    
-        fig_name = Title[nn] + Region + '_ ' + Sector[0] + '_rightcascade.svg'
+        fig_name = Title[nn] + Region + '_' + SectorString + '_' + Sector[0] + '_rightcascade.svg'
         fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 500, bbox_inches='tight')   
         
         # stacked bar plot with EE-EST-ME cascades on both sides
-        Left  = Data[2,0]
         Xoffs0 = [1.0,3.7,6.4] # left cascade
         Xoffs1 = [1.7,4.4,7.1] # center reference
         Xoffs2 = [2.4,5.1,7.8] # right cascade
         bw = 0.5
+        if RegionalScope == 'Global' and SectorString == 'pav_reb':
+            YMax = 20
+        elif RegionalScope == 'Global_North' and SectorString == 'pav_reb':
+            YMax = 10
+        elif RegionalScope == 'Global_South' and SectorString == 'pav_reb':
+            YMax = 10      
+        else:
+            YMax = Data[2,0] * 1.1 
         
         fig  = plt.figure(figsize=(5,8))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
@@ -199,18 +217,18 @@ def main(RegionalScope,ThreeSectoList_Export,SingleSectList):
         ax1.set_xticklabels(Scens, rotation =0, fontsize = 21, fontweight = 'normal')
         plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':12},ncol=1, loc = 'upper left' ) 
         #plt.axis([-0.2, 7.7, 0.9*Right, 1.02*Left])
-        plt.axis([+0.2, 9, 0, 1.03*Left])
+        plt.axis([+0.2, 9, 0, YMax])
     
         plt.show()
-        fig_name = Title[nn] + Region + '_' + Sector[0] + '_bothcascades.png'
+        fig_name = Title[nn] + Region + '_' + SectorString + '_' + Sector[0] + '_bothcascades.png'
         fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 500, bbox_inches='tight')    
-        fig_name = Title[nn] + Region + '_' + Sector[0] + '_bothcascades.svg'
+        fig_name = Title[nn] + Region + '_' + SectorString + '_' + Sector[0] + '_bothcascades.svg'
         fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 500, bbox_inches='tight')     
         
     # Save data to xls
     RowIndex       = pd.MultiIndex.from_product([Title,Scens], names=('GHG metric','SSP'))
     DF_Casc_global = pd.DataFrame(np.einsum('SCM->MSC',DataA).reshape(9,9), index=RowIndex, columns=DataAL)
-    DF_Casc_global.to_excel(os.path.join(RECC_Paths.results_path,'ME_industry_demand_cascade_' + Region + '.xls'), merge_cells=False)
+    DF_Casc_global.to_excel(os.path.join(RECC_Paths.results_path,'ME_industry_demand_cascade' + Region + '.xls'), merge_cells=False)
     
     return CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV
 
