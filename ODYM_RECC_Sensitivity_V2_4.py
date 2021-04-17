@@ -4,7 +4,7 @@ Created on Wed Oct 17 10:37:00 2018
 
 @author: spauliuk
 """
-def main(RegionalScope,FolderList,SectorString):
+def main(RegionalScope,FolderList,SectorString,Current_UUID):
         
     import xlrd
     import numpy as np
@@ -12,6 +12,8 @@ def main(RegionalScope,FolderList,SectorString):
     import pylab
     import RECC_Paths # Import path file    
     import os
+    
+    RECC_Paths.results_path_save = os.path.join(RECC_Paths.results_path_eval,'RECC_Results_' + Current_UUID)
     
     PlotExpResolution = 150 # dpi 150 for overview or 500 for paper
     
@@ -286,7 +288,7 @@ def main(RegionalScope,FolderList,SectorString):
             
                 plt.show()
                 fig_name = RegionalScope + '_' + SectorString + '_' + Titles[npp] + '_' + Scens[m] + '_' + Rcens[c] + '.png'
-                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
+                fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
       
     return CumEms_Sens2050, CumEms_Sens2060, AnnEms2030_Sens, AnnEms2050_Sens, AvgDecadalEms, UseCumEms2050, UseCumEms2060, UseAnnEms2030, UseAnnEms2050, AvgDecadalUseEms, MatCumEms2050, MatCumEms2060, MatAnnEms2030, MatAnnEms2050, AvgDecadalMatEms, ManCumEms2050, ManCumEms2060, ManAnnEms2030, ManAnnEms2050, AvgDecadalManEms, ForCumEms2050, ForCumEms2060, ForAnnEms2030, ForAnnEms2050, AvgDecadalForEms, RecCreditCum2050, RecCreditCum2060, RecCreditAnn2030, RecCreditAnn2050, RecCreditAvgDec
 

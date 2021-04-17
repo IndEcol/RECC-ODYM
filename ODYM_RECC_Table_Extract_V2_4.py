@@ -4,7 +4,7 @@ Created on Wed Oct 17 10:37:00 2018
 
 @author: spauliuk
 """
-def main(RegionalScope,ThreeSectoList):
+def main(RegionalScope,ThreeSectoList,Current_UUID):
     
     import xlrd
     import numpy as np
@@ -12,7 +12,7 @@ def main(RegionalScope,ThreeSectoList):
     import os
     import RECC_Paths # Import path file   
     
-
+    RECC_Paths.results_path_save = os.path.join(RECC_Paths.results_path_eval,'RECC_Results_' + Current_UUID)
     
     GHG_Table_Overview   = np.zeros((4,6,2)) # Table GHG overview format 4 scopes, 6 times, 2 RCP
 

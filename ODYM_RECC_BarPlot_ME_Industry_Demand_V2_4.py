@@ -4,8 +4,9 @@ Created on Wed Oct 17 10:37:00 2018
 
 @author: spauliuk
 """
-def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList):
-    
+def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current_UUID):
+    # ThreeSectoList_Export: List of cascade scenarios
+    # SingleSectList: List of counterfactual no EE etc. scenarios
     import xlrd
     import numpy as np
     import matplotlib.pyplot as plt  
@@ -13,6 +14,8 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList):
     import os
     import pandas as pd
     import RECC_Paths # Import path file   
+    
+    RECC_Paths.results_path_save = os.path.join(RECC_Paths.results_path_eval,'RECC_Results_' + Current_UUID)
     
     # Scenario order:
     # 1) No energy efficiency, no climate policy scenario
@@ -22,10 +25,17 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList):
     # 5) ALL, including sufficiency-based ME
     
     Region      = RegionalScope
-    # first scenario is for center of Eeff-EST-ME cascade, following four scenarios are for right side, last four for left side.
+    # first scenario in list below is for center of Eeff-EST-ME cascade, following four scenarios are for right side, last four for left side.
     FolderlistV = [SingleSectList[0],\
                    ThreeSectoList_Export[0],ThreeSectoList_Export[0],SingleSectList[4],ThreeSectoList_Export[-1],\
                    SingleSectList[1],SingleSectList[3],ThreeSectoList_Export[-1],ThreeSectoList_Export[-1]]
+    # First line: # no EE, no climpol.  Second line:  # RE Cascade baseline: NoClimPol, RE Cascade baseline: RCP2.6, Industrial ME: FYI_FSD_EoL_MSU_RUS, Full ME.
+    
+    # Color definition
+    MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # Select 20 colors from the 'tab20' color map.  
+    BaseBrown    = np.array([0.749,0.506,0.176,1])     # Base for GHG before ME reduction
+    BaseBlue     = np.array([0.208,0.592,0.561,1])     # Base for GHG after full ME reduction, instread of MyColorCycle[11,:]
+    LabelColors  = ['k','k','k','k','k',BaseBlue]
     
     # read data.
     
@@ -59,15 +69,12 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList):
             AvgDecadalEmsV[s,0,r,1]   = sum([Resultsheet.cell_value(i, 2*(s+1)-1) for i in range(17,27)])/10
             AvgDecadalEmsV[s,0,r,2]   = sum([Resultsheet.cell_value(i, 2*(s+1)-1) for i in range(27,37)])/10
             AvgDecadalEmsV[s,0,r,3]   = sum([Resultsheet.cell_value(i, 2*(s+1)-1) for i in range(37,47)])/10               
-                        
-    # stacked bar plot:
-    MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map.                       
     
     Sector = ['suff_eff']
     Title  = ['Cum_GHG_2016_2050_Mt','Cum_GHG_2040_2050_Mt','Annual_GHG_2050_Mt']
     Label  = ['Cum. GHG 2016-2050','Cum. GHG 2040-2050','Annual GHG 2050']
     Scens  = ['LED','SSP1','SSP2']
-    LWE    = ['No climate policy','energy efficiency','low carbon en. supply', 'industrial ME','demand-side ME','residual']
+    LWE    = ['No climate policy','Energy efficiency','Low carbon en. supply', 'Industrial ME','Demand-side ME','Residual emissions']
     DataAL = ['(1): No energy eff., no clim. policy, no ME (reference)','(2): (1) + energy efficiency','(3): (2) + low carbon en. supply', '(4): (3) + industrial ME','(5): (4) + demand-side ME = residual',\
               '(6): (1) + industrial ME','(7): (6) + demand-side ME','(8): (7) + energy efficiency','(9): (8) + low carbon en. supply = residual'] # Labels for export
         
@@ -117,21 +124,25 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList):
         Xoffs1 = [1,3,5]
         Xoffs2 = [1.7,3.7,5.7]
         bw = 0.5
-        if RegionalScope == 'Global' and SectorString == 'pav_reb':
-            YMax = 20
-        elif RegionalScope == 'Global_North' and SectorString == 'pav_reb':
-            YMax = 10
-        elif RegionalScope == 'Global_South' and SectorString == 'pav_reb':
-            YMax = 10       
+        # fine-tune Y_max and y axis scaling for annual GHG plot:
+        if nn == 2:
+            if RegionalScope   == 'Global'       and SectorString == 'pav_reb':
+                YMax = 20
+            elif RegionalScope == 'Global_North' and SectorString == 'pav_reb':
+                YMax = 10
+            elif RegionalScope == 'Global_South' and SectorString == 'pav_reb':
+                YMax = 10       
+            else:
+                YMax = Data[2,0] * 1.1        
         else:
             YMax = Data[2,0] * 1.1        
-        
+                
         fig  = plt.figure(figsize=(5,8))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
         
         for ms in range (0,NS):
             # plot bars
-            ax1.fill_between([Xoffs1[ms],Xoffs1[ms]+bw], [0,0],[Data[ms,0],Data[ms,0]],linestyle = '--', facecolor =MyColorCycle[11,:], linewidth = 0.0)
+            ax1.fill_between([Xoffs1[ms],Xoffs1[ms]+bw], [0,0],[Data[ms,0],Data[ms,0]],linestyle = '--', facecolor =BaseBrown, linewidth = 0.0)
             ax1.fill_between([Xoffs2[ms],Xoffs2[ms]+bw], [Data[ms,1],Data[ms,1]],[Data[ms,0],Data[ms,0]],linestyle = '--', facecolor =MyColorCycle[4,:], linewidth = 0.0)
             ax1.fill_between([Xoffs2[ms],Xoffs2[ms]+bw], [Data[ms,2],Data[ms,2]],[Data[ms,1],Data[ms,1]],linestyle = '--', facecolor =MyColorCycle[0,:], linewidth = 0.0)
             ax1.fill_between([Xoffs2[ms],Xoffs2[ms]+bw], [Data[ms,3],Data[ms,3]],[Data[ms,2],Data[ms,2]],linestyle = '--', facecolor =MyColorCycle[3,:], linewidth = 0.0)
@@ -139,7 +150,7 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList):
             ax1.fill_between([Xoffs2[ms],Xoffs2[ms]+bw], [0,0],[Data[ms,4],Data[ms,4]],linestyle = '--', facecolor =MyColorCycle[15,:], linewidth = 0.0)
             if ms == 1: 
                 ProxyHandlesList = []   # For legend     
-                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[11,:])) # create proxy artist for legend
+                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=BaseBrown)) # create proxy artist for legend
                 ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend
                 ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[0,:])) # create proxy artist for legend
                 ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[3,:])) # create proxy artist for legend
@@ -154,37 +165,46 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList):
         plt.xticks([1.6,3.6,5.6])
         plt.yticks(fontsize =18)
         ax1.set_xticklabels(Scens, rotation =0, fontsize = 21, fontweight = 'normal')
-        plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':12},ncol=1, loc = 'upper left' ) 
+        leg = plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':12},ncol=1, loc = 'upper left' ) 
+        # Change text color:
+        mc = 0
+        for text in leg.get_texts():
+            plt.setp(text, color = LabelColors[mc])
+            mc +=1
         #plt.axis([-0.2, 7.7, 0.9*Right, 1.02*Left])
         plt.axis([-0.2, 7, 0, YMax])
     
         plt.show()
         fig_name = Title[nn] + Region + '_' + SectorString + '_' + Sector[0] + '_rightcascade.png'
-        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 500, bbox_inches='tight')    
+        fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = 500, bbox_inches='tight')    
         fig_name = Title[nn] + Region + '_' + SectorString + '_' + Sector[0] + '_rightcascade.svg'
-        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 500, bbox_inches='tight')   
+        fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = 500, bbox_inches='tight')   
         
         # stacked bar plot with EE-EST-ME cascades on both sides
         Xoffs0 = [1.0,3.7,6.4] # left cascade
         Xoffs1 = [1.7,4.4,7.1] # center reference
         Xoffs2 = [2.4,5.1,7.8] # right cascade
         bw = 0.5
-        if RegionalScope == 'Global' and SectorString == 'pav_reb':
-            YMax = 20
-        elif RegionalScope == 'Global_North' and SectorString == 'pav_reb':
-            YMax = 10
-        elif RegionalScope == 'Global_South' and SectorString == 'pav_reb':
-            YMax = 10      
+        # fine-tune Y_max and y axis scaling for annual GHG plot:
+        if nn == 2:
+            if RegionalScope == 'Global' and SectorString == 'pav_reb':
+                YMax = 20
+            elif RegionalScope == 'Global_North' and SectorString == 'pav_reb':
+                YMax = 10
+            elif RegionalScope == 'Global_South' and SectorString == 'pav_reb':
+                YMax = 10      
+            else:
+                YMax = Data[2,0] * 1.1 
         else:
-            YMax = Data[2,0] * 1.1 
-        
+            YMax = Data[2,0] * 1.1  
+            
         fig  = plt.figure(figsize=(5,8))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
         
         for ms in range (0,NS):
             # plot bars
             
-            ax1.fill_between([Xoffs1[ms],Xoffs1[ms]+bw], [0,0],[Data[ms,0],Data[ms,0]],linestyle = '--', facecolor =MyColorCycle[11,:], linewidth = 0.0) # center
+            ax1.fill_between([Xoffs1[ms],Xoffs1[ms]+bw], [0,0],[Data[ms,0],Data[ms,0]],linestyle = '--', facecolor =BaseBrown, linewidth = 0.0) # center
             
             ax1.fill_between([Xoffs2[ms],Xoffs2[ms]+bw], [Data[ms,1],Data[ms,1]],[Data[ms,0],Data[ms,0]],linestyle = '--', facecolor =MyColorCycle[4,:], linewidth = 0.0) # right
             ax1.fill_between([Xoffs2[ms],Xoffs2[ms]+bw], [Data[ms,2],Data[ms,2]],[Data[ms,1],Data[ms,1]],linestyle = '--', facecolor =MyColorCycle[0,:], linewidth = 0.0)
@@ -200,7 +220,7 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList):
 
             if ms == 1: 
                 ProxyHandlesList = []   # For legend     
-                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[11,:])) # create proxy artist for legend
+                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=BaseBrown)) # create proxy artist for legend
                 ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend
                 ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[0,:])) # create proxy artist for legend
                 ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[3,:])) # create proxy artist for legend
@@ -211,24 +231,29 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList):
         #plt.text(6.85, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
         #plt.text(4.3, 0.94  *Right, Scens[m],fontsize=18,fontweight='bold') 
         #plt.title('Energy, efficiency, and sufficiency, ' + Sector[0] + '.', fontsize = 18)
-        plt.ylabel(Title[nn] + r', Mt CO$_2$-eq.', fontsize = 18)
+        plt.ylabel(Label[nn] + r', Gt CO$_2$-eq.', fontsize = 18)
         plt.xticks([1.95,4.65,7.35])
         plt.yticks(fontsize =18)
         ax1.set_xticklabels(Scens, rotation =0, fontsize = 21, fontweight = 'normal')
-        plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':12},ncol=1, loc = 'upper left' ) 
+        leg = plt.legend(handles = ProxyHandlesList,labels = LWE,shadow = False, prop={'size':12},ncol=1, loc = 'upper left' ) 
+        # Change text color:
+        mc = 0
+        for text in leg.get_texts():
+            plt.setp(text, color = LabelColors[mc])
+            mc +=1
         #plt.axis([-0.2, 7.7, 0.9*Right, 1.02*Left])
         plt.axis([+0.2, 9, 0, YMax])
     
         plt.show()
         fig_name = Title[nn] + Region + '_' + SectorString + '_' + Sector[0] + '_bothcascades.png'
-        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 500, bbox_inches='tight')    
+        fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = 500, bbox_inches='tight')    
         fig_name = Title[nn] + Region + '_' + SectorString + '_' + Sector[0] + '_bothcascades.svg'
-        fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 500, bbox_inches='tight')     
+        fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = 500, bbox_inches='tight')     
         
     # Save data to xls
     RowIndex       = pd.MultiIndex.from_product([Title,Scens], names=('GHG metric','SSP'))
     DF_Casc_global = pd.DataFrame(np.einsum('SCM->MSC',DataA).reshape(9,9), index=RowIndex, columns=DataAL)
-    DF_Casc_global.to_excel(os.path.join(RECC_Paths.results_path,'ME_industry_demand_cascade' + Region + '.xls'), merge_cells=False)
+    DF_Casc_global.to_excel(os.path.join(RECC_Paths.results_path_save,'ME_industry_demand_cascade' + Region + '.xls'), merge_cells=False)
     
     return CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV
 

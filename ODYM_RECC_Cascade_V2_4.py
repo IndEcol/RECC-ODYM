@@ -4,7 +4,7 @@ Created on Wed Oct 17 10:37:00 2018
 
 @author: spauliuk
 """
-def main(RegionalScope,FolderList,SectorString):
+def main(RegionalScope,FolderList,SectorString,Current_UUID):
     
     import xlrd
     import numpy as np
@@ -14,7 +14,9 @@ def main(RegionalScope,FolderList,SectorString):
     import os
     import RECC_Paths # Import path file   #
     
-    PlotExpResolution = 100 # dpi 150 for overview or 500 for paper
+    RECC_Paths.results_path_save = os.path.join(RECC_Paths.results_path_eval,'RECC_Results_' + Current_UUID)
+    
+    PlotExpResolution = 150 # dpi 150 for overview or 500 for paper
     
     # FileOrder needs to be kept:
     # pav:
@@ -49,7 +51,7 @@ def main(RegionalScope,FolderList,SectorString):
     NS = 3  # no of SSP scenarios
     NR = 2  # no of RCP scenarios
     Nt = 45 # no of model years
-    Nm = 6  # no of materials for which data are extracted.
+    Nm = 6  # no of materials for which data are extracted: 0: steel (all kinds), 1: Al (all kinds), 2: copper, 3: cement, 4: plastics, 5: wood
     
     if SectorString == 'pav':
         NE      = 7 # no of Res. eff. scenarios for cascade
@@ -121,6 +123,8 @@ def main(RegionalScope,FolderList,SectorString):
         MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map. 
         LLeft   = 8.5
         
+    # Population, total over all region (if more than 1):
+    Population       = np.zeros((NS,Nt))
     # system-wide emissions:
     CumEms2050       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario: cum. emissions 2016-2050.
     CumEms2060       = np.zeros((NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario: cum. emissions 2016-2060.
@@ -258,7 +262,7 @@ def main(RegionalScope,FolderList,SectorString):
             
                 plt.show()
                 fig_name = RegionalScope + '_' + SectorString + '_' + Title[nn] + '_' + Scens[m] + '_' + Rcens[rcp] + '.png'
-                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
+                fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
                 
     ### Area plot RE
     AnnEms             = np.zeros((Nt,NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
@@ -510,7 +514,12 @@ def main(RegionalScope,FolderList,SectorString):
     while True:
         if Resultsheet2.cell_value(am1, 0) == 'In-use stock, all materials':
             break # that gives us the right index from the result table.
-        am1 += 1        
+        am1 += 1 
+    popc = 1
+    while True:
+        if Resultsheet2.cell_value(popc, 0) == 'Population':
+            break # that gives us the right index from the result table.
+        popc += 1                
     if SectorString.find('pav') >= 0:
         pkm = 1
         while True:
@@ -656,8 +665,24 @@ def main(RegionalScope,FolderList,SectorString):
                     MatProduction_Sec[t,2,s,c,r]  = Resultsheet2.cell_value(mc9+ 2*s +c,t+8) + Resultsheet2.cell_value(ru7+ 2*s +c,t+8)
                     MatProduction_Sec[t,3,s,c,r]  = Resultsheet2.cell_value(ru9+ 2*s +c,t+8)
                     MatProduction_Sec[t,4,s,c,r]  = Resultsheet2.cell_value(mc10+ 2*s +c,t+8) + Resultsheet2.cell_value(ru8+ 2*s +c,t+8)
-                    MatProduction_Sec[t,5,s,c,r]  = Resultsheet2.cell_value(mc11+ 2*s +c,t+8) + Resultsheet2.cell_value(ru10+ 2*s +c,t+8)                    
-
+                    MatProduction_Sec[t,5,s,c,r]  = Resultsheet2.cell_value(mc11+ 2*s +c,t+8) + Resultsheet2.cell_value(ru10+ 2*s +c,t+8)    
+        
+        # Population
+        # Here, the regional total is not exported, which is why it has to be summed up from the individual countries/regions in the larger regions.
+        # Unlike for the other indicators, where there are always six entries, for population, it is 6 * N, where N is the No. of indiv. countries/regions in the larger region.
+        # parser below scans through all 'population entries' until it breaks, and does a double modulo division: first, by six, to single out each indiv. region,
+        # and then by 2, to single out the SSP scenario (Pop. is the same for all RCP scenarios)
+        popcr = 0
+        while True:
+            if Resultsheet2.cell_value(popc, 0) != 'Population':
+                break # that includes all population values
+            else:
+                if (popcr % 6) % 2 == 0:
+                    for t in range(0,45): # time until 2060
+                        Population[(popcr % 6) // 2,t] += Resultsheet2.cell_value(popc,t+8)
+            popc  += 1  
+            popcr += 1
+        
     UsePhaseSummary[0:3,:,:] = UseAnnEms2030.copy()
     UsePhaseSummary[3:6,:,:] = UseAnnEms2050.copy()
     UsePhaseSummary[6:9,:,:] = UseCumEms2050.copy()
@@ -683,7 +708,7 @@ def main(RegionalScope,FolderList,SectorString):
     RecCredit[6:9,:,:]= RecCreditCum2050.copy()
     RecCredit[9::,:,:]= RecCreditCum2060.copy()
     
-    # Waterfall plot  for material-related GHG          
+    # Waterfall plot for material-related GHG          
     Title  = ['MatCumGHG_16_50','MatCumGHG_40_50','MatAnnGHG_50']
     Scens  = ['LED','SSP1','SSP2']
     Rcens  = ['Base','RCP2_6']
@@ -746,7 +771,7 @@ def main(RegionalScope,FolderList,SectorString):
             
                 plt.show()
                 fig_name = RegionalScope + '_' + SectorString + '_' + Title[nn] + '_' + Scens[m] + '_' + Rcens[rcp] + '.png'
-                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight') 
+                # fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = PlotExpResolution, bbox_inches='tight') 
 
     # Area plot, stacked, GHG emissions, system and material production
     MyColorCycle = pylab.cm.Set1(np.arange(0,1,0.1)) # select colors from the 'Paired' color map.            
@@ -805,11 +830,26 @@ def main(RegionalScope,FolderList,SectorString):
 #                    ax1.set_ylim([0, 10.5])
                 plt.show()
                 fig_name = RegionalScope + '_' + SectorString + '_' + FName[nn] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '.png'
-                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
+                # fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
                
-              
-    ##### Overview plot metal production
-    MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select colors from the 'tab20' color map.            
+    ################################################################          
+    #####      Overview plots metal production and stocks      #####
+    ################################################################
+    
+    MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)).copy() # select colors from the 'tab20' color map.  
+    # Manually adjust colors:          
+    MyColorCycle[0,:] = np.array([0.094117647,0.360784314,0.541176471,1]) # steel prim
+    MyColorCycle[1,:] = np.array([0.329411765,0.662745098,0.88627451,1])  # steel sec
+    MyColorCycle[2,:] = np.array([0.635294118,0.301960784,0,1])           # Al prim
+    MyColorCycle[3,:] = np.array([1,0.498039216,0.054901961,1])           # Al sec
+    MyColorCycle[4,:] = np.array([0.125490196,0.462745098,0.125490196,1]) # Cu prim
+    MyColorCycle[5,:] = np.array([0.423529412,0.839215686,0.423529412,1]) # Cu sec
+    MyColorCycle[6,:] = np.array([0.250980392,0.250980392,0.250980392,1]) # Cement prim
+    MyColorCycle[7,:] = np.array([0.721568627,0.721568627,0.721568627,1]) # Cement sec
+    MyColorCycle[8,:] = np.array([0.545098039,0.098039216,0.098039216,1]) # Plastics prim
+    MyColorCycle[9,:] = np.array([0.901960784,0.462745098,0.462745098,1]) # Plastics sec
+    MyColorCycle[10,:]= np.array([0.341176471,0.278431373,0.184313725,1])  # Wood prim
+    MyColorCycle[11,:]= np.array([0.68627451,0.576470588,0.411764706,1])  # Wood sec
     grey0_9      = np.array([0.9,0.9,0.9,1])
     
     Title      = ['Materials']
@@ -817,216 +857,263 @@ def main(RegionalScope,FolderList,SectorString):
     Scens      = ['LED','SSP1','SSP2']
     Rcens      = ['Base','RCP2_6']      
     
+    # (1) Bar plot of metal production, primary and secondary, decadal average.
     bw = 0.7
     #mS = 0
     #mR = 0
-    for mRCP in range(0,NR): # RCP
-        for mS in range(0,NS): # SSP
-            for mR in range(0,1): # pav-reb-nrb
-                              
-                fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, sharex=True, gridspec_kw={'hspace': 0.3, 'wspace': 0.35})
+#    for mRCP in range(0,NR): # RCP
+#        for mS in range(0,NS): # SSP
+#            for mR in range(0,1): # pav-reb-nrb
+#                              
+#                fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, sharex=True, gridspec_kw={'hspace': 0.3, 'wspace': 0.35})
+#                
+#                ax1.fill_between([1,1+bw], [0,0],[MatProduction_Prim[4,0,mS,mRCP,0],MatProduction_Prim[4,0,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[0,:], linewidth = 0.0)
+#                ax1.fill_between([1.8,1.8+bw], [0,0],[MatProduction_Prim[24:34,0,mS,mRCP,0].sum()/10,MatProduction_Prim[24:34,0,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[0,:], linewidth = 0.0)
+#                ax1.fill_between([2.6,2.6+bw], [0,0],[MatProduction_Prim[24:34,0,mS,mRCP,-1].sum()/10,MatProduction_Prim[24:34,0,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[0,:], linewidth = 0.0)
+#                ax1.fill_between([4,4+bw], [0,0],[MatProduction_Sec[4,0,mS,mRCP,0],MatProduction_Sec[4,0,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[1,:], linewidth = 0.0)
+#                ax1.fill_between([4.8,4.8+bw], [0,0],[MatProduction_Sec[24:34,0,mS,mRCP,0].sum()/10,MatProduction_Sec[24:34,0,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[1,:], linewidth = 0.0)
+#                ax1.fill_between([5.6,5.6+bw], [0,0],[MatProduction_Sec[24:34,0,mS,mRCP,-1].sum()/10,MatProduction_Sec[24:34,0,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[1,:], linewidth = 0.0)
+#                ax1.set_title('Steel')
+#                ax2.fill_between([1,1+bw], [0,0],[MatProduction_Prim[4,1,mS,mRCP,0],MatProduction_Prim[4,1,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[2,:], linewidth = 0.0)
+#                ax2.fill_between([1.8,1.8+bw], [0,0],[MatProduction_Prim[24:34,1,mS,mRCP,0].sum()/10,MatProduction_Prim[24:34,1,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[2,:], linewidth = 0.0)
+#                ax2.fill_between([2.6,2.6+bw], [0,0],[MatProduction_Prim[24:34,1,mS,mRCP,-1].sum()/10,MatProduction_Prim[24:34,1,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[2,:], linewidth = 0.0)
+#                ax2.fill_between([4,4+bw], [0,0],[MatProduction_Sec[4,1,mS,mRCP,0],MatProduction_Sec[4,1,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[3,:], linewidth = 0.0)
+#                ax2.fill_between([4.8,4.8+bw], [0,0],[MatProduction_Sec[24:34,1,mS,mRCP,0].sum()/10,MatProduction_Sec[24:34,1,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[3,:], linewidth = 0.0)
+#                ax2.fill_between([5.6,5.6+bw], [0,0],[MatProduction_Sec[24:34,1,mS,mRCP,-1].sum()/10,MatProduction_Sec[24:34,1,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[3,:], linewidth = 0.0)
+#                ax2.set_title('Aluminium')
+#                ax3.fill_between([1,1+bw], [0,0],[MatProduction_Prim[4,2,mS,mRCP,0],MatProduction_Prim[4,2,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[4,:], linewidth = 0.0)
+#                ax3.fill_between([1.8,1.8+bw], [0,0],[MatProduction_Prim[24:34,2,mS,mRCP,0].sum()/10,MatProduction_Prim[24:34,2,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[4,:], linewidth = 0.0)
+#                ax3.fill_between([2.6,2.6+bw], [0,0],[MatProduction_Prim[24:34,2,mS,mRCP,-1].sum()/10,MatProduction_Prim[24:34,2,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[4,:], linewidth = 0.0)
+#                ax3.fill_between([4,4+bw], [0,0],[MatProduction_Sec[4,2,mS,mRCP,0],MatProduction_Sec[4,2,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[5,:], linewidth = 0.0)
+#                ax3.fill_between([4.8,4.8+bw], [0,0],[MatProduction_Sec[24:34,2,mS,mRCP,0].sum()/10,MatProduction_Sec[24:34,2,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[5,:], linewidth = 0.0)
+#                ax3.fill_between([5.6,5.6+bw], [0,0],[MatProduction_Sec[24:34,2,mS,mRCP,-1].sum()/10,MatProduction_Sec[24:34,2,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[5,:], linewidth = 0.0)
+#                ax3.set_title('Copper')
+#                ax4.fill_between([1,1+bw], [0,0],[MatProduction_Prim[4,3,mS,mRCP,0],MatProduction_Prim[4,3,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[6,:], linewidth = 0.0)
+#                ax4.fill_between([1.8,1.8+bw], [0,0],[MatProduction_Prim[24:34,3,mS,mRCP,0].sum()/10,MatProduction_Prim[24:34,3,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[6,:], linewidth = 0.0)
+#                ax4.fill_between([2.6,2.6+bw], [0,0],[MatProduction_Prim[24:34,3,mS,mRCP,-1].sum()/10,MatProduction_Prim[24:34,3,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[6,:], linewidth = 0.0)
+#                ax4.fill_between([4,4+bw], [0,0],[MatProduction_Sec[4,3,mS,mRCP,0],MatProduction_Sec[4,3,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[7,:], linewidth = 0.0)
+#                ax4.fill_between([4.8,4.8+bw], [0,0],[MatProduction_Sec[24:34,3,mS,mRCP,0].sum()/10,MatProduction_Sec[24:34,3,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[7,:], linewidth = 0.0)
+#                ax4.fill_between([5.6,5.6+bw], [0,0],[MatProduction_Sec[24:34,3,mS,mRCP,-1].sum()/10,MatProduction_Sec[24:34,3,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[7,:], linewidth = 0.0)
+#                ax4.set_title('Cement')
+#                ax5.fill_between([1,1+bw], [0,0],[MatProduction_Prim[4,4,mS,mRCP,0],MatProduction_Prim[4,4,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[8,:], linewidth = 0.0)
+#                ax5.fill_between([1.8,1.8+bw], [0,0],[MatProduction_Prim[24:34,4,mS,mRCP,0].sum()/10,MatProduction_Prim[24:34,4,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[8,:], linewidth = 0.0)
+#                ax5.fill_between([2.6,2.6+bw], [0,0],[MatProduction_Prim[24:34,4,mS,mRCP,-1].sum()/10,MatProduction_Prim[24:34,4,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[8,:], linewidth = 0.0)
+#                ax5.fill_between([4,4+bw], [0,0],[MatProduction_Sec[4,4,mS,mRCP,0],MatProduction_Sec[4,4,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[9,:], linewidth = 0.0)
+#                ax5.fill_between([4.8,4.8+bw], [0,0],[MatProduction_Sec[24:34,4,mS,mRCP,0].sum()/10,MatProduction_Sec[24:34,4,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[9,:], linewidth = 0.0)
+#                ax5.fill_between([5.6,5.6+bw], [0,0],[MatProduction_Sec[24:34,4,mS,mRCP,-1].sum()/10,MatProduction_Sec[24:34,4,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[9,:], linewidth = 0.0)
+#                ax5.set_title('Plastics')
+#                ax6.fill_between([1,1+bw], [0,0],[MatProduction_Prim[4,5,mS,mRCP,0],MatProduction_Prim[4,5,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[10,:], linewidth = 0.0)
+#                ax6.fill_between([1.8,1.8+bw], [0,0],[MatProduction_Prim[24:34,5,mS,mRCP,0].sum()/10,MatProduction_Prim[24:34,5,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[10,:], linewidth = 0.0)
+#                ax6.fill_between([2.6,2.6+bw], [0,0],[MatProduction_Prim[24:34,5,mS,mRCP,-1].sum()/10,MatProduction_Prim[24:34,5,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[10,:], linewidth = 0.0)
+#                ax6.fill_between([4,4+bw], [0,0],[MatProduction_Sec[4,5,mS,mRCP,0],MatProduction_Sec[4,5,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[11,:], linewidth = 0.0)
+#                ax6.fill_between([4.8,4.8+bw], [0,0],[MatProduction_Sec[24:34,5,mS,mRCP,0].sum()/10,MatProduction_Sec[24:34,5,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[11,:], linewidth = 0.0)
+#                ax6.fill_between([5.6,5.6+bw], [0,0],[MatProduction_Sec[24:34,5,mS,mRCP,-1].sum()/10,MatProduction_Sec[24:34,5,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[11,:], linewidth = 0.0)
+#                ax6.set_title('Wood')
+#    
+#                plt.sca(ax4)
+#                plt.xticks([1.4,2.2,3.0,4.4,5.2,6.0], ['2020','2040-50, no ME','2040-50, ME','2020','2040-50, no ME','2040-50, ME'], rotation =90, fontsize = 10, fontweight = 'normal')
+#                plt.sca(ax5)
+#                plt.xticks([1.4,2.2,3.0,4.4,5.2,6.0], ['2020','2040-50, no ME','2040-50, ME','2020','2040-50, no ME','2040-50, ME'], rotation =90, fontsize = 10, fontweight = 'normal')
+#                plt.sca(ax6)
+#                plt.xticks([1.4,2.2,3.0,4.4,5.2,6.0], ['2020','2040-50, no ME','2040-50, ME','2020','2040-50, no ME','2040-50, ME'], rotation =90, fontsize = 10, fontweight = 'normal')
+#    
+#                plt.sca(ax1)
+#                plt.ylabel('Mt/yr', fontsize = 12)
+#                plt.sca(ax4)
+#                plt.ylabel('Mt/yr', fontsize = 12)
+#                
+#                plt.show()
+#                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_bar.png'
+#                # fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = 400, bbox_inches='tight')  
                 
-                ax1.fill_between([1,1+bw], [0,0],[MatProduction_Prim[4,0,mS,mRCP,0],MatProduction_Prim[4,0,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[0,:], linewidth = 0.0)
-                ax1.fill_between([1.8,1.8+bw], [0,0],[MatProduction_Prim[24:34,0,mS,mRCP,0].sum()/10,MatProduction_Prim[24:34,0,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[0,:], linewidth = 0.0)
-                ax1.fill_between([2.6,2.6+bw], [0,0],[MatProduction_Prim[24:34,0,mS,mRCP,-1].sum()/10,MatProduction_Prim[24:34,0,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[0,:], linewidth = 0.0)
-                ax1.fill_between([4,4+bw], [0,0],[MatProduction_Sec[4,0,mS,mRCP,0],MatProduction_Sec[4,0,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[1,:], linewidth = 0.0)
-                ax1.fill_between([4.8,4.8+bw], [0,0],[MatProduction_Sec[24:34,0,mS,mRCP,0].sum()/10,MatProduction_Sec[24:34,0,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[1,:], linewidth = 0.0)
-                ax1.fill_between([5.6,5.6+bw], [0,0],[MatProduction_Sec[24:34,0,mS,mRCP,-1].sum()/10,MatProduction_Sec[24:34,0,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[1,:], linewidth = 0.0)
-                ax1.set_title('Steel')
-                ax2.fill_between([1,1+bw], [0,0],[MatProduction_Prim[4,1,mS,mRCP,0],MatProduction_Prim[4,1,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[2,:], linewidth = 0.0)
-                ax2.fill_between([1.8,1.8+bw], [0,0],[MatProduction_Prim[24:34,1,mS,mRCP,0].sum()/10,MatProduction_Prim[24:34,1,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[2,:], linewidth = 0.0)
-                ax2.fill_between([2.6,2.6+bw], [0,0],[MatProduction_Prim[24:34,1,mS,mRCP,-1].sum()/10,MatProduction_Prim[24:34,1,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[2,:], linewidth = 0.0)
-                ax2.fill_between([4,4+bw], [0,0],[MatProduction_Sec[4,1,mS,mRCP,0],MatProduction_Sec[4,1,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[3,:], linewidth = 0.0)
-                ax2.fill_between([4.8,4.8+bw], [0,0],[MatProduction_Sec[24:34,1,mS,mRCP,0].sum()/10,MatProduction_Sec[24:34,1,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[3,:], linewidth = 0.0)
-                ax2.fill_between([5.6,5.6+bw], [0,0],[MatProduction_Sec[24:34,1,mS,mRCP,-1].sum()/10,MatProduction_Sec[24:34,1,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[3,:], linewidth = 0.0)
-                ax2.set_title('Aluminium')
-                ax3.fill_between([1,1+bw], [0,0],[MatProduction_Prim[4,2,mS,mRCP,0],MatProduction_Prim[4,2,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[4,:], linewidth = 0.0)
-                ax3.fill_between([1.8,1.8+bw], [0,0],[MatProduction_Prim[24:34,2,mS,mRCP,0].sum()/10,MatProduction_Prim[24:34,2,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[4,:], linewidth = 0.0)
-                ax3.fill_between([2.6,2.6+bw], [0,0],[MatProduction_Prim[24:34,2,mS,mRCP,-1].sum()/10,MatProduction_Prim[24:34,2,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[4,:], linewidth = 0.0)
-                ax3.fill_between([4,4+bw], [0,0],[MatProduction_Sec[4,2,mS,mRCP,0],MatProduction_Sec[4,2,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[5,:], linewidth = 0.0)
-                ax3.fill_between([4.8,4.8+bw], [0,0],[MatProduction_Sec[24:34,2,mS,mRCP,0].sum()/10,MatProduction_Sec[24:34,2,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[5,:], linewidth = 0.0)
-                ax3.fill_between([5.6,5.6+bw], [0,0],[MatProduction_Sec[24:34,2,mS,mRCP,-1].sum()/10,MatProduction_Sec[24:34,2,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[5,:], linewidth = 0.0)
-                ax3.set_title('Copper')
-                ax4.fill_between([1,1+bw], [0,0],[MatProduction_Prim[4,3,mS,mRCP,0],MatProduction_Prim[4,3,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[6,:], linewidth = 0.0)
-                ax4.fill_between([1.8,1.8+bw], [0,0],[MatProduction_Prim[24:34,3,mS,mRCP,0].sum()/10,MatProduction_Prim[24:34,3,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[6,:], linewidth = 0.0)
-                ax4.fill_between([2.6,2.6+bw], [0,0],[MatProduction_Prim[24:34,3,mS,mRCP,-1].sum()/10,MatProduction_Prim[24:34,3,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[6,:], linewidth = 0.0)
-                ax4.fill_between([4,4+bw], [0,0],[MatProduction_Sec[4,3,mS,mRCP,0],MatProduction_Sec[4,3,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[7,:], linewidth = 0.0)
-                ax4.fill_between([4.8,4.8+bw], [0,0],[MatProduction_Sec[24:34,3,mS,mRCP,0].sum()/10,MatProduction_Sec[24:34,3,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[7,:], linewidth = 0.0)
-                ax4.fill_between([5.6,5.6+bw], [0,0],[MatProduction_Sec[24:34,3,mS,mRCP,-1].sum()/10,MatProduction_Sec[24:34,3,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[7,:], linewidth = 0.0)
-                ax4.set_title('Cement')
-                ax5.fill_between([1,1+bw], [0,0],[MatProduction_Prim[4,4,mS,mRCP,0],MatProduction_Prim[4,4,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[8,:], linewidth = 0.0)
-                ax5.fill_between([1.8,1.8+bw], [0,0],[MatProduction_Prim[24:34,4,mS,mRCP,0].sum()/10,MatProduction_Prim[24:34,4,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[8,:], linewidth = 0.0)
-                ax5.fill_between([2.6,2.6+bw], [0,0],[MatProduction_Prim[24:34,4,mS,mRCP,-1].sum()/10,MatProduction_Prim[24:34,4,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[8,:], linewidth = 0.0)
-                ax5.fill_between([4,4+bw], [0,0],[MatProduction_Sec[4,4,mS,mRCP,0],MatProduction_Sec[4,4,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[9,:], linewidth = 0.0)
-                ax5.fill_between([4.8,4.8+bw], [0,0],[MatProduction_Sec[24:34,4,mS,mRCP,0].sum()/10,MatProduction_Sec[24:34,4,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[9,:], linewidth = 0.0)
-                ax5.fill_between([5.6,5.6+bw], [0,0],[MatProduction_Sec[24:34,4,mS,mRCP,-1].sum()/10,MatProduction_Sec[24:34,4,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[9,:], linewidth = 0.0)
-                ax5.set_title('Plastics')
-                ax6.fill_between([1,1+bw], [0,0],[MatProduction_Prim[4,5,mS,mRCP,0],MatProduction_Prim[4,5,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[10,:], linewidth = 0.0)
-                ax6.fill_between([1.8,1.8+bw], [0,0],[MatProduction_Prim[24:34,5,mS,mRCP,0].sum()/10,MatProduction_Prim[24:34,5,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[10,:], linewidth = 0.0)
-                ax6.fill_between([2.6,2.6+bw], [0,0],[MatProduction_Prim[24:34,5,mS,mRCP,-1].sum()/10,MatProduction_Prim[24:34,5,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[10,:], linewidth = 0.0)
-                ax6.fill_between([4,4+bw], [0,0],[MatProduction_Sec[4,5,mS,mRCP,0],MatProduction_Sec[4,5,mS,mRCP,0]],linestyle = '--', facecolor =MyColorCycle[11,:], linewidth = 0.0)
-                ax6.fill_between([4.8,4.8+bw], [0,0],[MatProduction_Sec[24:34,5,mS,mRCP,0].sum()/10,MatProduction_Sec[24:34,5,mS,mRCP,0].sum()/10],linestyle = '--', facecolor =MyColorCycle[11,:], linewidth = 0.0)
-                ax6.fill_between([5.6,5.6+bw], [0,0],[MatProduction_Sec[24:34,5,mS,mRCP,-1].sum()/10,MatProduction_Sec[24:34,5,mS,mRCP,-1].sum()/10],linestyle = '--', facecolor =MyColorCycle[11,:], linewidth = 0.0)
-                ax6.set_title('Wood')
-    
-                plt.sca(ax4)
-                plt.xticks([1.4,2.2,3.0,4.4,5.2,6.0], ['2020','2040-50, no ME','2040-50, ME','2020','2040-50, no ME','2040-50, ME'], rotation =90, fontsize = 10, fontweight = 'normal')
-                plt.sca(ax5)
-                plt.xticks([1.4,2.2,3.0,4.4,5.2,6.0], ['2020','2040-50, no ME','2040-50, ME','2020','2040-50, no ME','2040-50, ME'], rotation =90, fontsize = 10, fontweight = 'normal')
-                plt.sca(ax6)
-                plt.xticks([1.4,2.2,3.0,4.4,5.2,6.0], ['2020','2040-50, no ME','2040-50, ME','2020','2040-50, no ME','2040-50, ME'], rotation =90, fontsize = 10, fontweight = 'normal')
-    
-                plt.sca(ax1)
-                plt.ylabel('Mt/yr', fontsize = 12)
-                plt.sca(ax4)
-                plt.ylabel('Mt/yr', fontsize = 12)
-                
-    #            plt.text(2027,Data[m,:].max()*1.02, 'Colors may deviate from legend colors due to overlap of RES wedges.',fontsize=8.5,fontweight='bold')
-    #            #            plt.title(Title[nn] + ' \n' + Region + ', ' + Sector[mR] + ', ' + Scens[mS] + '.', fontsize = 18)
-    #            plt.ylabel('Mt of CO2-eq.', fontsize = 18)
-    #            plt.xlabel('Year', fontsize = 18)
-    #            plt.xticks(fontsize=18)
-    #            plt.yticks(fontsize=18)
-    #            if mR == 0: # vehicles, legend lower left
-    #                plt_lgd  = plt.legend(handles = reversed(ProxyHandlesList),labels = LWE_area, shadow = False, prop={'size':12},ncol=1, loc = 'lower left')# ,bbox_to_anchor=(1.91, 1)) 
-    #            ax1.set_xlim([2015, 2061])
-                
-                plt.show()
-                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_bar.png'
-                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')  
-                
-    # Same data, but with line plot:
-    LegendLabels = ['Primary material production, no ME','Primary material production, full ME','Secondary material production, no ME','Secondary material production, full ME']
-    if RegionalScope == 'Global':
-        LWI = [0.8,1.4,0.8]
-        for mRCP in range(0,NR):  # RCP
-            for mR in range(0,1): # pav-reb-nrb
-                              
-                fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, sharex=True, gridspec_kw={'hspace': 0.3, 'wspace': 0.35})
-    
-                for mS in range(0,NS): # SSP
-                    ax1.plot(np.arange(2016,2061,1),MatProduction_Prim[:,0,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[0,:], linewidth = LWI[mS])
-                    ax1.plot(np.arange(2016,2061,1),MatProduction_Prim[:,0,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[0,:], linewidth = LWI[mS])
-                    ax1.plot(np.arange(2016,2061,1),MatProduction_Sec[:,0,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[1,:], linewidth = LWI[mS])
-                    ax1.plot(np.arange(2016,2061,1),MatProduction_Sec[:,0,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[1,:], linewidth = LWI[mS])
-                ax1.set_title('Steel')
-                for mS in range(0,NS): # SSP
-                    ax2.plot(np.arange(2016,2061,1),MatProduction_Prim[:,1,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[2,:], linewidth = LWI[mS])
-                    ax2.plot(np.arange(2016,2061,1),MatProduction_Prim[:,1,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[2,:], linewidth = LWI[mS])
-                    ax2.plot(np.arange(2016,2061,1),MatProduction_Sec[:,1,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[3,:], linewidth = LWI[mS])
-                    ax2.plot(np.arange(2016,2061,1),MatProduction_Sec[:,1,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[3,:], linewidth = LWI[mS])
-                ax2.set_title('Aluminium')
-                for mS in range(0,NS): # SSP
-                    ax3.plot(np.arange(2016,2061,1),MatProduction_Prim[:,2,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[4,:], linewidth = LWI[mS])
-                    ax3.plot(np.arange(2016,2061,1),MatProduction_Prim[:,2,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[4,:], linewidth = LWI[mS])
-                    ax3.plot(np.arange(2016,2061,1),MatProduction_Sec[:,2,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[5,:], linewidth = LWI[mS])
-                    ax3.plot(np.arange(2016,2061,1),MatProduction_Sec[:,2,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[5,:], linewidth = LWI[mS])
-                ax3.set_title('Copper')
-                for mS in range(0,NS): # SSP
-                    ax4.plot(np.arange(2016,2061,1),MatProduction_Prim[:,3,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[6,:], linewidth = LWI[mS])
-                    ax4.plot(np.arange(2016,2061,1),MatProduction_Prim[:,3,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[6,:], linewidth = LWI[mS])
-                    ax4.plot(np.arange(2016,2061,1),MatProduction_Sec[:,3,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[7,:], linewidth = LWI[mS])
-                    ax4.plot(np.arange(2016,2061,1),MatProduction_Sec[:,3,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[7,:], linewidth = LWI[mS])
-                ax4.set_title('Cement')
-                for mS in range(0,NS): # SSP
-                    ax5.plot(np.arange(2016,2061,1),MatProduction_Prim[:,4,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[8,:], linewidth = LWI[mS])
-                    ax5.plot(np.arange(2016,2061,1),MatProduction_Prim[:,4,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[8,:], linewidth = LWI[mS])
-                    ax5.plot(np.arange(2016,2061,1),MatProduction_Sec[:,4,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[9,:], linewidth = LWI[mS])
-                    ax5.plot(np.arange(2016,2061,1),MatProduction_Sec[:,4,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[9,:], linewidth = LWI[mS])
-                ax5.set_title('Plastics')
-                for mS in range(0,NS): # SSP
-                    ax6.plot(np.arange(2016,2061,1),MatProduction_Prim[:,5,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[10,:], linewidth = LWI[mS])
-                    ax6.plot(np.arange(2016,2061,1),MatProduction_Prim[:,5,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[10,:], linewidth = LWI[mS])
-                    ax6.plot(np.arange(2016,2061,1),MatProduction_Sec[:,5,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[11,:], linewidth = LWI[mS])
-                    ax6.plot(np.arange(2016,2061,1),MatProduction_Sec[:,5,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[11,:], linewidth = LWI[mS])
-                ax6.set_title('Wood')
-    
-                plt.sca(ax1)
-                plt.ylabel('Mt/yr', fontsize = 12)
-                plt.sca(ax4)
-                plt.ylabel('Mt/yr', fontsize = 12)
-
-                plt.plot(2016,0,color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='-')
-                plt.plot(2016,0,color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='--')
-                plt.plot(2016,0,color=np.array([0.3,0.3,0.3,1]), lw=LWI[1],  linestyle='-')
-                plt.plot(2016,0,color=np.array([0.3,0.3,0.3,1]), lw=LWI[1],  linestyle='--') 
-                plt.legend(LegendLabels,shadow = False, prop={'size':7}, loc = 'upper right',bbox_to_anchor=(2.5, 1))  
-    
-                plt.show()
-                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Rcens[mRCP] + '_line.png'
-                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')      
+    # (2) Line plot of metal production, primary and secondary, decadal average, all socec scenarios
+#    LegendLabels = ['Primary material production, no ME','Primary material production, full ME','Secondary material production, no ME','Secondary material production, full ME']
+#    if RegionalScope == 'Global':
+#        LWI = [0.8,1.4,0.8]
+#        for mRCP in range(0,NR):  # RCP
+#            for mR in range(0,1): # pav-reb-nrb
+#                              
+#                fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, sharex=True, gridspec_kw={'hspace': 0.3, 'wspace': 0.35})
+#    
+#                for mS in range(0,NS): # SSP
+#                    ax1.plot(np.arange(2016,2061,1),MatProduction_Prim[:,0,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[0,:], linewidth = LWI[mS])
+#                    ax1.plot(np.arange(2016,2061,1),MatProduction_Prim[:,0,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[0,:], linewidth = LWI[mS])
+#                    ax1.plot(np.arange(2016,2061,1),MatProduction_Sec[:,0,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[1,:], linewidth = LWI[mS])
+#                    ax1.plot(np.arange(2016,2061,1),MatProduction_Sec[:,0,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[1,:], linewidth = LWI[mS])
+#                ax1.set_title('Steel')
+#                for mS in range(0,NS): # SSP
+#                    ax2.plot(np.arange(2016,2061,1),MatProduction_Prim[:,1,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[2,:], linewidth = LWI[mS])
+#                    ax2.plot(np.arange(2016,2061,1),MatProduction_Prim[:,1,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[2,:], linewidth = LWI[mS])
+#                    ax2.plot(np.arange(2016,2061,1),MatProduction_Sec[:,1,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[3,:], linewidth = LWI[mS])
+#                    ax2.plot(np.arange(2016,2061,1),MatProduction_Sec[:,1,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[3,:], linewidth = LWI[mS])
+#                ax2.set_title('Aluminium')
+#                for mS in range(0,NS): # SSP
+#                    ax3.plot(np.arange(2016,2061,1),MatProduction_Prim[:,2,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[4,:], linewidth = LWI[mS])
+#                    ax3.plot(np.arange(2016,2061,1),MatProduction_Prim[:,2,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[4,:], linewidth = LWI[mS])
+#                    ax3.plot(np.arange(2016,2061,1),MatProduction_Sec[:,2,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[5,:], linewidth = LWI[mS])
+#                    ax3.plot(np.arange(2016,2061,1),MatProduction_Sec[:,2,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[5,:], linewidth = LWI[mS])
+#                ax3.set_title('Copper')
+#                for mS in range(0,NS): # SSP
+#                    ax4.plot(np.arange(2016,2061,1),MatProduction_Prim[:,3,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[6,:], linewidth = LWI[mS])
+#                    ax4.plot(np.arange(2016,2061,1),MatProduction_Prim[:,3,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[6,:], linewidth = LWI[mS])
+#                    ax4.plot(np.arange(2016,2061,1),MatProduction_Sec[:,3,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[7,:], linewidth = LWI[mS])
+#                    ax4.plot(np.arange(2016,2061,1),MatProduction_Sec[:,3,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[7,:], linewidth = LWI[mS])
+#                ax4.set_title('Cement')
+#                for mS in range(0,NS): # SSP
+#                    ax5.plot(np.arange(2016,2061,1),MatProduction_Prim[:,4,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[8,:], linewidth = LWI[mS])
+#                    ax5.plot(np.arange(2016,2061,1),MatProduction_Prim[:,4,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[8,:], linewidth = LWI[mS])
+#                    ax5.plot(np.arange(2016,2061,1),MatProduction_Sec[:,4,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[9,:], linewidth = LWI[mS])
+#                    ax5.plot(np.arange(2016,2061,1),MatProduction_Sec[:,4,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[9,:], linewidth = LWI[mS])
+#                ax5.set_title('Plastics')
+#                for mS in range(0,NS): # SSP
+#                    ax6.plot(np.arange(2016,2061,1),MatProduction_Prim[:,5,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[10,:], linewidth = LWI[mS])
+#                    ax6.plot(np.arange(2016,2061,1),MatProduction_Prim[:,5,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[10,:], linewidth = LWI[mS])
+#                    ax6.plot(np.arange(2016,2061,1),MatProduction_Sec[:,5,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[11,:], linewidth = LWI[mS])
+#                    ax6.plot(np.arange(2016,2061,1),MatProduction_Sec[:,5,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[11,:], linewidth = LWI[mS])
+#                ax6.set_title('Wood')
+#    
+#                plt.sca(ax1)
+#                plt.ylabel('Mt/yr', fontsize = 12)
+#                plt.sca(ax4)
+#                plt.ylabel('Mt/yr', fontsize = 12)
+#
+#                plt.plot(2016,0,color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='-')
+#                plt.plot(2016,0,color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='--')
+#                plt.plot(2016,0,color=np.array([0.3,0.3,0.3,1]), lw=LWI[1],  linestyle='-')
+#                plt.plot(2016,0,color=np.array([0.3,0.3,0.3,1]), lw=LWI[1],  linestyle='--') 
+#                plt.legend(LegendLabels,shadow = False, prop={'size':7}, loc = 'upper right',bbox_to_anchor=(2.5, 1))  
+#    
+#                plt.show()
+#                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Rcens[mRCP] + '_line.png'
+#                # fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = 400, bbox_inches='tight')      
                     
             
-    # Same data, but with line plot for each SSP
+    # (3a) 3x2 Line plot of metal production, primary and secondary. Same data, but with line plot for each SSP
+#    LWI = [0.8,1.4,0.8]
+#    for mRCP in range(0,NR): # RCP
+#        for mS in range(0,NS): # SSP
+#            for mR in range(0,1): # pav-reb-nrb
+#                          
+#                fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, sharex=True, gridspec_kw={'hspace': 0.3, 'wspace': 0.35})
+#
+#                ax1.plot(np.arange(2016,2061,1),MatProduction_Prim[:,0,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[0,:], linewidth = LWI[mS])
+#                ax1.plot(np.arange(2016,2061,1),MatProduction_Prim[:,0,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[0,:], linewidth = LWI[mS])
+#                ax1.plot(np.arange(2016,2061,1),MatProduction_Sec[:,0,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[1,:], linewidth = LWI[mS])
+#                ax1.plot(np.arange(2016,2061,1),MatProduction_Sec[:,0,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[1,:], linewidth = LWI[mS])
+#                ax1.set_title('Steel')
+#                ax2.plot(np.arange(2016,2061,1),MatProduction_Prim[:,1,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[2,:], linewidth = LWI[mS])
+#                ax2.plot(np.arange(2016,2061,1),MatProduction_Prim[:,1,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[2,:], linewidth = LWI[mS])
+#                ax2.plot(np.arange(2016,2061,1),MatProduction_Sec[:,1,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[3,:], linewidth = LWI[mS])
+#                ax2.plot(np.arange(2016,2061,1),MatProduction_Sec[:,1,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[3,:], linewidth = LWI[mS])
+#                ax2.set_title('Aluminium')
+#                ax3.plot(np.arange(2016,2061,1),MatProduction_Prim[:,2,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[4,:], linewidth = LWI[mS])
+#                ax3.plot(np.arange(2016,2061,1),MatProduction_Prim[:,2,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[4,:], linewidth = LWI[mS])
+#                ax3.plot(np.arange(2016,2061,1),MatProduction_Sec[:,2,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[5,:], linewidth = LWI[mS])
+#                ax3.plot(np.arange(2016,2061,1),MatProduction_Sec[:,2,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[5,:], linewidth = LWI[mS])
+#                ax3.set_title('Copper')
+#                ax4.plot(np.arange(2016,2061,1),MatProduction_Prim[:,3,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[6,:], linewidth = LWI[mS])
+#                ax4.plot(np.arange(2016,2061,1),MatProduction_Prim[:,3,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[6,:], linewidth = LWI[mS])
+#                ax4.plot(np.arange(2016,2061,1),MatProduction_Sec[:,3,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[7,:], linewidth = LWI[mS])
+#                ax4.plot(np.arange(2016,2061,1),MatProduction_Sec[:,3,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[7,:], linewidth = LWI[mS])
+#                ax4.set_title('Cement')
+#                ax5.plot(np.arange(2016,2061,1),MatProduction_Prim[:,4,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[8,:], linewidth = LWI[mS])
+#                ax5.plot(np.arange(2016,2061,1),MatProduction_Prim[:,4,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[8,:], linewidth = LWI[mS])
+#                ax5.plot(np.arange(2016,2061,1),MatProduction_Sec[:,4,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[9,:], linewidth = LWI[mS])
+#                ax5.plot(np.arange(2016,2061,1),MatProduction_Sec[:,4,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[9,:], linewidth = LWI[mS])
+#                ax5.set_title('Plastics')
+#                ax6.plot(np.arange(2016,2061,1),MatProduction_Prim[:,5,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[10,:], linewidth = LWI[mS])
+#                ax6.plot(np.arange(2016,2061,1),MatProduction_Prim[:,5,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[10,:], linewidth = LWI[mS])
+#                ax6.plot(np.arange(2016,2061,1),MatProduction_Sec[:,5,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[11,:], linewidth = LWI[mS])
+#                ax6.plot(np.arange(2016,2061,1),MatProduction_Sec[:,5,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[11,:], linewidth = LWI[mS])
+#                ax6.set_title('Wood')
+#
+#                plt.sca(ax1)
+#                plt.ylabel('Mt/yr', fontsize = 12)
+#                plt.sca(ax4)
+#                plt.ylabel('Mt/yr', fontsize = 12)
+#    
+#                plt.show()
+#                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line.png'
+#                # fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = 400, bbox_inches='tight')               
+#                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line.svg'
+#                # fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = 400, bbox_inches='tight')      
+
+    # (3b) 6x1 Line plot of metal production, primary and secondary. Same data, but with line plot for each SSP
     LWI = [0.8,1.4,0.8]
     for mRCP in range(0,NR): # RCP
         for mS in range(0,NS): # SSP
             for mR in range(0,1): # pav-reb-nrb
                           
-                fig, ((ax1, ax2, ax3), (ax4, ax5, ax6)) = plt.subplots(2, 3, sharex=True, gridspec_kw={'hspace': 0.3, 'wspace': 0.35})
+                fig, ((ax1, ax2, ax3, ax4, ax5, ax6)) = plt.subplots(1, 6, sharex=True, gridspec_kw={'hspace': 0.3, 'wspace': 0.35},figsize=(15,5))
 
-                ax1.plot(np.arange(2016,2061,1),MatProduction_Prim[:,0,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[0,:], linewidth = LWI[mS])
-                ax1.plot(np.arange(2016,2061,1),MatProduction_Prim[:,0,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[0,:], linewidth = LWI[mS])
-                ax1.plot(np.arange(2016,2061,1),MatProduction_Sec[:,0,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[1,:], linewidth = LWI[mS])
-                ax1.plot(np.arange(2016,2061,1),MatProduction_Sec[:,0,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[1,:], linewidth = LWI[mS])
-                ax1.set_title('Steel')
-                ax2.plot(np.arange(2016,2061,1),MatProduction_Prim[:,1,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[2,:], linewidth = LWI[mS])
-                ax2.plot(np.arange(2016,2061,1),MatProduction_Prim[:,1,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[2,:], linewidth = LWI[mS])
-                ax2.plot(np.arange(2016,2061,1),MatProduction_Sec[:,1,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[3,:], linewidth = LWI[mS])
-                ax2.plot(np.arange(2016,2061,1),MatProduction_Sec[:,1,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[3,:], linewidth = LWI[mS])
-                ax2.set_title('Aluminium')
-                ax3.plot(np.arange(2016,2061,1),MatProduction_Prim[:,2,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[4,:], linewidth = LWI[mS])
-                ax3.plot(np.arange(2016,2061,1),MatProduction_Prim[:,2,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[4,:], linewidth = LWI[mS])
-                ax3.plot(np.arange(2016,2061,1),MatProduction_Sec[:,2,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[5,:], linewidth = LWI[mS])
-                ax3.plot(np.arange(2016,2061,1),MatProduction_Sec[:,2,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[5,:], linewidth = LWI[mS])
-                ax3.set_title('Copper')
-                ax4.plot(np.arange(2016,2061,1),MatProduction_Prim[:,3,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[6,:], linewidth = LWI[mS])
-                ax4.plot(np.arange(2016,2061,1),MatProduction_Prim[:,3,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[6,:], linewidth = LWI[mS])
-                ax4.plot(np.arange(2016,2061,1),MatProduction_Sec[:,3,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[7,:], linewidth = LWI[mS])
-                ax4.plot(np.arange(2016,2061,1),MatProduction_Sec[:,3,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[7,:], linewidth = LWI[mS])
-                ax4.set_title('Cement')
-                ax5.plot(np.arange(2016,2061,1),MatProduction_Prim[:,4,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[8,:], linewidth = LWI[mS])
-                ax5.plot(np.arange(2016,2061,1),MatProduction_Prim[:,4,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[8,:], linewidth = LWI[mS])
-                ax5.plot(np.arange(2016,2061,1),MatProduction_Sec[:,4,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[9,:], linewidth = LWI[mS])
-                ax5.plot(np.arange(2016,2061,1),MatProduction_Sec[:,4,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[9,:], linewidth = LWI[mS])
-                ax5.set_title('Plastics')
-                ax6.plot(np.arange(2016,2061,1),MatProduction_Prim[:,5,mS,mRCP,0], linestyle = '-',  color =MyColorCycle[10,:], linewidth = LWI[mS])
-                ax6.plot(np.arange(2016,2061,1),MatProduction_Prim[:,5,mS,mRCP,-1],linestyle = '--', color =MyColorCycle[10,:], linewidth = LWI[mS])
-                ax6.plot(np.arange(2016,2061,1),MatProduction_Sec[:,5,mS,mRCP,0],  linestyle = '-',  color =MyColorCycle[11,:], linewidth = LWI[mS])
-                ax6.plot(np.arange(2016,2061,1),MatProduction_Sec[:,5,mS,mRCP,-1], linestyle = '--', color =MyColorCycle[11,:], linewidth = LWI[mS])
-                ax6.set_title('Wood')
-
+                ax1.plot(np.arange(2016,2051,1),MatProduction_Prim[0:35,0,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[0,:], linewidth = LWI[mS])
+                ax1.plot(np.arange(2016,2051,1),MatProduction_Prim[0:35,0,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[0,:], linewidth = LWI[mS])
+                ax1.plot(np.arange(2016,2051,1),MatProduction_Sec[0:35,0,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[1,:], linewidth = LWI[mS])
+                ax1.plot(np.arange(2016,2051,1),MatProduction_Sec[0:35,0,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[1,:], linewidth = LWI[mS])
+                ax1.set_title('Steel', fontsize = 14)
+                ax2.plot(np.arange(2016,2051,1),MatProduction_Prim[0:35,1,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[2,:], linewidth = LWI[mS])
+                ax2.plot(np.arange(2016,2051,1),MatProduction_Prim[0:35,1,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[2,:], linewidth = LWI[mS])
+                ax2.plot(np.arange(2016,2051,1),MatProduction_Sec[0:35,1,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[3,:], linewidth = LWI[mS])
+                ax2.plot(np.arange(2016,2051,1),MatProduction_Sec[0:35,1,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[3,:], linewidth = LWI[mS])
+                ax2.set_title('Aluminium', fontsize = 14)
+                ax3.plot(np.arange(2016,2051,1),MatProduction_Prim[0:35,2,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[4,:], linewidth = LWI[mS])
+                ax3.plot(np.arange(2016,2051,1),MatProduction_Prim[0:35,2,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[4,:], linewidth = LWI[mS])
+                ax3.plot(np.arange(2016,2051,1),MatProduction_Sec[0:35,2,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[5,:], linewidth = LWI[mS])
+                ax3.plot(np.arange(2016,2051,1),MatProduction_Sec[0:35,2,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[5,:], linewidth = LWI[mS])
+                ax3.set_title('Copper', fontsize = 14)
+                ax4.plot(np.arange(2016,2051,1),MatProduction_Prim[0:35,3,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[6,:], linewidth = LWI[mS])
+                ax4.plot(np.arange(2016,2051,1),MatProduction_Prim[0:35,3,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[6,:], linewidth = LWI[mS])
+                ax4.plot(np.arange(2016,2051,1),MatProduction_Sec[0:35,3,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[7,:], linewidth = LWI[mS])
+                ax4.plot(np.arange(2016,2051,1),MatProduction_Sec[0:35,3,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[7,:], linewidth = LWI[mS])
+                ax4.set_title('Cement', fontsize = 14)
+                ax5.plot(np.arange(2016,2051,1),MatProduction_Prim[0:35,4,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[8,:], linewidth = LWI[mS])
+                ax5.plot(np.arange(2016,2051,1),MatProduction_Prim[0:35,4,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[8,:], linewidth = LWI[mS])
+                ax5.plot(np.arange(2016,2051,1),MatProduction_Sec[0:35,4,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[9,:], linewidth = LWI[mS])
+                ax5.plot(np.arange(2016,2051,1),MatProduction_Sec[0:35,4,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[9,:], linewidth = LWI[mS])
+                ax5.set_title('Plastics', fontsize = 14)
+                ax6.plot(np.arange(2016,2051,1),MatProduction_Prim[0:35,5,mS,mRCP,0], linestyle = '--',  color =MyColorCycle[10,:], linewidth = LWI[mS])
+                ax6.plot(np.arange(2016,2051,1),MatProduction_Prim[0:35,5,mS,mRCP,-1],linestyle = '-', color =MyColorCycle[10,:], linewidth = LWI[mS])
+                ax6.plot(np.arange(2016,2051,1),MatProduction_Sec[0:35,5,mS,mRCP,0],  linestyle = '--',  color =MyColorCycle[11,:], linewidth = LWI[mS])
+                ax6.plot(np.arange(2016,2051,1),MatProduction_Sec[0:35,5,mS,mRCP,-1], linestyle = '-', color =MyColorCycle[11,:], linewidth = LWI[mS])
+                ax6.set_title('Wood', fontsize = 14)
+                
+                ax1.set_xlim([2015, 2051])
+                ax2.set_xlim([2015, 2051])
+                ax3.set_xlim([2015, 2051])
+                ax4.set_xlim([2015, 2051])
+                ax5.set_xlim([2015, 2051])
+                ax6.set_xlim([2015, 2051])
+                
+                # For global paper only:
+                if RegionalScope == 'Global' and mS == 1 and mRCP == 1: # format axes
+                    ax1.set_ylim([0, 500])    
+                    ax2.set_ylim([0, 25])    
+                    ax3.set_ylim([0, 25])    
+                    ax4.set_ylim([0, 1000])    
+                    ax5.set_ylim([0, 250])    
+                    ax6.set_ylim([0, 500])    
+                    
                 plt.sca(ax1)
-                plt.ylabel('Mt/yr', fontsize = 12)
-                plt.sca(ax4)
-                plt.ylabel('Mt/yr', fontsize = 12)
+                plt.ylabel('Mt/yr', fontsize = 14)
     
                 plt.show()
-                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line.png'
-                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')               
-                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line.svg'
-                fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = 400, bbox_inches='tight')      
-
-#                fig  = plt.figure(figsize=(5,8))
-#                ax1  = plt.axes([0.08,0.08,0.85,0.9])
-#                plt.plot([2016,2017],[0,0],color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='-')
-#                plt.plot([2016,2017],[0,0],color=np.array([0,0,0,1]),       lw=LWI[1],  linestyle='--')
-#                plt.plot([2016,2017],[0,0],color=np.array([0.5,0.5,0.5,1]), lw=LWI[1],  linestyle='-')
-#                plt.plot([2016,2017],[0,0],color=np.array([0.5,0.5,0.5,1]), lw=LWI[1],  linestyle='--') 
-#                plt.legend(LegendLabels,shadow = False, prop={'size':8}, loc = 'upper right')   
-#                plt.show()
-#                fig.savefig(os.path.join('Legend.png'), dpi = PlotExpResolution, bbox_inches='tight')  
-                
-    ##### line Plot overview of primary steel and steel recycling
+                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line_v2.png'
+                fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = 400, bbox_inches='tight')               
+                fig_name = RegionalScope + '_' + Sector[mR] + '_' + Title[0] + '_' + Scens[mS] + '_' + Rcens[mRCP] + '_line_v2.svg'
+                # fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = 400, bbox_inches='tight')      
+    
+    ### (4)                  
+    # None
+    
+    ### (5) Line plot overview of primary steel and steel recycling
     if RegionalScope == 'Global':
         MyColorCycle = pylab.cm.Paired(np.arange(0,1,0.2))
         #linewidth = [1.2,2.4,1.2,1.2,1.2]
         linewidth  = [1.2,2,1.2]
         linewidth2 = [1.2,2,1.2]
         
-        ColorOrder         = [1,0,3]
+        ColorOrder = [1,0,3]
                 
-        
         # Primary steel
         AnnEmsV_PrimarySteel   = np.zeros((Nt,NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
         AnnEmsV_SecondarySteel = np.zeros((Nt,NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
@@ -1091,29 +1178,45 @@ def main(RegionalScope,FolderList,SectorString):
             
             plt.show()
             fig_name = RegionalScope + '_' + SectorString + '_' + Title[nn] + '.png'
-            fig.savefig(os.path.join(RECC_Paths.results_path,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
+            fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = PlotExpResolution, bbox_inches='tight')             
             
     # Save data to xls
-    # For Germany paper plot
-    ColIndex       = [str(mmx) for mmx in  range(2016,2061)]
-    RowIndex       = pd.MultiIndex.from_product([['System-wide GHG','Material cycle GHG'],['LED','SSP1','SSP2'],['Base','RCP2_6'],LWE_area[0:-1]], names=('System scope','SSP','RCP','ME strategy'))
-    DF_GHGA_global = pd.DataFrame(np.einsum('ItSRE->ISREt',DataArea).reshape(12*NE,45), index=RowIndex, columns=ColIndex)
-    DF_GHGA_global.to_excel(os.path.join(RECC_Paths.results_path,'GHG_Area_Data_' + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)
+    # GHG data, area plots
+    ColIndex           = [str(mmx) for mmx in  range(2016,2061)]
+    RowIndex           = pd.MultiIndex.from_product([['System-wide GHG','Material cycle GHG'],['LED','SSP1','SSP2'],['Base','RCP2_6'],LWE_area[0:-1]], names=('System scope','SSP','RCP','ME strategy'))
+    DF_GHGA_global     = pd.DataFrame(np.einsum('ItSRE->ISREt',DataArea).reshape(12*NE,45), index=RowIndex, columns=ColIndex)
+    DF_GHGA_global.to_excel(os.path.join(RECC_Paths.results_path_save,'GHG_Area_Data_' + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)
     
+    # Primary and secondary material production, by material and RE strategy cascade
+    ColIndex           = [str(mmx) for mmx in  range(2016,2061)]
     if SectorString == 'pav_reb' or SectorString == 'pav_nrb' or SectorString == 'pav_reb_nrb':
-        ColIndex       = [str(mmx) for mmx in  range(2016,2061)]
         RowIndex       = pd.MultiIndex.from_product([['Steel','Aluminium','Copper','Cement','Plastics','Timber'],['LED','SSP1','SSP2'],['Base','RCP2_6'],['No ME','+ higher yields', '+ re-use/longer use','+ material subst.','+ down-sizing','+ car-sharing','+ ride-sharing','+ more intense bld. use = All ME stratgs.']], names=('Material','SSP','RCP','ME cascade steps'))
         DF_PriM_global = pd.DataFrame(np.einsum('tmSRE->mSREt',MatProduction_Prim).reshape(288,45), index=RowIndex, columns=ColIndex)
-        DF_PriM_global.to_excel(os.path.join(RECC_Paths.results_path,'PrimaryMaterial_'   + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)
         DF_SecM_global = pd.DataFrame(np.einsum('tmSRE->mSREt',MatProduction_Sec).reshape(288,45),  index=RowIndex, columns=ColIndex)
-        DF_SecM_global.to_excel(os.path.join(RECC_Paths.results_path,'SecondaryMaterial_' + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)
+    if SectorString == 'pav':
+        RowIndex       = pd.MultiIndex.from_product([['Steel','Aluminium','Copper','Cement','Plastics','Timber'],['LED','SSP1','SSP2'],['Base','RCP2_6'],['No ME','+ higher yields', '+ re-use/longer use','+ material subst.','+ down-sizing','+ car-sharing','+ ride-sharing = All ME stratgs.']], names=('Material','SSP','RCP','ME cascade steps'))
+        DF_PriM_global = pd.DataFrame(np.einsum('tmSRE->mSREt',MatProduction_Prim).reshape(252,45), index=RowIndex, columns=ColIndex)
+        DF_SecM_global = pd.DataFrame(np.einsum('tmSRE->mSREt',MatProduction_Sec).reshape(252,45),  index=RowIndex, columns=ColIndex)
+    if SectorString == 'reb':
+        RowIndex       = pd.MultiIndex.from_product([['Steel','Aluminium','Copper','Cement','Plastics','Timber'],['LED','SSP1','SSP2'],['Base','RCP2_6'],['No ME','+ higher yields', '+ re-use/longer use','+ material subst.','+ light design','+ more intense bld. use = All ME stratgs.']], names=('Material','SSP','RCP','ME cascade steps'))
+        DF_PriM_global = pd.DataFrame(np.einsum('tmSRE->mSREt',MatProduction_Prim).reshape(216,45), index=RowIndex, columns=ColIndex)
+        DF_SecM_global = pd.DataFrame(np.einsum('tmSRE->mSREt',MatProduction_Sec).reshape(216,45),  index=RowIndex, columns=ColIndex)
+    DF_PriM_global.to_excel(os.path.join(RECC_Paths.results_path_save,'PrimaryMaterial_'   + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)
+    DF_SecM_global.to_excel(os.path.join(RECC_Paths.results_path_save,'SecondaryMaterial_' + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)        
         
+    RowIndex           = pd.MultiIndex.from_product([['System-wide GHG','Material cycle GHG'],['Cumulative GHG, 2016-2050','Avg. annual GHG, 2040-2050','Annual GHG, 2050'],['LED','SSP1','SSP2'],['Base','RCP2_6']], names=('System scope','Indicator','SSP','RCP'))
+    if SectorString == 'pav_reb' or SectorString == 'pav_nrb' or SectorString == 'pav_reb_nrb':
         ColIndex       = ['No ME','+ higher yields', '+ re-use/longer use','+ material subst.','+ down-sizing','+ car-sharing','+ ride-sharing','+ more intense bld. use = All ME stratgs.']
-        RowIndex       = pd.MultiIndex.from_product([['System-wide GHG','Material cycle GHG'],['Cumulative GHG, 2016-2050','Avg. annual GHG, 2040-2050','Annual GHG, 2050'],['LED','SSP1','SSP2'],['Base','RCP2_6']], names=('System scope','Indicator','SSP','RCP'))
         DF_GHGC_global = pd.DataFrame(CascDataExp.reshape(36,8), index=RowIndex, columns=ColIndex)
-        DF_GHGC_global.to_excel(os.path.join(RECC_Paths.results_path,'GHG_Cascade_Data_'  + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)
+    if SectorString == 'pav':
+        ColIndex       = ['No ME','+ higher yields', '+ re-use/longer use','+ material subst.','+ down-sizing','+ car-sharing','+ ride-sharing = All ME stratgs.']
+        DF_GHGC_global = pd.DataFrame(CascDataExp.reshape(36,7), index=RowIndex, columns=ColIndex)        
+    if SectorString == 'reb':
+        ColIndex       = ['No ME','+ higher yields', '+ re-use/longer use','+ material subst.','+ light design','+ more intense bld. use = All ME stratgs.']
+        DF_GHGC_global = pd.DataFrame(CascDataExp.reshape(36,6), index=RowIndex, columns=ColIndex)        
+    DF_GHGC_global.to_excel(os.path.join(RECC_Paths.results_path_save,'GHG_Cascade_Data_'  + SectorString + '_' + RegionalScope + '.xls'), merge_cells=False)        
         
-    return ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, RecCreditAvgDec, CumEms2050, CumEms2060, AnnEms2050, MatStocks, TimeSeries_R, MatEms
+    return ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, RecCreditAvgDec, CumEms2050, CumEms2060, AnnEms2050, MatStocks, TimeSeries_R, MatEms, Population
 
 # code for script to be run as standalone function
 if __name__ == "__main__":
