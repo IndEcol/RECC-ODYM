@@ -38,9 +38,17 @@ def main(RegionalScope,SectorString,CumEms2050,CumEms2060,TimeSeries_R,PlotExpRe
     TSList           = ['2050','2060']
     for TS in range(0,2): # TS: temporal scope: 0: 2050, 1: 2060
         Xoff         = [1,1.7,2.7,3.4,4.4,5.1]
-        MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map. 
-        # replace bottom color by grey:
-        MyColorCycle[11,:] = np.array([0.8,0.8,0.8,1])
+        #MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # select 20 colors from the 'tab20' color map. 
+        MyColorCycle = np.zeros((20,4))
+        # Define Colors:
+        MyColorCycle[6,:]  = np.array([0.84313725, 0.188235294,0.152941176,1]) # See https://colorbrewer2.org/#type=diverging&scheme=RdYlBu&n=7
+        MyColorCycle[2,:]  = np.array([0.988235294,0.552941176,0.349019608,1])
+        MyColorCycle[16,:] = np.array([0.996078431,0.878431373,0.564705882,1])
+        MyColorCycle[8,:]  = np.array([1,          1,          0.749019608,1])
+        MyColorCycle[18,:] = np.array([0.878431373,0.952941176,0.97254902,1])
+        MyColorCycle[0,:]  = np.array([0.568627451,0.749019608,0.858823529,1])
+        MyColorCycle[4,:]  = np.array([0.270588235,0.458823529,0.705882353,1])
+        MyColorCycle[11,:] = np.array([0.8,0.8,0.8,1]) # grey
         if TS == 0:
             Data_Cum_Abs = CumEms2050
             Data_Cum_pc  = Data_Cum_Abs / np.einsum('SR,E->SRE',Data_Cum_Abs[:,:,0],np.ones(NE)) # here: pc = percent, not per capita.

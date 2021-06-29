@@ -33,9 +33,13 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current
     
     # Color definition
     MyColorCycle = pylab.cm.tab20(np.arange(0,1,0.05)) # Select 20 colors from the 'tab20' color map.  
+    MyColorCycle[4,:]  = np.array([0.960784314, 0.949019608, 0.51372549, 1]) # https://colorbrewer2.org/#type=diverging&scheme=RdYlBu&n=5
+    MyColorCycle[0,:]  = np.array([0.17254902,  0.482352941, 0.71372549, 1])
+    MyColorCycle[3,:]  = np.array([0.992156863, 0.682352941, 0.380392157,1])
+    MyColorCycle[6,:]  = np.array([0.843137255, 0.098039216, 0.109803922,1])
     BaseBrown    = np.array([0.749,0.506,0.176,1])     # Base for GHG before ME reduction
     BaseBlue     = np.array([0.208,0.592,0.561,1])     # Base for GHG after full ME reduction, instread of MyColorCycle[11,:]
-    LabelColors  = ['k','k','k','k','k',BaseBlue]
+    LabelColors  = ['k','k','k','k','k',BaseBlue,BaseBlue]
     
     # read data.
     
@@ -74,7 +78,7 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current
     Title  = ['Cum_GHG_2016_2050_Mt','Cum_GHG_2040_2050_Mt','Annual_GHG_2050_Mt']
     Label  = ['Cum. GHG 2016-2050','Cum. GHG 2040-2050','Annual GHG 2050']
     Scens  = ['LED','SSP1','SSP2']
-    LWE    = ['No climate policy','Energy efficiency','Low carbon en. supply', 'Industrial ME','Demand-side ME','Residual emissions']
+    LWE    = ['No climate policy','Energy efficiency','Low carbon en. supply', 'Industrial ME','Demand-side ME','Residual emissions','Residual emissions']
     DataAL = ['(1): No energy eff., no clim. policy, no ME (reference)','(2): (1) + energy efficiency','(3): (2) + low carbon en. supply', '(4): (3) + industrial ME','(5): (4) + demand-side ME = residual',\
               '(6): (1) + industrial ME','(7): (6) + demand-side ME','(8): (7) + energy efficiency','(9): (8) + low carbon en. supply = residual'] # Labels for export
         
@@ -161,7 +165,7 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current
         #plt.text(6.85, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
         #plt.text(4.3, 0.94  *Right, Scens[m],fontsize=18,fontweight='bold') 
         #plt.title('Energy, efficiency, and sufficiency, ' + Sector[0] + '.', fontsize = 18)
-        plt.ylabel(Label[nn] + r', Gt CO$_2$-eq.', fontsize = 18)
+        plt.ylabel(Label[nn] + r', Gt CO$_2$-eq', fontsize = 18)
         plt.xticks([1.6,3.6,5.6])
         plt.yticks(fontsize =18)
         ax1.set_xticklabels(Scens, rotation =0, fontsize = 21, fontweight = 'normal')
@@ -181,10 +185,9 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current
         fig.savefig(os.path.join(RECC_Paths.results_path_save,fig_name), dpi = 500, bbox_inches='tight')   
         
         # stacked bar plot with EE-EST-ME cascades on both sides
-        Xoffs0 = [1.0,3.7,6.4] # left cascade
-        Xoffs1 = [1.7,4.4,7.1] # center reference
-        Xoffs2 = [2.4,5.1,7.8] # right cascade
-        bw = 0.5
+        Xoffs0 = [1.0,3.7,6.4]    # left cascade
+        Xoffs2 = [2.05,4.75,7.45] # right cascade
+        bw = 0.85
         # fine-tune Y_max and y axis scaling for annual GHG plot:
         if nn == 2:
             if RegionalScope == 'Global' and SectorString == 'pav_reb':
@@ -202,10 +205,10 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
         
         for ms in range (0,NS):
+            # plot line
+            ax1.plot([Xoffs0[ms],Xoffs2[ms]+bw],[Data[ms,0],Data[ms,0]],color ='k', linewidth = 2.0)
+            ax1.plot([Xoffs0[ms],Xoffs2[ms]+bw],[Data[ms,4]-0.023,Data[ms,4]-0.023],color =BaseBlue, linewidth = 2.0)
             # plot bars
-            
-            ax1.fill_between([Xoffs1[ms],Xoffs1[ms]+bw], [0,0],[Data[ms,0],Data[ms,0]],linestyle = '--', facecolor =BaseBrown, linewidth = 0.0) # center
-            
             ax1.fill_between([Xoffs2[ms],Xoffs2[ms]+bw], [Data[ms,1],Data[ms,1]],[Data[ms,0],Data[ms,0]],linestyle = '--', facecolor =MyColorCycle[4,:], linewidth = 0.0) # right
             ax1.fill_between([Xoffs2[ms],Xoffs2[ms]+bw], [Data[ms,2],Data[ms,2]],[Data[ms,1],Data[ms,1]],linestyle = '--', facecolor =MyColorCycle[0,:], linewidth = 0.0)
             ax1.fill_between([Xoffs2[ms],Xoffs2[ms]+bw], [Data[ms,3],Data[ms,3]],[Data[ms,2],Data[ms,2]],linestyle = '--', facecolor =MyColorCycle[3,:], linewidth = 0.0)
@@ -220,18 +223,33 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current
 
             if ms == 1: 
                 ProxyHandlesList = []   # For legend     
-                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=BaseBrown)) # create proxy artist for legend
-                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend
-                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[0,:])) # create proxy artist for legend
-                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[3,:])) # create proxy artist for legend
-                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[6,:])) # create proxy artist for legend
+                PltLegx, = plt.plot([0,0],[1,1], color ='k', linewidth = 2.0) # create proxy artist for legend
+                ProxyHandlesList.append(PltLegx)
+                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:]))  # create proxy artist for legend
+                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[0,:]))  # create proxy artist for legend
+                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[3,:]))  # create proxy artist for legend
+                ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[6,:]))  # create proxy artist for legend
+                PltLegx, = plt.plot([0,0],[1,1], color = BaseBlue, linewidth = 2.0) # create proxy artist for legend
+                ProxyHandlesList.append(PltLegx)
                 ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[15,:])) # create proxy artist for legend
+                
+            if ms == 0: 
+                # plot ME sequence labels:
+                plt.text(1.2,  Data[0,0] * 1.4, 'ME first',rotation = 90, fontsize = 18,fontweight='normal')          
+                plt.text(2.25, Data[0,0] * 1.4, 'ME last', rotation = 90, fontsize = 18,fontweight='normal')          
+                # plot arrow sequence:
+                ax1.plot([Xoffs0[ms]-bw*0.8, Xoffs2[ms]+bw], [Data[ms,0], Data[ms,0]], color ='k', linewidth = 2.0)
+                plt.arrow(Xoffs0[ms]-bw*0.6,Data[0,0],0,Data[0,5]-Data[0,0], lw = 1.2, ls = '-', shape = 'full',
+                  length_includes_head = True, head_width =0.06, head_length =0.02, ec = 'k', fc = 'k')
+                plt.arrow(Xoffs0[ms]-bw*0.6,Data[0,5],0,Data[0,6]-Data[0,5], lw = 1.2, ls = '-', shape = 'full',
+                  length_includes_head = True, head_width =0.06, head_length =0.02, ec = 'k', fc = 'k')
+                plt.arrow(Xoffs0[ms]-bw*0.6,Data[0,6],0,Data[0,7]-Data[0,6], lw = 1.2, ls = '-', shape = 'full',
+                  length_includes_head = True, head_width =0.06, head_length =0.02, ec = 'k', fc = 'k')
+                plt.arrow(Xoffs0[ms]-bw*0.6,Data[0,7],0,Data[0,4]-Data[0,7], lw = 1.2, ls = '-', shape = 'full',
+                  length_includes_head = True, head_width =0.06, head_length =0.02, ec = 'k', fc = 'k')
+                ax1.plot([Xoffs0[ms]-bw*0.8, Xoffs2[ms]+bw], [Data[ms,4]-0.023, Data[ms,4]-0.023], color = BaseBlue, linewidth = 2.0)
 
-        # plot text and labels
-        #plt.text(6.85, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
-        #plt.text(4.3, 0.94  *Right, Scens[m],fontsize=18,fontweight='bold') 
-        #plt.title('Energy, efficiency, and sufficiency, ' + Sector[0] + '.', fontsize = 18)
-        plt.ylabel(Label[nn] + r', Gt CO$_2$-eq.', fontsize = 18)
+        plt.ylabel(Label[nn] + r', Gt CO$_2$-eq', fontsize = 18)
         plt.xticks([1.95,4.65,7.35])
         plt.yticks(fontsize =18)
         ax1.set_xticklabels(Scens, rotation =0, fontsize = 21, fontweight = 'normal')
@@ -242,7 +260,7 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current
             plt.setp(text, color = LabelColors[mc])
             mc +=1
         #plt.axis([-0.2, 7.7, 0.9*Right, 1.02*Left])
-        plt.axis([+0.2, 9, 0, YMax])
+        plt.axis([+0.0, 9, 0, YMax])
     
         plt.show()
         fig_name = Title[nn] + Region + '_' + SectorString + '_' + Sector[0] + '_bothcascades.png'

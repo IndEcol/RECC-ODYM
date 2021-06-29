@@ -99,8 +99,8 @@ NS = 3 # SSP
 NR = 2 # RCP
     
 ###ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-#ScenarioSetting = 'Evaluate_pav_reb_Cascade' # run eval and plot scripts for selected regions and sectors only
-ScenarioSetting = 'Evaluate_pav_reb_Cascade_all' # run eval and plot scripts for all regions and sectors
+ScenarioSetting = 'Evaluate_pav_reb_Cascade' # run eval and plot scripts for selected regions and sectors only
+#ScenarioSetting = 'Evaluate_pav_reb_Cascade_all' # run eval and plot scripts for all regions and sectors
 #ScenarioSetting = 'Germany_detail_evaluate' # run eval and plot scripts for Germany case study only
 #ScenarioSetting = 'Evaluate_TestRun' # Test run evaluate
 
@@ -547,43 +547,43 @@ LWI    = [0.8,1.4,0.8]
 for mmS in range(0,3):
     fig, ((ax1, ax2, ax3, ax4, ax5, ax6)) = plt.subplots(1, 6, sharex=True, gridspec_kw={'hspace': 0.3, 'wspace': 0.35},figsize=(15,5))
     
-    ax1.plot(np.arange(2016,2051,1),MatStocks_pc_GN[0:35,0,mmS,1,0],  linestyle = '--',  color =MyColorCycle[0,:], linewidth = LWI[1])
-    ax1.plot(np.arange(2016,2051,1),MatStocks_pc_GN[0:35,0,mmS,1,-1], linestyle = '-',   color =MyColorCycle[0,:], linewidth = LWI[1])
-    ax1.plot(np.arange(2016,2051,1),MatStocks_pc_GS[0:35,0,mmS,1,0],  linestyle = '--',  color =MyColorCycle[1,:], linewidth = LWI[1])
-    ax1.plot(np.arange(2016,2051,1),MatStocks_pc_GS[0:35,0,mmS,1,-1], linestyle = '-',   color =MyColorCycle[1,:], linewidth = LWI[1])
+    ax1.plot(np.arange(2016,2053,1),MatStocks_pc_GN[0:37,0,mmS,1,0],  linestyle = '--',  color =MyColorCycle[0,:], linewidth = LWI[1])
+    ax1.plot(np.arange(2016,2053,1),MatStocks_pc_GN[0:37,0,mmS,1,-1], linestyle = '-',   color =MyColorCycle[0,:], linewidth = LWI[1])
+    ax1.plot(np.arange(2016,2053,1),MatStocks_pc_GS[0:37,0,mmS,1,0],  linestyle = '--',  color =MyColorCycle[1,:], linewidth = LWI[1])
+    ax1.plot(np.arange(2016,2053,1),MatStocks_pc_GS[0:37,0,mmS,1,-1], linestyle = '-',   color =MyColorCycle[1,:], linewidth = LWI[1])
     ax1.set_title('Steel', fontsize = 14)
-    ax2.plot(np.arange(2016,2051,1),MatStocks_pc_GN[0:35,1,mmS,1,0],  linestyle = '--',  color =MyColorCycle[2,:], linewidth = LWI[1])
-    ax2.plot(np.arange(2016,2051,1),MatStocks_pc_GN[0:35,1,mmS,1,-1], linestyle = '-',   color =MyColorCycle[2,:], linewidth = LWI[1])
-    ax2.plot(np.arange(2016,2051,1),MatStocks_pc_GS[0:35,1,mmS,1,0],  linestyle = '--',  color =MyColorCycle[3,:], linewidth = LWI[1])
-    ax2.plot(np.arange(2016,2051,1),MatStocks_pc_GS[0:35,1,mmS,1,-1], linestyle = '-',   color =MyColorCycle[3,:], linewidth = LWI[1])
+    ax2.plot(np.arange(2016,2053,1),MatStocks_pc_GN[0:37,1,mmS,1,0],  linestyle = '--',  color =MyColorCycle[2,:], linewidth = LWI[1])
+    ax2.plot(np.arange(2016,2053,1),MatStocks_pc_GN[0:37,1,mmS,1,-1], linestyle = '-',   color =MyColorCycle[2,:], linewidth = LWI[1])
+    ax2.plot(np.arange(2016,2053,1),MatStocks_pc_GS[0:37,1,mmS,1,0],  linestyle = '--',  color =MyColorCycle[3,:], linewidth = LWI[1])
+    ax2.plot(np.arange(2016,2053,1),MatStocks_pc_GS[0:37,1,mmS,1,-1], linestyle = '-',   color =MyColorCycle[3,:], linewidth = LWI[1])
     ax2.set_title('Aluminium', fontsize = 14)
-    ax3.plot(np.arange(2016,2051,1),MatStocks_pc_GN[0:35,2,mmS,1,0],  linestyle = '--',  color =MyColorCycle[4,:], linewidth = LWI[1])
-    ax3.plot(np.arange(2016,2051,1),MatStocks_pc_GN[0:35,2,mmS,1,-1], linestyle = '-',   color =MyColorCycle[4,:], linewidth = LWI[1])
-    ax3.plot(np.arange(2016,2051,1),MatStocks_pc_GS[0:35,2,mmS,1,0],  linestyle = '--',  color =MyColorCycle[5,:], linewidth = LWI[1])
-    ax3.plot(np.arange(2016,2051,1),MatStocks_pc_GS[0:35,2,mmS,1,-1], linestyle = '-',   color =MyColorCycle[5,:], linewidth = LWI[1])
+    ax3.plot(np.arange(2016,2053,1),MatStocks_pc_GN[0:37,2,mmS,1,0],  linestyle = '--',  color =MyColorCycle[4,:], linewidth = LWI[1])
+    ax3.plot(np.arange(2016,2053,1),MatStocks_pc_GN[0:37,2,mmS,1,-1], linestyle = '-',   color =MyColorCycle[4,:], linewidth = LWI[1])
+    ax3.plot(np.arange(2016,2053,1),MatStocks_pc_GS[0:37,2,mmS,1,0],  linestyle = '--',  color =MyColorCycle[5,:], linewidth = LWI[1])
+    ax3.plot(np.arange(2016,2053,1),MatStocks_pc_GS[0:37,2,mmS,1,-1], linestyle = '-',   color =MyColorCycle[5,:], linewidth = LWI[1])
     ax3.set_title('Copper', fontsize = 14)
-    ax4.plot(np.arange(2016,2051,1),MatStocks_pc_GN[0:35,3,mmS,1,0],  linestyle = '--',  color =MyColorCycle[6,:], linewidth = LWI[1])
-    ax4.plot(np.arange(2016,2051,1),MatStocks_pc_GN[0:35,3,mmS,1,-1], linestyle = '-',   color =MyColorCycle[6,:], linewidth = LWI[1])
-    ax4.plot(np.arange(2016,2051,1),MatStocks_pc_GS[0:35,3,mmS,1,0],  linestyle = '--',  color =MyColorCycle[7,:], linewidth = LWI[1])
-    ax4.plot(np.arange(2016,2051,1),MatStocks_pc_GS[0:35,3,mmS,1,-1], linestyle = '-',   color =MyColorCycle[7,:], linewidth = LWI[1])
+    ax4.plot(np.arange(2016,2053,1),MatStocks_pc_GN[0:37,3,mmS,1,0],  linestyle = '--',  color =MyColorCycle[6,:], linewidth = LWI[1])
+    ax4.plot(np.arange(2016,2053,1),MatStocks_pc_GN[0:37,3,mmS,1,-1], linestyle = '-',   color =MyColorCycle[6,:], linewidth = LWI[1])
+    ax4.plot(np.arange(2016,2053,1),MatStocks_pc_GS[0:37,3,mmS,1,0],  linestyle = '--',  color =MyColorCycle[7,:], linewidth = LWI[1])
+    ax4.plot(np.arange(2016,2053,1),MatStocks_pc_GS[0:37,3,mmS,1,-1], linestyle = '-',   color =MyColorCycle[7,:], linewidth = LWI[1])
     ax4.set_title('Cement', fontsize = 14)
-    ax5.plot(np.arange(2016,2051,1),MatStocks_pc_GN[0:35,4,mmS,1,0],  linestyle = '--',  color =MyColorCycle[8,:], linewidth = LWI[1])
-    ax5.plot(np.arange(2016,2051,1),MatStocks_pc_GN[0:35,4,mmS,1,-1], linestyle = '-',   color =MyColorCycle[8,:], linewidth = LWI[1])
-    ax5.plot(np.arange(2016,2051,1),MatStocks_pc_GS[0:35,4,mmS,1,0],  linestyle = '--',  color =MyColorCycle[9,:], linewidth = LWI[1])
-    ax5.plot(np.arange(2016,2051,1),MatStocks_pc_GS[0:35,4,mmS,1,-1], linestyle = '-',   color =MyColorCycle[9,:], linewidth = LWI[1])
+    ax5.plot(np.arange(2016,2053,1),MatStocks_pc_GN[0:37,4,mmS,1,0],  linestyle = '--',  color =MyColorCycle[8,:], linewidth = LWI[1])
+    ax5.plot(np.arange(2016,2053,1),MatStocks_pc_GN[0:37,4,mmS,1,-1], linestyle = '-',   color =MyColorCycle[8,:], linewidth = LWI[1])
+    ax5.plot(np.arange(2016,2053,1),MatStocks_pc_GS[0:37,4,mmS,1,0],  linestyle = '--',  color =MyColorCycle[9,:], linewidth = LWI[1])
+    ax5.plot(np.arange(2016,2053,1),MatStocks_pc_GS[0:37,4,mmS,1,-1], linestyle = '-',   color =MyColorCycle[9,:], linewidth = LWI[1])
     ax5.set_title('Plastics', fontsize = 14)
-    ax6.plot(np.arange(2016,2051,1),MatStocks_pc_GN[0:35,5,mmS,1,0],  linestyle = '--',  color =MyColorCycle[10,:], linewidth = LWI[1])
-    ax6.plot(np.arange(2016,2051,1),MatStocks_pc_GN[0:35,5,mmS,1,-1], linestyle = '-',   color =MyColorCycle[10,:], linewidth = LWI[1])
-    ax6.plot(np.arange(2016,2051,1),MatStocks_pc_GS[0:35,5,mmS,1,0],  linestyle = '--',  color =MyColorCycle[11,:], linewidth = LWI[1])
-    ax6.plot(np.arange(2016,2051,1),MatStocks_pc_GS[0:35,5,mmS,1,-1], linestyle = '-',   color =MyColorCycle[11,:], linewidth = LWI[1])
+    ax6.plot(np.arange(2016,2053,1),MatStocks_pc_GN[0:37,5,mmS,1,0],  linestyle = '--',  color =MyColorCycle[10,:], linewidth = LWI[1])
+    ax6.plot(np.arange(2016,2053,1),MatStocks_pc_GN[0:37,5,mmS,1,-1], linestyle = '-',   color =MyColorCycle[10,:], linewidth = LWI[1])
+    ax6.plot(np.arange(2016,2053,1),MatStocks_pc_GS[0:37,5,mmS,1,0],  linestyle = '--',  color =MyColorCycle[11,:], linewidth = LWI[1])
+    ax6.plot(np.arange(2016,2053,1),MatStocks_pc_GS[0:37,5,mmS,1,-1], linestyle = '-',   color =MyColorCycle[11,:], linewidth = LWI[1])
     ax6.set_title('Wood', fontsize = 14)
     
-    ax1.set_xlim([2015, 2051])
-    ax2.set_xlim([2015, 2051])
-    ax3.set_xlim([2015, 2051])
-    ax4.set_xlim([2015, 2051])
-    ax5.set_xlim([2015, 2051])
-    ax6.set_xlim([2015, 2051])
+    ax1.set_xlim([2015, 2053])
+    ax2.set_xlim([2015, 2053])
+    ax3.set_xlim([2015, 2053])
+    ax4.set_xlim([2015, 2053])
+    ax5.set_xlim([2015, 2053])
+    ax6.set_xlim([2015, 2053])
     
     # For global paper only:
     if mmS == 1:
@@ -596,6 +596,19 @@ for mmS in range(0,3):
         
     plt.sca(ax1)
     plt.ylabel('t/cap', fontsize = 14)
+    
+    ax1.set_xticks([2020,2030,2040,2050])
+    ax2.set_xticks([2020,2030,2040,2050])
+    ax3.set_xticks([2020,2030,2040,2050])
+    ax4.set_xticks([2020,2030,2040,2050])
+    ax5.set_xticks([2020,2030,2040,2050])
+    ax6.set_xticks([2020,2030,2040,2050])
+    ax1.set_xticklabels(['2020','2030','2040','2050'], rotation =90, fontsize = 9, fontweight = 'normal')
+    ax2.set_xticklabels(['2020','2030','2040','2050'], rotation =90, fontsize = 9, fontweight = 'normal')
+    ax3.set_xticklabels(['2020','2030','2040','2050'], rotation =90, fontsize = 9, fontweight = 'normal')
+    ax4.set_xticklabels(['2020','2030','2040','2050'], rotation =90, fontsize = 9, fontweight = 'normal')
+    ax5.set_xticklabels(['2020','2030','2040','2050'], rotation =90, fontsize = 9, fontweight = 'normal')
+    ax6.set_xticklabels(['2020','2030','2040','2050'], rotation =90, fontsize = 9, fontweight = 'normal')
     
     plt.show()
     fig_name = 'pC_Stocks_line_' + Scens[mmS] + '.png'
@@ -618,7 +631,7 @@ fit_5x5 = [r'System-wide GHG, pav, Mt CO$_2$-eq/yr,',r'System-wide GHG, reb, Mt 
            'Total primary material, reb, Mt/yr,','Total secondary material, pav, Mt/yr,','Total secondary material, reb, Mt/yr,',r'Share of El and H$_2$ in use phase en. cons, pav, 1,',\
            r'Share of El and H$_2$ in use phase en. cons, reb, 1,','Use phase energy cons, pav, TJ,','Use phase energy cons, reb, TJ,',r'Wood cycle GHG, pav, Mt CO$_2$-eq/yr,',\
            r'Wood cycle GHG, reb, Mt CO$_2$-eq/yr,','passenger-km, Mkm,','no_data','no_data','buildings, heated m², Mm²,','no_data','buildings, cooled m², Mm²,',\
-           'passenger-km per GHG km/t,','no_data_here','passenger-km per material stocks, km/t,','no_data_here']
+           'passenger-km per GHG, km/t,','no_data_here','passenger-km per material stocks, km/t,','no_data_here']
 
 plt.rcParams['axes.labelsize'] = 7
 LegendLabels = ['NoNewClimPol, no ME','NoNewClimPol, full ME','RCP2.6, no ME','RCP2.6, full ME']
