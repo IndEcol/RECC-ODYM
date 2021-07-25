@@ -200,7 +200,7 @@ def main():
     #NT = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('T')].Items)
     NL = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('L')].Items)
     NO = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('O')].Items)    
-    #IndexTable.ix['t']['Classification'].Items # get classification items
+    #IndexTable.loc['t']['Classification'].Items # get classification items
     
     SwitchTime = Nc-Nt+1 # Index of first model year (2016)
     # 2.4) Read model data and parameters.
