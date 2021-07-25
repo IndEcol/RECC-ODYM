@@ -15,7 +15,7 @@ Script that modifies the RECC config file to run a list of scenarios and execute
 
 # Import required libraries:
 import os
-import xlrd, xlwt
+import xlwt
 import openpyxl
 
 import RECC_Paths # Import path file
@@ -30,8 +30,8 @@ ScenarioSetting = 'pav_reb_Config_list'
 #ScenarioSetting = 'TestRun'
 
 # open scenario sheet
-ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'))
-ModelConfigListSheet = ModelConfigListFile.sheet_by_name(ScenarioSetting)
+ModelConfigListFile  = openpyxl.load_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'))
+ModelConfigListSheet = ModelConfigListFile[ScenarioSetting]
 SheetName = 'Config_Auto'
 #Read control lines and execute main model script
 ResultFolders = []
@@ -39,11 +39,11 @@ Row = 3
 # search for script config list entry
 while True:
     try:
-        RegionalScope = ModelConfigListSheet.cell_value(Row, 2)
+        RegionalScope = ModelConfigListSheet.cell(Row+1, 3).value
         print(RegionalScope)
         Config = {}
         for m in range(3,28):
-            Config[ModelConfigListSheet.cell_value(2, m)] = ModelConfigListSheet.cell_value(Row, m)
+            Config[ModelConfigListSheet.cell(3, m+1).value] = ModelConfigListSheet.cell(Row+1, m+1).value
     except:
         break
     Row += 1

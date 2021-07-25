@@ -22,7 +22,7 @@ def main():
     import os
     import sys
     import logging as log
-    import xlrd, xlwt
+    import xlwt
     import openpyxl
     import numpy as np
     import time
@@ -55,14 +55,14 @@ def main():
     ### 1.1.) Read main script parameters
     # Mylog.info('### 1.1 - Read main script parameters')
     ProjectSpecs_Name_ConFile = 'RECC_Config_V2_4.xlsx'
-    Model_Configfile = xlrd.open_workbook(ProjectSpecs_Name_ConFile)
-    ScriptConfig = {'Model Setting': Model_Configfile.sheet_by_name('Cover').cell_value(3,3)}
-    Model_Configsheet = Model_Configfile.sheet_by_name(ScriptConfig['Model Setting'])
+    Model_Configfile = openpyxl.load_workbook(ProjectSpecs_Name_ConFile)
+    ScriptConfig = {'Model Setting': Model_Configfile['Cover'].cell(4,4).value}
+    Model_Configsheet = Model_Configfile[ScriptConfig['Model Setting']]
     #Read debug modus:   
     DebugCounter = 0
-    while Model_Configsheet.cell_value(DebugCounter, 2) != 'Logging_Verbosity':
+    while Model_Configsheet.cell(DebugCounter+1, 3).value != 'Logging_Verbosity':
         DebugCounter += 1
-    ScriptConfig['Logging_Verbosity'] = Model_Configsheet.cell_value(DebugCounter,3) # Read loggin verbosity once entry was reached.    
+    ScriptConfig['Logging_Verbosity'] = Model_Configsheet.cell(DebugCounter+1,4).value # Read loggin verbosity once entry was reached.    
     # Extract user name from main file
     ProjectSpecs_User_Name     = getpass.getuser()
     
@@ -74,11 +74,11 @@ def main():
     import dynamic_stock_model as dsm # import the dynamic stock model library
     importlib.reload(dsm)
     
-    Name_Script        = Model_Configsheet.cell_value(5,3)
+    Name_Script        = Model_Configsheet.cell(6,4).value
     if Name_Script != 'ODYM_RECC_V2_4':  # Name of this script must equal the specified name in the Excel config file
         raise AssertionError('Fatal: The name of the current script does not match to the sript name specfied in the project configuration file. Exiting the script.')
     # the model will terminate if the name of the script that is run is not identical to the script name specified in the config file.
-    Name_Scenario            = Model_Configsheet.cell_value(6,3) # Regional scope as torso for scenario name
+    Name_Scenario            = Model_Configsheet.cell(7,4).value # Regional scope as torso for scenario name
     StartTime                = datetime.datetime.now()
     TimeString               = str(StartTime.year) + '_' + str(StartTime.month) + '_' + str(StartTime.day) + '__' + str(StartTime.hour) + '_' + str(StartTime.minute) + '_' + str(StartTime.second)
     #DateString               = str(StartTime.year) + '_' + str(StartTime.month) + '_' + str(StartTime.day)
@@ -127,8 +127,8 @@ def main():
     # Note: This part reads the items directly from the Exel master,
     # will be replaced by reading them from version-managed csv file.
     class_filename       = str(ScriptConfig['Version of master classification']) + '.xlsx'
-    Classfile            = xlrd.open_workbook(os.path.join(RECC_Paths.data_path,class_filename))
-    Classsheet           = Classfile.sheet_by_name('MAIN_Table')
+    Classfile            = openpyxl.load_workbook(os.path.join(RECC_Paths.data_path,class_filename))
+    Classsheet           = Classfile['MAIN_Table']
     MasterClassification = msf.ParseClassificationFile_Main(Classsheet,Mylog)
         
     Mylog.info('Read and parse config table, including the model index table, from model config sheet.')
@@ -222,7 +222,7 @@ def main():
             Mylog.info('Reading parameter ' + PL_Names[mo])
             #MetaData, Values = msf.ReadParameter(ParPath = ParPath,ThisPar = PL_Names[mo], ThisParIx = PL_IndexStructure[mo], IndexMatch = PL_IndexMatch[mo], ThisParLayerSel = PL_IndexLayer[mo], MasterClassification,IndexTable,IndexTable_ClassificationNames,ScriptConfig,Mylog) # Do not change order of parameters handed over to function!
             # Do not change order of parameters handed over to function!
-            MetaData, Values = msf.ReadParameterV2(ParPath, PL_Names[mo], PL_IndexStructure[mo], PL_IndexMatch[mo],
+            MetaData, Values = msf.ReadParameterXLSX(ParPath, PL_Names[mo], PL_IndexStructure[mo], PL_IndexMatch[mo],
                                                  PL_IndexLayer[mo], MasterClassification, IndexTable,
                                                  IndexTable_ClassificationNames, ScriptConfig, Mylog, False)
             ParameterDict[PL_Names[mo]] = msc.Parameter(Name=MetaData['Dataset_Name'], ID=MetaData['Dataset_ID'],

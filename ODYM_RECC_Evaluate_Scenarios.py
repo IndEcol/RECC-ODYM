@@ -105,8 +105,8 @@ ScenarioSetting = 'Evaluate_pav_reb_Cascade' # run eval and plot scripts for sel
 #ScenarioSetting = 'Evaluate_TestRun' # Test run evaluate
 
 # open scenario sheet
-ModelConfigListFile  = xlrd.open_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'))
-ModelEvalListSheet   = ModelConfigListFile.sheet_by_name(ScenarioSetting)
+ModelConfigListFile  = openpyxl.load_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'))
+ModelEvalListSheet   = ModelConfigListFile[ScenarioSetting]
 
 # open result summary file
 mywb  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,'RECC_Global_Results_Template_CascSens.xlsx')) # for total emissions
@@ -130,12 +130,12 @@ SingleSectList           = [] # For model runs not part of sensitivity or cascad
 SingleSectRegionList     = [] # For regions for eff-suff plot
 
 # search for script config list entry
-while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
-    if ModelEvalListSheet.cell_value(Row, 1) != '':
+while ModelEvalListSheet.cell(Row+1, 2).value  != 'ENDOFLIST':
+    if ModelEvalListSheet.cell(Row+1, 2).value != '':
         FolderList       = []
         MultiSectorList  = []
-        RegionalScope    = ModelEvalListSheet.cell_value(Row, 1)
-        Setting          = ModelEvalListSheet.cell_value(Row, 2) # cascade or sensitivity
+        RegionalScope    = ModelEvalListSheet.cell(Row+1, 2).value
+        Setting          = ModelEvalListSheet.cell(Row+1, 3).value # cascade or sensitivity
         print(RegionalScope)
         
     if Setting == 'Cascade_pav':
@@ -178,7 +178,7 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
         Descr = 'Cascade_' + RegionalScope + '_' + SectorString
         print(Descr)
         for m in range(0,NE):
-            FolderList.append(ModelEvalListSheet.cell_value(Row +m, 3))
+            FolderList.append(ModelEvalListSheet.cell(Row +m+1, 4).value)
         # run the cascade plot function
         ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, AvgDecadalRecEms, CumEms2050, CumEms2060, AnnEms2050, MatStocks, TimeSeries_R, MatEms, Population = ODYM_RECC_Cascade_V2_4.main(RegionalScope,FolderList,SectorString,Current_UUID)
         
@@ -344,9 +344,9 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
             MatStocksTab3[7,:]      = MatStocks[34,:,2,RCP_Matstocks,0].copy()
             MatStocksTab3[8,:]      = MatStocks[34,:,2,RCP_Matstocks,-1].copy()        
             
-        if ModelEvalListSheet.cell_value(Row+NE, 2) == 'ME_industry_demandside_Scenario':
+        if ModelEvalListSheet.cell(Row+NE+1, 3).value == 'ME_industry_demandside_Scenario':
             for mmxx in range(0,6):
-                SingleSectList.append(ModelEvalListSheet.cell_value(Row+NE+mmxx, 3))
+                SingleSectList.append(ModelEvalListSheet.cell(Row+NE+mmxx+1, 4).value)
             # run the efficieny_sufficieny plots, with 6 extra single sectors in result list
             CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV = ODYM_RECC_BarPlot_ME_Industry_Demand_V2_4.main(RegionalScope,SectorString,FolderList,SingleSectList,Current_UUID)  
             SingleSectList = []
@@ -357,7 +357,7 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
         Descr = 'Cascade_' + RegionalScope + '_' + SectorString
         print(Descr)
         for m in range(0,NE):
-            MultiSectorList.append(ModelEvalListSheet.cell_value(Row +m, 3))  
+            MultiSectorList.append(ModelEvalListSheet.cell(Row +m+1, 4).value)  
         GHG_TableX = ODYM_RECC_Table_Extract_V2_4.main(RegionalScope,MultiSectorList,Current_UUID)        
         # write results summary as Table 2 to Excel
         Gsheet = mywb4['GHG_Overview']
@@ -396,9 +396,9 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
         #import ODYM_RECC_GHG_Overview_V2_4
         ODYM_RECC_GHG_Overview_V2_4.main(RegionalScope,SectorString,CumEms2050,CumEms2060,TimeSeries_R,PlotExpResolution,NE,LWE_Labels,Current_UUID)
                         
-        if ModelEvalListSheet.cell_value(Row+NE, 2) == 'ME_industry_demandside_Scenario':
+        if ModelEvalListSheet.cell(Row+NE+1, 3).value == 'ME_industry_demandside_Scenario':
             for mmxx in range(0,6):
-                SingleSectList.append(ModelEvalListSheet.cell_value(Row+NE+mmxx, 3))
+                SingleSectList.append(ModelEvalListSheet.cell(Row+NE+mmxx+1, 4).value)
             # run the efficieny_sufficieny plots, with 6 extra single sectors in result list
             CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV = ODYM_RECC_BarPlot_ME_Industry_Demand_V2_4.main(RegionalScope,SectorString,MultiSectorList,SingleSectList,Current_UUID)  
             SingleSectList = []
@@ -427,7 +427,7 @@ while ModelEvalListSheet.cell_value(Row, 1)  != 'ENDOFLIST':
     if SensitiFlag1 is True:
         SensitiFlag1 = False
         for m in range(0,int(NE)):
-            FolderList.append(ModelEvalListSheet.cell_value(Row +m, 3))
+            FolderList.append(ModelEvalListSheet.cell(Row +m+1, 4).value)
         # run the ODYM-RECC sensitivity analysis for pav
         CumEms_Sens2050, CumEms_Sens2060, AnnEms2030_Sens, AnnEms2050_Sens, AvgDecadalEms, UseCumEms2050, UseCumEms2060, UseAnnEms2030, UseAnnEms2050, AvgDecadalUseEms, MatCumEms2050, MatCumEms2060, MatAnnEms2030, MatAnnEms2050, AvgDecadalMatEms, ManCumEms2050, ManCumEms2060, ManAnnEms2030, ManAnnEms2050, AvgDecadalManEms, ForCumEms2050, ForCumEms2060, ForAnnEms2030, ForAnnEms2050, AvgDecadalForEms, RecCreditCum2050, RecCreditCum2060, RecCreditAnn2030, RecCreditAnn2050, RecCreditAvgDec = ODYM_RECC_Sensitivity_V2_4.main(RegionalScope,FolderList,SectorString,Current_UUID)        
 
