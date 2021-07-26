@@ -18,7 +18,6 @@ Section 4: Bar plot sufficiency
 
 # Import required libraries:
 import os
-import xlrd
 import openpyxl
 import numpy as np
 import matplotlib.pyplot as plt 
@@ -35,16 +34,16 @@ RECC_Paths.results_path_save = os.path.join(RECC_Paths.results_path_eval,'RECC_R
 if not os.path.exists(RECC_Paths.results_path_save): # Create scrip run results directory.
     os.makedirs(RECC_Paths.results_path_save)
 
-shutil.copy(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'),    os.path.join(RECC_Paths.results_path_save,'RECC_ModelConfig_List_V2_4.xlsx'))
-shutil.copy(os.path.join(RECC_Paths.recc_path,'ODYM_RECC_ScenarioEvaluate_V2_4.py'), os.path.join(RECC_Paths.results_path_save,'ODYM_RECC_ScenarioEvaluate_V2_4.py'))
+shutil.copy(os.path.join(RECC_Paths.data_path,'RECC_ModelConfig_List.xlsx'),    os.path.join(RECC_Paths.results_path_save,'RECC_ModelConfig_List.xlsx'))
+shutil.copy(os.path.join(RECC_Paths.recc_path,'ODYM_RECC_Evaluate_Scenarios.py'), os.path.join(RECC_Paths.results_path_save,'ODYM_RECC_Evaluate_Scenarios.py'))
 
 
 # The following SINGLE REGION scripts are called whenever there is a single cascade (for reb, pav, ...) or sensitivity analysis for a given region.
-import ODYM_RECC_Cascade_V2_4
-import ODYM_RECC_BarPlot_ME_Industry_Demand_V2_4
-import ODYM_RECC_Sensitivity_V2_4
-import ODYM_RECC_Table_Extract_V2_4
-import ODYM_RECC_GHG_Overview_V2_4
+import ODYM_RECC_Evaluate_Cascade
+import ODYM_RECC_Evaluate_BarPlot_ME_Industry_Demand
+import ODYM_RECC_Evaluate_Sensitivity
+import ODYM_RECC_Evaluate_Table_Extract
+import ODYM_RECC_Evaluate_GHG_Overview
 
 # The following ALL REGION scripts are called when ALL 20 world regions are present in the result folder list.
 
@@ -105,7 +104,7 @@ ScenarioSetting = 'Evaluate_pav_reb_Cascade' # run eval and plot scripts for sel
 #ScenarioSetting = 'Evaluate_TestRun' # Test run evaluate
 
 # open scenario sheet
-ModelConfigListFile  = openpyxl.load_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'))
+ModelConfigListFile  = openpyxl.load_workbook(os.path.join(RECC_Paths.data_path,'RECC_ModelConfig_List.xlsx'))
 ModelEvalListSheet   = ModelConfigListFile[ScenarioSetting]
 
 # open result summary file
@@ -180,7 +179,7 @@ while ModelEvalListSheet.cell(Row+1, 2).value  != 'ENDOFLIST':
         for m in range(0,NE):
             FolderList.append(ModelEvalListSheet.cell(Row +m+1, 4).value)
         # run the cascade plot function
-        ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, AvgDecadalRecEms, CumEms2050, CumEms2060, AnnEms2050, MatStocks, TimeSeries_R, MatEms, Population = ODYM_RECC_Cascade_V2_4.main(RegionalScope,FolderList,SectorString,Current_UUID)
+        ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, AvgDecadalRecEms, CumEms2050, CumEms2060, AnnEms2050, MatStocks, TimeSeries_R, MatEms, Population = ODYM_RECC_Evaluate_Cascade.main(RegionalScope,FolderList,SectorString,Current_UUID)
         
         # Export cascade results via pandas:
         ColIndex      = [str(mmx) for mmx in  range(2016,2061)]
@@ -201,7 +200,7 @@ while ModelEvalListSheet.cell(Row+1, 2).value  != 'ENDOFLIST':
 #        SP_R.to_excel(os.path.join(RECC_Paths.results_path_save,Descr + '_Mat_SecProd_Mt.xls'), merge_cells=False)
         
         # Create GHG overview plot
-        ODYM_RECC_GHG_Overview_V2_4.main(RegionalScope,SectorString,CumEms2050,CumEms2060,TimeSeries_R,PlotExpResolution,NE,LWE_Labels,Current_UUID)
+        ODYM_RECC_Evaluate_GHG_Overview.main(RegionalScope,SectorString,CumEms2050,CumEms2060,TimeSeries_R,PlotExpResolution,NE,LWE_Labels,Current_UUID)
         
         # write results summary to Excel
         for R in range(0,NR):
@@ -348,7 +347,7 @@ while ModelEvalListSheet.cell(Row+1, 2).value  != 'ENDOFLIST':
             for mmxx in range(0,6):
                 SingleSectList.append(ModelEvalListSheet.cell(Row+NE+mmxx+1, 4).value)
             # run the efficieny_sufficieny plots, with 6 extra single sectors in result list
-            CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV = ODYM_RECC_BarPlot_ME_Industry_Demand_V2_4.main(RegionalScope,SectorString,FolderList,SingleSectList,Current_UUID)  
+            CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV = ODYM_RECC_Evaluate_BarPlot_ME_Industry_Demand.main(RegionalScope,SectorString,FolderList,SingleSectList,Current_UUID)  
             SingleSectList = []
             NE  +=6 # add for extra scenarios for efficiency-sufficiency plot            
                     
@@ -358,7 +357,7 @@ while ModelEvalListSheet.cell(Row+1, 2).value  != 'ENDOFLIST':
         print(Descr)
         for m in range(0,NE):
             MultiSectorList.append(ModelEvalListSheet.cell(Row +m+1, 4).value)  
-        GHG_TableX = ODYM_RECC_Table_Extract_V2_4.main(RegionalScope,MultiSectorList,Current_UUID)        
+        GHG_TableX = ODYM_RECC_Evaluate_Table_Extract.main(RegionalScope,MultiSectorList,Current_UUID)        
         # write results summary as Table 2 to Excel
         Gsheet = mywb4['GHG_Overview']
         print('GHG_Overview_' + RegionalScope)
@@ -368,7 +367,7 @@ while ModelEvalListSheet.cell(Row+1, 2).value  != 'ENDOFLIST':
                     Gsheet.cell(row = r+4 + 8*R, column = c+4).value  = GHG_TableX[r,c,R]        
 
         # run the cascade plots for the three sectors
-        ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, AvgDecadalRecEms, CumEms2050, CumEms2060, AnnEms2050, MatStocks, TimeSeries_R, MatEms, Population = ODYM_RECC_Cascade_V2_4.main(RegionalScope,MultiSectorList,SectorString,Current_UUID)              
+        ASummary, AvgDecadalEms, MatSummary, AvgDecadalMatEms, RecCredit, UsePhaseSummary, ManSummary, ForSummary, AvgDecadalUseEms, AvgDecadalManEms, AvgDecadalForEms, AvgDecadalRecEms, CumEms2050, CumEms2060, AnnEms2050, MatStocks, TimeSeries_R, MatEms, Population = ODYM_RECC_Evaluate_Cascade.main(RegionalScope,MultiSectorList,SectorString,Current_UUID)              
 
         # Collect material stocks and population:
         if SectorString == 'pav_reb':
@@ -394,13 +393,13 @@ while ModelEvalListSheet.cell(Row+1, 2).value  != 'ENDOFLIST':
         
         # Create GHG overview plot
         #import ODYM_RECC_GHG_Overview_V2_4
-        ODYM_RECC_GHG_Overview_V2_4.main(RegionalScope,SectorString,CumEms2050,CumEms2060,TimeSeries_R,PlotExpResolution,NE,LWE_Labels,Current_UUID)
+        ODYM_RECC_Evaluate_GHG_Overview.main(RegionalScope,SectorString,CumEms2050,CumEms2060,TimeSeries_R,PlotExpResolution,NE,LWE_Labels,Current_UUID)
                         
         if ModelEvalListSheet.cell(Row+NE+1, 3).value == 'ME_industry_demandside_Scenario':
             for mmxx in range(0,6):
                 SingleSectList.append(ModelEvalListSheet.cell(Row+NE+mmxx+1, 4).value)
             # run the efficieny_sufficieny plots, with 6 extra single sectors in result list
-            CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV = ODYM_RECC_BarPlot_ME_Industry_Demand_V2_4.main(RegionalScope,SectorString,MultiSectorList,SingleSectList,Current_UUID)  
+            CumEmsV, CumEmsV2060, AnnEmsV2030, AnnEmsV2050, AvgDecadalEmsV = ODYM_RECC_Evaluate_BarPlot_ME_Industry_Demand.main(RegionalScope,SectorString,MultiSectorList,SingleSectList,Current_UUID)  
             SingleSectList = []
             NE  +=6 # add for extra scenarios for efficiency-sufficiency plot
                 
@@ -429,7 +428,7 @@ while ModelEvalListSheet.cell(Row+1, 2).value  != 'ENDOFLIST':
         for m in range(0,int(NE)):
             FolderList.append(ModelEvalListSheet.cell(Row +m+1, 4).value)
         # run the ODYM-RECC sensitivity analysis for pav
-        CumEms_Sens2050, CumEms_Sens2060, AnnEms2030_Sens, AnnEms2050_Sens, AvgDecadalEms, UseCumEms2050, UseCumEms2060, UseAnnEms2030, UseAnnEms2050, AvgDecadalUseEms, MatCumEms2050, MatCumEms2060, MatAnnEms2030, MatAnnEms2050, AvgDecadalMatEms, ManCumEms2050, ManCumEms2060, ManAnnEms2030, ManAnnEms2050, AvgDecadalManEms, ForCumEms2050, ForCumEms2060, ForAnnEms2030, ForAnnEms2050, AvgDecadalForEms, RecCreditCum2050, RecCreditCum2060, RecCreditAnn2030, RecCreditAnn2050, RecCreditAvgDec = ODYM_RECC_Sensitivity_V2_4.main(RegionalScope,FolderList,SectorString,Current_UUID)        
+        CumEms_Sens2050, CumEms_Sens2060, AnnEms2030_Sens, AnnEms2050_Sens, AvgDecadalEms, UseCumEms2050, UseCumEms2060, UseAnnEms2030, UseAnnEms2050, AvgDecadalUseEms, MatCumEms2050, MatCumEms2060, MatAnnEms2030, MatAnnEms2050, AvgDecadalMatEms, ManCumEms2050, ManCumEms2060, ManAnnEms2030, ManAnnEms2050, AvgDecadalManEms, ForCumEms2050, ForCumEms2060, ForAnnEms2030, ForAnnEms2050, AvgDecadalForEms, RecCreditCum2050, RecCreditCum2060, RecCreditAnn2030, RecCreditAnn2050, RecCreditAvgDec = ODYM_RECC_Evaluate_Sensitivity.main(RegionalScope,FolderList,SectorString,Current_UUID)        
 
         # write results summary to Excel
         Ssheet  = mywb['Sensitivity_'  + RegionalScope]
@@ -756,7 +755,7 @@ plt.plot([2010,2011],[0,0],color=BaseBrown, lw=1.1, linestyle='--')  # Baseline,
 plt.plot([2010,2011],[0,0],color=BaseBrown, lw=1.3, linestyle='-')   # Baseline, full RES
 plt.plot([2010,2011],[0,0],color=BaseBlue, lw=1.1, linestyle='--')  # RCP2.6, no RES
 plt.plot([2010,2011],[0,0],color=BaseBlue, lw=1.3, linestyle='-')   # RCP2.6, full RES
-plt.legend(LegendLabels,shadow = False,  prop={'size':9}, loc = 'bottom left',bbox_to_anchor=(-4.8, -0.3))    # x, y 
+plt.legend(LegendLabels,shadow = False,  prop={'size':9}, loc = 'lower left',bbox_to_anchor=(-4.8, -0.3))    # x, y 
 
 # fig.suptitle(r'System-wide GHG, pav+reb, Mt CO$_2$-eq/yr, SSP1', fontsize=14)
 for xm in range(0,7):
@@ -814,7 +813,7 @@ plt.plot([2010,2011],[0,0],color=BaseBrown, lw=1.1, linestyle='--')  # Baseline,
 plt.plot([2010,2011],[0,0],color=BaseBrown, lw=1.3, linestyle='-')   # Baseline, full RES
 plt.plot([2010,2011],[0,0],color=BaseBlue, lw=1.1, linestyle='--')  # RCP2.6, no RES
 plt.plot([2010,2011],[0,0],color=BaseBlue, lw=1.3, linestyle='-')   # RCP2.6, full RES
-plt.legend(LegendLabels,shadow = False,  prop={'size':9}, loc = 'bottom left',bbox_to_anchor=(-5.10, -0.3))    # x, y 
+plt.legend(LegendLabels,shadow = False,  prop={'size':9}, loc = 'lower left',bbox_to_anchor=(-5.10, -0.3))    # x, y 
 
 # fig.suptitle(r'System-wide GHG, pav+reb, Mt CO$_2$-eq/yr, SSP1', fontsize=14)
 for xm in range(0,7):

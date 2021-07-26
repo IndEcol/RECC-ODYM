@@ -19,7 +19,7 @@ import xlwt
 import openpyxl
 
 import RECC_Paths # Import path file
-import ODYM_RECC_V2_4
+import ODYM_RECC_Main
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
 ScenarioSetting = 'pav_reb_Config_list'
@@ -30,25 +30,22 @@ ScenarioSetting = 'pav_reb_Config_list'
 #ScenarioSetting = 'TestRun'
 
 # open scenario sheet
-ModelConfigListFile  = openpyxl.load_workbook(os.path.join(RECC_Paths.recc_path,'RECC_ModelConfig_List_V2_4.xlsx'))
+ModelConfigListFile  = openpyxl.load_workbook(os.path.join(RECC_Paths.data_path,'RECC_ModelConfig_List.xlsx'))
 ModelConfigListSheet = ModelConfigListFile[ScenarioSetting]
 SheetName = 'Config_Auto'
 #Read control lines and execute main model script
 ResultFolders = []
 Row = 3
 # search for script config list entry
-while True:
-    try:
-        RegionalScope = ModelConfigListSheet.cell(Row+1, 3).value
-        print(RegionalScope)
-        Config = {}
-        for m in range(3,28):
-            Config[ModelConfigListSheet.cell(3, m+1).value] = ModelConfigListSheet.cell(Row+1, m+1).value
-    except:
-        break
+while ModelConfigListSheet.cell(Row+1, 3).value:
+    RegionalScope = ModelConfigListSheet.cell(Row+1, 3).value
+    print(RegionalScope)
+    Config = {}
+    for m in range(3,28):
+        Config[ModelConfigListSheet.cell(3, m+1).value] = ModelConfigListSheet.cell(Row+1, m+1).value
     Row += 1
     # rewrite RECC model config
-    mywb = openpyxl.load_workbook(os.path.join(RECC_Paths.recc_path,'RECC_Config_V2_4.xlsx'))
+    mywb = openpyxl.load_workbook(os.path.join(RECC_Paths.data_path,'RECC_Config.xlsx'))
     
     sheet = mywb.get_sheet_by_name('Cover')
     sheet['D4'] = SheetName
@@ -82,10 +79,10 @@ while True:
     sheet['D201'] = Config['No_EE_Improvements']
     sheet['D215'] = Config['PlotResolution']
     
-    mywb.save(os.path.join(RECC_Paths.recc_path,'RECC_Config_V2_4.xlsx'))
+    mywb.save(os.path.join(RECC_Paths.data_path,'RECC_Config.xlsx'))
 
     # run the ODYM-RECC model
-    OutputDict = ODYM_RECC_V2_4.main()
+    OutputDict = ODYM_RECC_Main.main()
     ResultFolders.append(OutputDict['Name_Scenario'])
 
 # Export ResultFolders:
