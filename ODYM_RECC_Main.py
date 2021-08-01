@@ -22,7 +22,6 @@ dependencies:
 import os
 import sys
 import logging as log
-import xlwt
 import openpyxl
 import numpy as np
 import time
@@ -2561,11 +2560,6 @@ for mS in range(0,NS):
 #   Section 7) Export and plot results, save, and close      #
 ##############################################################
 Mylog.info('## 5 - Evaluate results, save, and close')
-myfont = xlwt.Font()
-myfont.bold = True
-mystyle = xlwt.XFStyle()
-mystyle.font = myfont
-
 Mylog.info('### 5.0 - Check data and results for boundary constraints and plausibility. Exit flags.')
 Mylog.info('Model input')          
 
@@ -2585,15 +2579,10 @@ ExitFlags['3_SHA_TypeSplit_NonResBuildings_sum']           = np.isclose(Paramete
 ExitFlags['LTE_Renovation_Consistency']                    = bool(ScriptConfig['Include_REStrategy_LifeTimeExtension']) & bool(ScriptConfig['Include_Renovation_reb']) & bool(ScriptConfig['Include_Renovation_nrb'])
 ExitFlags['Secondary_Material_Flows_Positive']             = SecondaryProduct.min() >= 0
 
-
-ExitFlag_Export  = xlwt.Workbook(encoding = 'ascii') # Export file for exitflags
-Flag_Sheet       = ExitFlag_Export.add_sheet('ExitFlags')
-row = 2
+Mylog.info('Model exit flags:')
 for key in ExitFlags:
-    Flag_Sheet.write(row,1,label = key,                 style = mystyle)
-    Flag_Sheet.write(row,2,label = str(ExitFlags[key]))
-    row += 1
-
+    Mylog.info(key + ': ' + str(ExitFlags[key]))
+    
 Mylog.info('Model output')
            
 Mylog.info('### 5.1 - Create plots and include in logfiles')
@@ -2824,87 +2813,106 @@ for mm in range(0,Nm):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,RenovationMaterialInflow_7[:,mm,:,:],newrowoffset,len(ColLabels),'Inflow of renovation material into use phase, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part: renovation inflow)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     
 # Post calibration 2015 parameter values
-Calib_Result_workbook = xlwt.Workbook(encoding = 'ascii') # Export file
-Calib_Result_workbook.add_sheet('Cover')
+Calib_Result_workbook = openpyxl.Workbook()
+S1 = Calib_Result_workbook.active
+S1.title = 'Cover'
+
 if 'pav' in SectorList:
-    pav_Sheet = Calib_Result_workbook.add_sheet('passenger vehicles')
-    pav_Sheet.write(0,1,label = '2015 post calibration values, by model region', style = mystyle)
-    pav_Sheet.write(1,1,label = 'region', style = mystyle)
+    pav_Sheet = Calib_Result_workbook.create_sheet('passenger vehicles')
+    pav_Sheet.cell(1,2).value = '2015 post calibration values, by model region'
+    pav_Sheet.cell(1,2).font  = openpyxl.styles.Font(bold=True)
+    pav_Sheet.cell(2,2).value = 'region'
+    pav_Sheet.cell(2,2).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        pav_Sheet.write(m,1,label = Rname, style = mystyle)
+        pav_Sheet.cell(m+1,2).value = Rname
+        pav_Sheet.cell(m+1,2).font  = openpyxl.styles.Font(bold=True)
         m+=1
     # pC stock values
-    pav_Sheet.write(1,2,label = '2015 per capita stock values, total (all segments and drive technologies), by model region. Unit: 1 (veh. per person).', style = mystyle)
+    pav_Sheet.cell(2,3).values = '2015 per capita stock values, total (all segments and drive technologies), by model region. Unit: 1 (veh. per person).'
+    pav_Sheet.cell(2,3).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        pav_Sheet.write(m,2,label = TotalStockCurves_UsePhase_p_pC[0,m-2])
+        pav_Sheet.cell(m+1,3).value = TotalStockCurves_UsePhase_p_pC[0,m-2]
         m+=1
     # passenger-km
-    pav_Sheet.write(1,3,label = '2015 annual passenger kilometrage, by model region. Unit: km/yr.', style = mystyle)
+    pav_Sheet.cell(2,4).value = '2015 annual passenger kilometrage, by model region. Unit: km/yr.'
+    pav_Sheet.cell(2,4).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        pav_Sheet.write(m,3,label = Total_Service_pav_tr_pC[0,m-2])
+        pav_Sheet.value(m+1,4).value = Total_Service_pav_tr_pC[0,m-2]
         m+=1
     # vehicle km
-    pav_Sheet.write(1,4,label = '2015 annual vehicle kilometrage, by model region. Unit: km/yr. Value for SSP1.', style = mystyle)
+    pav_Sheet.cell(2,5).value = '2015 annual vehicle kilometrage, by model region. Unit: km/yr. Value for SSP1.'
+    pav_Sheet.cell(2,5).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        pav_Sheet.write(m,4,label = ParameterDict['3_IO_Vehicles_UsePhase_eff'].Values[Service_Drivg,m-2,0,1])
+        pav_Sheet.value(m+1,5).value = ParameterDict['3_IO_Vehicles_UsePhase_eff'].Values[Service_Drivg,m-2,0,1]
         m+=1
     # vehicle occupancy rate
-    pav_Sheet.write(1,5,label = '2015 average vehicle occupancy rate, across all segments and drive technologies, by model region. Unit: km/yr. Value for SSP1.', style = mystyle)
+    pav_Sheet.value(2,6).value = '2015 average vehicle occupancy rate, across all segments and drive technologies, by model region. Unit: km/yr. Value for SSP1.'
+    pav_Sheet.value(2,6).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
         pav_Sheet.write(m,5,label = ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,m-2,0,1])
         m+=1
     # energy consumption, use phase
-    pav_Sheet.write(1,6,label = '2015 use phase energy consumption, across all segments and drive technologies, by model region. Unit: TJ/yr. Value for SSP1.', style = mystyle)
+    pav_Sheet.cell(2,7).value = '2015 use phase energy consumption, across all segments and drive technologies, by model region. Unit: TJ/yr. Value for SSP1.'
+    pav_Sheet.cell(2,7).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        pav_Sheet.write(m,6,label = E_Calib_Vehicles[0,m-2])
+        pav_Sheet.cell(m+1,7).value = E_Calib_Vehicles[0,m-2]
         m+=1
         
 if 'reb' in SectorList:
-    reb_Sheet = Calib_Result_workbook.add_sheet('residential buildings')
-    reb_Sheet.write(0,1,label = '2015 post calibration values, by model region', style = mystyle)
-    reb_Sheet.write(1,1,label = 'region', style = mystyle)
+    reb_Sheet = Calib_Result_workbook.create_sheet('residential buildings')
+    reb_Sheet.cell(1,2).value = '2015 post calibration values, by model region'
+    reb_Sheet.cell(1,2).font  = openpyxl.styles.Font(bold=True)
+    reb_Sheet.cell(2,2).value = 'region'
+    reb_Sheet.cell(2,2).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        reb_Sheet.write(m,1,label = Rname, style = mystyle)
+        reb_Sheet.cell(m+1,2).value = Rname
+        reb_Sheet.cell(m+1,2).font  = openpyxl.styles.Font(bold=True)        
         m+=1
     # pC stock values
-    reb_Sheet.write(1,2,label = '2015 per capita stock values, total (all building types and energy standards), by model region. Unit: m2 per person.', style = mystyle)
+    reb_Sheet.cell(2,3).value = '2015 per capita stock values, total (all building types and energy standards), by model region. Unit: m2 per person.'
+    reb_Sheet.cell(2,3).font  = openpyxl.styles.Font(bold=True)      
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        reb_Sheet.write(m,2,label = TotalStockCurves_UsePhase_B_pC[0,m-2])
+        reb_Sheet.cell(m+1,3).value = TotalStockCurves_UsePhase_B_pC[0,m-2]
         m+=1
     # energy consumption, use phase
-    reb_Sheet.write(1,3,label = '2015 use phase energy consumption, across all building types and energy standards, by model region. Unit: TJ/yr. Value for SSP1.', style = mystyle)
+    reb_Sheet.cell(2,4).value = '2015 use phase energy consumption, across all building types and energy standards, by model region. Unit: TJ/yr. Value for SSP1.'
+    reb_Sheet.cell(2,4).font  = openpyxl.styles.Font(bold=True)      
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        reb_Sheet.write(m,3,label = E_Calib_Buildings[0,m-2])
+        reb_Sheet.cell(m+1,4).value = E_Calib_Buildings[0,m-2]
         m+=1            
 
 if 'nrb' in SectorList:
-    nrb_Sheet = Calib_Result_workbook.add_sheet('nonres. buildings')
-    nrb_Sheet.write(0,1,label = '2015 post calibration values, by model region', style = mystyle)
-    nrb_Sheet.write(1,1,label = 'region', style = mystyle)
+    nrb_Sheet = Calib_Result_workbook.create_sheet('nonres. buildings')
+    nrb_Sheet.cell(1,2).value = '2015 post calibration values, by model region'
+    nrb_Sheet.cell(1,2).font  = openpyxl.styles.Font(bold=True)  
+    nrb_Sheet.cell(2,2).value = 'region'
+    nrb_Sheet.cell(2,2).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        nrb_Sheet.write(m,1,label = Rname, style = mystyle)
+        nrb_Sheet.cell(m+1,2).value = Rname
         m+=1
     # pC stock values
-    nrb_Sheet.write(1,2,label = '2015 per capita stock values, total (all building types and energy standards), by model region. Unit: m2 per person.', style = mystyle)
+    nrb_Sheet.cell(2,3).value = '2015 per capita stock values, total (all building types and energy standards), by model region. Unit: m2 per person.'
+    nrb_Sheet.cell(2,3).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        nrb_Sheet.write(m,2,label = TotalStockCurves_UsePhase_N_pC[0,m-2])
+        nrb_Sheet.cell(m+1,3).value = TotalStockCurves_UsePhase_N_pC[0,m-2]
         m+=1
     # energy consumption, use phase
-    nrb_Sheet.write(1,3,label = '2015 use phase energy consumption, across all building types and energy standards, by model region. Unit: TJ/yr. Value for SSP1.', style = mystyle)
+    nrb_Sheet.cell(2,4).value = '2015 use phase energy consumption, across all building types and energy standards, by model region. Unit: TJ/yr. Value for SSP1.'
+    nrb_Sheet.cell(2,4).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        nrb_Sheet.write(m,3,label = E_Calib_NRBuildgs[0,m-2])
+        nrb_Sheet.cell(m+1,4).value = E_Calib_NRBuildgs[0,m-2]
         m+=1     
 
 # PLOT
@@ -3183,34 +3191,14 @@ Mylog.info('### 5.2 - Export to Excel')
 # Export list data
 book.save(os.path.join(ProjectSpecs_Path_Result,'ODYM_RECC_ModelResults_'+ ScriptConfig['Current_UUID'] + '.xlsx'))
 
-# Export table data
-Result_workbook_GHG = xlwt.Workbook(encoding = 'ascii') # Export element stock by region
-
-Sheet = Result_workbook_GHG.add_sheet('Cover')
-Sheet.write(2,1,label = 'ScriptConfig', style = mystyle)
-m = 3
-for x in sorted(ScriptConfig.keys()):
-    Sheet.write(m,1,label = x)
-    Sheet.write(m,2,label = ScriptConfig[x])
-    m +=1
-
-MyLabels= []
-for S in range(0,NS):
-    for R in range(0,NR):
-        MyLabels.append(RECC_System.IndexTable.set_index('IndexLetter').loc['S'].Classification.Items[S] + ', ' + RECC_System.IndexTable.set_index('IndexLetter').loc['R'].Classification.Items[R])
-    
-ResultArray = GWP_System_3579di.reshape(Nt,NS * NR)    
-msf.ExcelSheetFill(Result_workbook_GHG, 'TotalGHGFootprint', ResultArray, topcornerlabel = 'System-wide GHG emissions, Mt/yr', rowlabels = RECC_System.IndexTable.set_index('IndexLetter').loc['t'].Classification.Items, collabels = MyLabels, Style = mystyle, rowselect = None, colselect = None)
-
-Result_workbook_GHG.save(os.path.join(ProjectSpecs_Path_Result,'SysVar_TotalGHGFootprint.xls'))
-Calib_Result_workbook.save(os.path.join(ProjectSpecs_Path_Result,'CalibResults.xls'))
-ExitFlag_Export.save(os.path.join(ProjectSpecs_Path_Result,'ExitFlag_Export.xls'))
+# Export other table data
+Calib_Result_workbook.save(os.path.join(ProjectSpecs_Path_Result,'CalibResults.xlsx'))
 
 # Export area plot as multi-index Excel file:
 ColIndex       = [str(mmx) for mmx in  range(2015,2061)]
 RowIndex       = pd.MultiIndex.from_product([['use phase','use phase, scope 2 (el)','use phase, other indirect','primary material product.','manufact. & recycling','total (+ forest & biogen. C)'],['LED','SSP1','SSP2'],['Base','RCP2_6']], names=('System scope','SSP','RCP'))
 DF_GHGA_global = pd.DataFrame(np.einsum('SRts->sSRt',DataAExp).reshape(36,46), index=RowIndex, columns=ColIndex)
-DF_GHGA_global.to_excel(os.path.join(ProjectSpecs_Path_Result,'GHG_Area_Data.xls'), merge_cells=False)    
+#DF_GHGA_global.to_excel(os.path.join(ProjectSpecs_Path_Result,'GHG_Area_Data.xlsx'), merge_cells=False)    
 
 ## 5.3) Export as .mat file
 #Mylog.info('### 5.4 - Export to Matlab')

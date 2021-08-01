@@ -37,7 +37,7 @@ SheetName = 'Config_Auto'
 ResultFolders = []
 Row = 3
 # search for script config list entry
-while ModelConfigListSheet.cell(Row+1, 3).value:
+while ModelConfigListSheet.cell(Row+1, 3).value != None:
     RegionalScope = ModelConfigListSheet.cell(Row+1, 3).value
     print(RegionalScope)
     Config = {}
