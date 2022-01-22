@@ -15,7 +15,6 @@ Script that modifies the RECC config file to run a list of scenarios and execute
 
 # Import required libraries:
 import os
-import xlwt
 import openpyxl
 
 import RECC_Paths # Import path file
@@ -86,13 +85,13 @@ while ModelConfigListSheet.cell(Row+1, 3).value != None:
     ResultFolders.append(OutputDict['Name_Scenario'])
 
 # Export ResultFolders:
-ResultFolder_workbook = xlwt.Workbook(encoding = 'ascii') # Export file
-ResultFolderSheet     = ResultFolder_workbook.add_sheet('ResultFolders')
+book = openpyxl.Workbook()
+ws1 = book.active
+ws1.title = 'ResultFolders'
 Fr = 3
 for Fname in ResultFolders:
-    ResultFolderSheet.write(Fr,3,label = Fname)
+    ws1.cell(row=Fr+1, column=4).value = Fname 
     Fr +=1
-ResultFolder_workbook.save(os.path.join(RECC_Paths.results_path,'ResultFolders.xls'))
-
+book.save(os.path.join(RECC_Paths.results_path,'ResultFolders.xlsx'))   
 #
 #

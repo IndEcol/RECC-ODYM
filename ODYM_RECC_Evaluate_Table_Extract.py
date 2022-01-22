@@ -6,7 +6,6 @@ Created on Wed Oct 17 10:37:00 2018
 """
 def main(RegionalScope,ThreeSectoList,Current_UUID):
     
-    import xlrd
     import openpyxl
     import numpy as np
     import matplotlib.pyplot as plt  
@@ -18,11 +17,9 @@ def main(RegionalScope,ThreeSectoList,Current_UUID):
     GHG_Table_Overview   = np.zeros((4,6,2)) # Table GHG overview format 4 scopes, 6 times, 2 RCP
 
     # No ME scenario
-    Path = os.path.join(RECC_Paths.results_path,ThreeSectoList[0],'SysVar_TotalGHGFootprint.xls')
-    Resultfile   = xlrd.open_workbook(Path)
-    Resultsheet1 = Resultfile.sheet_by_name('Cover')
-    UUID         = Resultsheet1.cell_value(3,2)
-    Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,ThreeSectoList[0],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
+    # Find result fild with common start but unique UUID in name:
+    ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,ThreeSectoList[0])) if filename.startswith('ODYM_RECC_ModelResults_')]
+    Resultfile2  = openpyxl.load_workbook(ResFile[0])
     Resultsheet2 = Resultfile2['Model_Results']
     # Find the index for the recycling credit and others:
     tci = 1
@@ -57,13 +54,9 @@ def main(RegionalScope,ThreeSectoList,Current_UUID):
         GHG_Table_Overview[2,4,nnn] = Resultsheet2.cell(mci +3 + nnn,43).value
         GHG_Table_Overview[2,5,nnn] = Resultsheet2.cell(mci +3 + nnn,53).value
                 
-    
     # Full ME scenario
-    Path = os.path.join(RECC_Paths.results_path,ThreeSectoList[-1],'SysVar_TotalGHGFootprint.xls')
-    Resultfile   = xlrd.open_workbook(Path)
-    Resultsheet1 = Resultfile.sheet_by_name('Cover')
-    UUID         = Resultsheet1.cell_value(3,2)
-    Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,ThreeSectoList[-1],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
+    ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,ThreeSectoList[-1])) if filename.startswith('ODYM_RECC_ModelResults_')]
+    Resultfile2  = openpyxl.load_workbook(ResFile[0])
     Resultsheet2 = Resultfile2['Model_Results']
     # Find the index for the recycling credit and others:
     tci = 1

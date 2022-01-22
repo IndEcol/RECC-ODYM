@@ -6,7 +6,6 @@ Created on Wed Oct 17 10:37:00 2018
 """
 def main(RegionalScope,FolderList,SectorString,Current_UUID):
     
-    import xlrd
     import openpyxl
     import numpy as np
     import matplotlib.pyplot as plt  
@@ -176,24 +175,36 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
     # 7: use phase energy consumption, 8: wood use carbon balance (forest and waste mgt.),
     # 9: passenger-km, 10: heated building space, 11: cooled building space.
     CascDataExp      = np.zeros((2,3,NS,NR,NE)) 
-    
-    for r in range(0,NE): # RE scenario
-        Path = os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls')
-        Resultfile = xlrd.open_workbook(Path)
-        Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
+
+    # get result items:
+    ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[0])) if filename.startswith('ODYM_RECC_ModelResults_')]
+    Resultfile2  = openpyxl.load_workbook(ResFile[0])
+    Resultsheet2 = Resultfile2['Model_Results']
+    # Find the index for sysem-wide emissions, the recycling credit and others:
+    swe = 1    
+    while True:
+        if Resultsheet2.cell(swe+1, 1).value == 'GHG emissions, system-wide _3579di':
+            break # that gives us the right index to read the recycling credit from the result table.
+        swe += 1 
+
+    for r in range(0,NE): # RE scenario                
+        # import system-wide GHG and material-related emissions
+        ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[r])) if filename.startswith('ODYM_RECC_ModelResults_')]
+        Resultfile2  = openpyxl.load_workbook(ResFile[0])
+        Resultsheet2 = Resultfile2['Model_Results']
+        # system-wide emissions results
         for s in range(0,NS): # SSP scenario
-            for c in range(0,NR):
-                for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
-                    CumEms2050[s,c,r]   += Resultsheet.cell_value(t +2, 1 + c + NR*s)
-                for t in range(0,45): # time until 2060.
-                    CumEms2060[s,c,r]   += Resultsheet.cell_value(t +2, 1 + c + NR*s)   
-                    TimeSeries_R[0,r,t,s,c]= Resultsheet.cell_value(t +2, 1 + c + NR*s)   
-                AnnEms2030[s,c,r]        = Resultsheet.cell_value(16  , 1 + c + NR*s)
-                AnnEms2050[s,c,r]        = Resultsheet.cell_value(36  , 1 + c + NR*s)
-                AvgDecadalEms[s,c,r,0]   = sum([Resultsheet.cell_value(i, 1 + c + NR*s) for i in range(7,17)])/10
-                AvgDecadalEms[s,c,r,1]   = sum([Resultsheet.cell_value(i, 1 + c + NR*s) for i in range(17,27)])/10
-                AvgDecadalEms[s,c,r,2]   = sum([Resultsheet.cell_value(i, 1 + c + NR*s) for i in range(27,37)])/10
-                AvgDecadalEms[s,c,r,3]   = sum([Resultsheet.cell_value(i, 1 + c + NR*s) for i in range(37,47)])/10                    
+            for c in range(0,NR): # RCP scenario
+                for t in range(0,35): # time
+                    CumEms2050[s,c,r] += Resultsheet2.cell(swe+ 2*s +c+1,t+9).value
+                for t in range(0,45): # time
+                    CumEms2060[s,c,r] += Resultsheet2.cell(swe+ 2*s +c+1,t+9).value    
+                AnnEms2030[s,c,r]   = Resultsheet2.cell(swe+ 2*s +c+1,23).value
+                AnnEms2050[s,c,r]   = Resultsheet2.cell(swe+ 2*s +c+1,43).value
+                AvgDecadalEms[s,c,r,0]   = sum([Resultsheet2.cell(swe+ 2*s +c+1,t+1).value for i in range(13,23)])/10
+                AvgDecadalEms[s,c,r,1]   = sum([Resultsheet2.cell(swe+ 2*s +c+1,t+1).value for i in range(23,33)])/10
+                AvgDecadalEms[s,c,r,2]   = sum([Resultsheet2.cell(swe+ 2*s +c+1,t+1).value for i in range(33,43)])/10
+                AvgDecadalEms[s,c,r,3]   = sum([Resultsheet2.cell(swe+ 2*s +c+1,t+1).value for i in range(43,53)])/10        
 
     ASummary[0:3,:] = AnnEms2030.copy()
     ASummary[3:6,:] = AnnEms2050.copy()
@@ -273,12 +284,8 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
     MatProduction_Sec  = np.zeros((Nt,Nm,NS,NR,NE))
     
     # First, get the position indices for the different result variables:
-    Path = os.path.join(RECC_Paths.results_path,FolderList[0],'SysVar_TotalGHGFootprint.xls') # take first folder of the list.
-    Resultfile   = xlrd.open_workbook(Path)
-    Resultsheet  = Resultfile.sheet_by_name('TotalGHGFootprint')
-    Resultsheet1 = Resultfile.sheet_by_name('Cover')
-    UUID         = Resultsheet1.cell_value(3,2)
-    Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,FolderList[0],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
+    ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[0])) if filename.startswith('ODYM_RECC_ModelResults_')]
+    Resultfile2  = openpyxl.load_workbook(ResFile[0])
     Resultsheet2 = Resultfile2['Model_Results']
     
     rci = 1
@@ -540,12 +547,8 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
             bs2 += 1 
         
     for r in range(0,NE): # RE scenario
-        Path = os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls')
-        Resultfile   = xlrd.open_workbook(Path)
-        Resultsheet  = Resultfile.sheet_by_name('TotalGHGFootprint')
-        Resultsheet1 = Resultfile.sheet_by_name('Cover')
-        UUID         = Resultsheet1.cell_value(3,2)
-        Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
+        ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[r])) if filename.startswith('ODYM_RECC_ModelResults_')]
+        Resultfile2  = openpyxl.load_workbook(ResFile[0])
         Resultsheet2 = Resultfile2['Model_Results']
             
         for s in range(0,NS): # SSP scenario
@@ -1134,11 +1137,8 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
         AnnEmsV_SecondarySteel = np.zeros((Nt,NS,NR,NE)) # SSP-Scenario x RCP scenario x RES scenario
         
         for r in range(0,NE): # RE scenario
-            Path         = os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls')
-            Resultfile1  = xlrd.open_workbook(Path)
-            Resultsheet1 = Resultfile1.sheet_by_name('Cover')
-            UUID         = Resultsheet1.cell_value(3,2)
-            Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
+            ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[r])) if filename.startswith('ODYM_RECC_ModelResults_')]
+            Resultfile2  = openpyxl.load_workbook(ResFile[0])
             Resultsheet2 = Resultfile2['Model_Results']
             # Find the index for materials
             pps = 1

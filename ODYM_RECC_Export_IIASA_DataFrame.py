@@ -13,7 +13,6 @@ See https://github.com/iiasa/irp-internal-workflow for naming conventions.
 """
 # Import required libraries:
 import os
-import xlrd
 import openpyxl
 import numpy as np
 import pandas as pd
@@ -95,12 +94,9 @@ RECC_DF = pd.DataFrame([ ],
 ri = 2    
 for S in range(0,len(IIASA_ScNames)): # IIASA scenario index
     # Open scenario result file:
-    ResPath      = Path(RECC_Paths.results_path) / RECC_ScFolders[S] / 'SysVar_TotalGHGFootprint.xls' 
-    Resultfile   = xlrd.open_workbook(ResPath)
-    Resultsheet  = Resultfile.sheet_by_name('TotalGHGFootprint')
-    Resultsheet1 = Resultfile.sheet_by_name('Cover')
-    UUID         = Resultsheet1.cell_value(3,2)
-    Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,RECC_ScFolders[S],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
+    # Find result fild with common start but unique UUID in name:
+    ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,RECC_ScFolders[S])) if filename.startswith('ODYM_RECC_ModelResults_')]
+    Resultfile2  = openpyxl.load_workbook(ResFile[0])
     Resultsheet2 = Resultfile2['Model_Results']
     for I in range(0,len(IIASA_IndNames)): # IIASA indicator index
         # Define df row
@@ -126,7 +122,7 @@ for S in range(0,len(IIASA_ScNames)): # IIASA scenario index
         ri +=1
         RECC_DF = RECC_DF.append(df_row, ignore_index=True)
 
-"""Load local cope of IRP_GRO_IIASA_DB nomenclature"""
+"""Load local copy of IRP_GRO_IIASA_DB nomenclature"""
 nc = nomenclature.Nomenclature(Path(P_irp) / 'definitions' ) # load nomenclature locally
 nc.variable
 

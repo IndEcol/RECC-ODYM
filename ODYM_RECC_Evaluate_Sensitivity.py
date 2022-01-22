@@ -6,7 +6,6 @@ Created on Wed Oct 17 10:37:00 2018
 """
 def main(RegionalScope,FolderList,SectorString,Current_UUID):
         
-    import xlrd
     import openpyxl
     import numpy as np
     import matplotlib.pyplot as plt  
@@ -101,12 +100,15 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
     RecCreditAvgDec  = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario: avg. emissions per decade 2020-2030 ... 2050-2060
     
     # get result items:
-    Resultfile = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderList[0],'SysVar_TotalGHGFootprint.xls'))
-    Resultsheet1 = Resultfile.sheet_by_name('Cover')
-    UUID         = Resultsheet1.cell_value(3,2)
-    Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,FolderList[0],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
+    ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[0])) if filename.startswith('ODYM_RECC_ModelResults_')]
+    Resultfile2  = openpyxl.load_workbook(ResFile[0])
     Resultsheet2 = Resultfile2['Model_Results']
-    # Find the index for the recycling credit and others:
+    # Find the index for sysem-wide emissions, the recycling credit and others:
+    swe = 1    
+    while True:
+        if Resultsheet2.cell(swe+1, 1).value == 'GHG emissions, system-wide _3579di':
+            break # that gives us the right index to read the recycling credit from the result table.
+        swe += 1        
     rci = 1
     while True:
         if Resultsheet2.cell(rci+1, 1).value == 'GHG emissions, recycling credits':
@@ -150,28 +152,24 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
             break # that gives us the right index from the result table.
         wci += 1 
     
-    for r in range(0,NE): # RE scenario
-        Resultfile = xlrd.open_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],'SysVar_TotalGHGFootprint.xls'))
-        Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
+    for r in range(0,NE): # RE scenario                
+        # import system-wide GHG and material-related emissions
+        ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[r])) if filename.startswith('ODYM_RECC_ModelResults_')]
+        Resultfile2  = openpyxl.load_workbook(ResFile[0])
+        Resultsheet2 = Resultfile2['Model_Results']
+        # system-wide emissions results
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR): # RCP scenario
                 for t in range(0,35): # time
-                    CumEms_Sens2050[s,c,r] += Resultsheet.cell(t +3, 2 + c + NR*s).value
+                    CumEms_Sens2050[s,c,r] += Resultsheet2.cell(swe+ 2*s +c+1,t+9).value
                 for t in range(0,45): # time
-                    CumEms_Sens2060[s,c,r] += Resultsheet.cell(t +3, 2 + c + NR*s).value    
-                AnnEms2030_Sens[s,c,r]   = Resultsheet.cell(17  , 2 + c + NR*s).value
-                AnnEms2050_Sens[s,c,r]   = Resultsheet.cell(37  , 2 + c + NR*s).value
-                AvgDecadalEms[s,c,r,0]   = sum([Resultsheet.cell(i+1, 2 + c + NR*s).value for i in range(7,17)])/10
-                AvgDecadalEms[s,c,r,1]   = sum([Resultsheet.cell(i+1, 2 + c + NR*s).value for i in range(17,27)])/10
-                AvgDecadalEms[s,c,r,2]   = sum([Resultsheet.cell(i+1, 2 + c + NR*s).value for i in range(27,37)])/10
-                AvgDecadalEms[s,c,r,3]   = sum([Resultsheet.cell(i+1, 2 + c + NR*s).value for i in range(37,47)])/10
-                
-        # import material-related emissions
-        Resultsheet1 = Resultfile.sheet_by_name('Cover')
-        UUID         = Resultsheet1.cell_value(3,2)
-        Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],'ODYM_RECC_ModelResults_' + UUID + '.xlsx'))
-        Resultsheet2 = Resultfile2['Model_Results']
-              
+                    CumEms_Sens2060[s,c,r] += Resultsheet2.cell(swe+ 2*s +c+1,t+9).value    
+                AnnEms2030_Sens[s,c,r]   = Resultsheet2.cell(swe+ 2*s +c+1,23).value
+                AnnEms2050_Sens[s,c,r]   = Resultsheet2.cell(swe+ 2*s +c+1,43).value
+                AvgDecadalEms[s,c,r,0]   = sum([Resultsheet2.cell(swe+ 2*s +c+1,t+1).value for i in range(13,23)])/10
+                AvgDecadalEms[s,c,r,1]   = sum([Resultsheet2.cell(swe+ 2*s +c+1,t+1).value for i in range(23,33)])/10
+                AvgDecadalEms[s,c,r,2]   = sum([Resultsheet2.cell(swe+ 2*s +c+1,t+1).value for i in range(33,43)])/10
+                AvgDecadalEms[s,c,r,3]   = sum([Resultsheet2.cell(swe+ 2*s +c+1,t+1).value for i in range(43,53)])/10
         # Use phase results export
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR): # RCP scenario

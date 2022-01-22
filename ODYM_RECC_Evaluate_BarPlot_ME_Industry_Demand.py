@@ -7,8 +7,8 @@ Created on Wed Oct 17 10:37:00 2018
 def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current_UUID):
     # ThreeSectoList_Export: List of cascade scenarios
     # SingleSectList: List of counterfactual no EE etc. scenarios
-    import xlrd
     import numpy as np
+    import openpyxl
     import matplotlib.pyplot as plt  
     import pylab
     import os
@@ -42,6 +42,16 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current
     LabelColors  = ['k','k','k','k','k',BaseBlue,BaseBlue]
     
     # read data.
+    # get result items:
+    ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,ThreeSectoList_Export[0])) if filename.startswith('ODYM_RECC_ModelResults_')]
+    Resultfile2  = openpyxl.load_workbook(ResFile[0])
+    Resultsheet2 = Resultfile2['Model_Results']
+    # Find the index for sysem-wide emissions, the recycling credit and others:
+    swe = 1    
+    while True:
+        if Resultsheet2.cell(swe+1, 1).value == 'GHG emissions, system-wide _3579di':
+            break # that gives us the right index to read the recycling credit from the result table.
+        swe += 1  
     
     NS = 3  # no of SSP scenarios
     NR = 2  # no of RCP scenarios
@@ -54,25 +64,26 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current
     AvgDecadalEmsV    = np.zeros((NS,NR,NE,4)) # SSP-Scenario x RCP scenario x RES scenario
     
     for r in range(0,NE): # RE scenario
-        Path = os.path.join(RECC_Paths.results_path,FolderlistV[r],'SysVar_TotalGHGFootprint.xls')
-        Resultfile = xlrd.open_workbook(Path)
-        Resultsheet = Resultfile.sheet_by_name('TotalGHGFootprint')
+        # import system-wide GHG and material-related emissions
+        ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderlistV[r])) if filename.startswith('ODYM_RECC_ModelResults_')]
+        Resultfile2  = openpyxl.load_workbook(ResFile[0])
+        Resultsheet2 = Resultfile2['Model_Results']    
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR):
                 for t in range(0,35): # time until 2050 only!!! Cum. emissions until 2050.
-                    CumEmsV[s,c,r] += Resultsheet.cell_value(t +2, 1 + c + NR*s)
+                    CumEmsV[s,c,r] += Resultsheet2.cell(swe+ 2*s +c+1,t+9).value
                 for t in range(0,45): # time until 2060.
-                    CumEmsV2060[s,c,r] += Resultsheet.cell_value(t +2, 1 + c + NR*s)                    
-                AnnEmsV2030[s,c,r]  = Resultsheet.cell_value(16  , 1 + c + NR*s)
-                AnnEmsV2050[s,c,r]  = Resultsheet.cell_value(36  , 1 + c + NR*s)
-            AvgDecadalEmsV[s,1,r,0]   = sum([Resultsheet.cell_value(i, 2*(s+1))   for i in range(7,17)])/10
-            AvgDecadalEmsV[s,1,r,1]   = sum([Resultsheet.cell_value(i, 2*(s+1))   for i in range(17,27)])/10
-            AvgDecadalEmsV[s,1,r,2]   = sum([Resultsheet.cell_value(i, 2*(s+1))   for i in range(27,37)])/10
-            AvgDecadalEmsV[s,1,r,3]   = sum([Resultsheet.cell_value(i, 2*(s+1))   for i in range(37,47)])/10      
-            AvgDecadalEmsV[s,0,r,0]   = sum([Resultsheet.cell_value(i, 2*(s+1)-1) for i in range(7,17)])/10
-            AvgDecadalEmsV[s,0,r,1]   = sum([Resultsheet.cell_value(i, 2*(s+1)-1) for i in range(17,27)])/10
-            AvgDecadalEmsV[s,0,r,2]   = sum([Resultsheet.cell_value(i, 2*(s+1)-1) for i in range(27,37)])/10
-            AvgDecadalEmsV[s,0,r,3]   = sum([Resultsheet.cell_value(i, 2*(s+1)-1) for i in range(37,47)])/10               
+                    CumEmsV2060[s,c,r] += Resultsheet2.cell(swe+ 2*s +c+1,t+9).value                    
+                AnnEmsV2030[s,c,r]    = Resultsheet2.cell(swe+ 2*s +c+1,23).value
+                AnnEmsV2050[s,c,r]    = Resultsheet2.cell(swe+ 2*s +c+1,43).value
+            AvgDecadalEmsV[s,1,r,0]   = sum([Resultsheet2.cell(swe+ 2*s +1+1,t+1).value for i in range(13,23)])/10
+            AvgDecadalEmsV[s,1,r,1]   = sum([Resultsheet2.cell(swe+ 2*s +1+1,t+1).value for i in range(23,33)])/10
+            AvgDecadalEmsV[s,1,r,2]   = sum([Resultsheet2.cell(swe+ 2*s +1+1,t+1).value for i in range(33,43)])/10
+            AvgDecadalEmsV[s,1,r,3]   = sum([Resultsheet2.cell(swe+ 2*s +1+1,t+1).value for i in range(43,53)])/10      
+            AvgDecadalEmsV[s,0,r,0]   = sum([Resultsheet2.cell(swe+ 2*s +0+1,t+1).value for i in range(13,23)])/10
+            AvgDecadalEmsV[s,0,r,1]   = sum([Resultsheet2.cell(swe+ 2*s +0+1,t+1).value for i in range(23,33)])/10
+            AvgDecadalEmsV[s,0,r,2]   = sum([Resultsheet2.cell(swe+ 2*s +0+1,t+1).value for i in range(33,43)])/10
+            AvgDecadalEmsV[s,0,r,3]   = sum([Resultsheet2.cell(swe+ 2*s +0+1,t+1).value for i in range(43,53)])/10                  
     
     Sector = ['suff_eff']
     Title  = ['Cum_GHG_2016_2050_Mt','Cum_GHG_2040_2050_Mt','Annual_GHG_2050_Mt']
