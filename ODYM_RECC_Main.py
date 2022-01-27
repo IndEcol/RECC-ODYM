@@ -2831,7 +2831,7 @@ if 'pav' in SectorList:
         pav_Sheet.cell(m+1,2).font  = openpyxl.styles.Font(bold=True)
         m+=1
     # pC stock values
-    pav_Sheet.cell(2,3).values = '2015 per capita stock values, total (all segments and drive technologies), by model region. Unit: 1 (veh. per person).'
+    pav_Sheet.cell(2,3).value = '2015 per capita stock values, total (all segments and drive technologies), by model region. Unit: 1 (veh. per person).'
     pav_Sheet.cell(2,3).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
@@ -2842,21 +2842,21 @@ if 'pav' in SectorList:
     pav_Sheet.cell(2,4).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        pav_Sheet.value(m+1,4).value = Total_Service_pav_tr_pC[0,m-2]
+        pav_Sheet.cell(m+1,4).value = Total_Service_pav_tr_pC[0,m-2]
         m+=1
     # vehicle km
     pav_Sheet.cell(2,5).value = '2015 annual vehicle kilometrage, by model region. Unit: km/yr. Value for SSP1.'
     pav_Sheet.cell(2,5).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        pav_Sheet.value(m+1,5).value = ParameterDict['3_IO_Vehicles_UsePhase_eff'].Values[Service_Drivg,m-2,0,1]
+        pav_Sheet.cell(m+1,5).value = ParameterDict['3_IO_Vehicles_UsePhase_eff'].Values[Service_Drivg,m-2,0,1]
         m+=1
     # vehicle occupancy rate
-    pav_Sheet.value(2,6).value = '2015 average vehicle occupancy rate, across all segments and drive technologies, by model region. Unit: km/yr. Value for SSP1.'
-    pav_Sheet.value(2,6).font  = openpyxl.styles.Font(bold=True)
+    pav_Sheet.cell(2,6).value = '2015 average vehicle occupancy rate, across all segments and drive technologies, by model region. Unit: km/yr. Value for SSP1.'
+    pav_Sheet.cell(2,6).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
-        pav_Sheet.write(m,5,label = ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,m-2,0,1])
+        pav_Sheet.cell(m+1,6).value = ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,m-2,0,1]
         m+=1
     # energy consumption, use phase
     pav_Sheet.cell(2,7).value = '2015 use phase energy consumption, across all segments and drive technologies, by model region. Unit: TJ/yr. Value for SSP1.'
