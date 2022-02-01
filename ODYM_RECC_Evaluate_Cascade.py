@@ -178,7 +178,7 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
 
     # get result items:
     ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[0])) if filename.startswith('ODYM_RECC_ModelResults_')]
-    Resultfile2  = openpyxl.load_workbook(ResFile[0])
+    Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,FolderList[0],ResFile[0]))
     Resultsheet2 = Resultfile2['Model_Results']
     # Find the index for sysem-wide emissions, the recycling credit and others:
     swe = 1    
@@ -189,8 +189,8 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
 
     for r in range(0,NE): # RE scenario                
         # import system-wide GHG and material-related emissions
-        ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[r])) if filename.startswith('ODYM_RECC_ModelResults_')]
-        Resultfile2  = openpyxl.load_workbook(ResFile[0])
+        ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[r])) if filename.startswith('ODYM_RECC_ModelResults_')]        
+        Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],ResFile[0]))
         Resultsheet2 = Resultfile2['Model_Results']
         # system-wide emissions results
         for s in range(0,NS): # SSP scenario
@@ -285,7 +285,7 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
     
     # First, get the position indices for the different result variables:
     ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[0])) if filename.startswith('ODYM_RECC_ModelResults_')]
-    Resultfile2  = openpyxl.load_workbook(ResFile[0])
+    Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,FolderList[0],ResFile[0]))
     Resultsheet2 = Resultfile2['Model_Results']
     
     rci = 1
@@ -548,13 +548,13 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
         
     for r in range(0,NE): # RE scenario
         ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[r])) if filename.startswith('ODYM_RECC_ModelResults_')]
-        Resultfile2  = openpyxl.load_workbook(ResFile[0])
+        Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],ResFile[0]))
         Resultsheet2 = Resultfile2['Model_Results']
             
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR):
                 for t in range(0,45): # time
-                    AnnEms[t,s,c,r]       = Resultsheet.cell_value(t +2, 1 + c + NR*s)
+                    AnnEms[t,s,c,r]       = Resultsheet2.cell(swe+ 2*s +c+1,t+9).value
                     MatEms[t,s,c,r]       = Resultsheet2.cell(mci+ 2*s +c+1,t+9).value
         # Use phase results export
         for s in range(0,NS): # SSP scenario
@@ -1138,7 +1138,7 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
         
         for r in range(0,NE): # RE scenario
             ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[r])) if filename.startswith('ODYM_RECC_ModelResults_')]
-            Resultfile2  = openpyxl.load_workbook(ResFile[0])
+            Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],ResFile[0]))
             Resultsheet2 = Resultfile2['Model_Results']
             # Find the index for materials
             pps = 1
