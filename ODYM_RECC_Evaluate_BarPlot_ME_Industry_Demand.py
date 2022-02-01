@@ -44,7 +44,7 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current
     # read data.
     # get result items:
     ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,ThreeSectoList_Export[0])) if filename.startswith('ODYM_RECC_ModelResults_')]
-    Resultfile2  = openpyxl.load_workbook(ResFile[0])
+    Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,ThreeSectoList_Export[0],ResFile[0]))
     Resultsheet2 = Resultfile2['Model_Results']
     # Find the index for sysem-wide emissions, the recycling credit and others:
     swe = 1    
@@ -66,7 +66,7 @@ def main(RegionalScope,SectorString,ThreeSectoList_Export,SingleSectList,Current
     for r in range(0,NE): # RE scenario
         # import system-wide GHG and material-related emissions
         ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderlistV[r])) if filename.startswith('ODYM_RECC_ModelResults_')]
-        Resultfile2  = openpyxl.load_workbook(ResFile[0])
+        Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,FolderlistV[r],ResFile[0]))
         Resultsheet2 = Resultfile2['Model_Results']    
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR):
