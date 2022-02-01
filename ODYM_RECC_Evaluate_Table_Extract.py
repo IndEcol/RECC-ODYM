@@ -19,7 +19,7 @@ def main(RegionalScope,ThreeSectoList,Current_UUID):
     # No ME scenario
     # Find result fild with common start but unique UUID in name:
     ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,ThreeSectoList[0])) if filename.startswith('ODYM_RECC_ModelResults_')]
-    Resultfile2  = openpyxl.load_workbook(ResFile[0])
+    Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,ThreeSectoList[0],ResFile[0]))
     Resultsheet2 = Resultfile2['Model_Results']
     # Find the index for the recycling credit and others:
     tci = 1
@@ -56,7 +56,7 @@ def main(RegionalScope,ThreeSectoList,Current_UUID):
                 
     # Full ME scenario
     ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,ThreeSectoList[-1])) if filename.startswith('ODYM_RECC_ModelResults_')]
-    Resultfile2  = openpyxl.load_workbook(ResFile[0])
+    Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,ThreeSectoList[-1],ResFile[0]))
     Resultsheet2 = Resultfile2['Model_Results']
     # Find the index for the recycling credit and others:
     tci = 1
@@ -67,12 +67,12 @@ def main(RegionalScope,ThreeSectoList,Current_UUID):
     
     rci = 1
     while True:
-        if Resultsheet2.cell(rci.value, 1).value == 'GHG emissions, recycling credits':
+        if Resultsheet2.cell(rci+1, 1).value == 'GHG emissions, recycling credits':
             break # that gives us the right index to read the recycling credit from the result table.
         rci += 1
     mci = 1
     while True:
-        if Resultsheet2.cell(mci.value, 1).value == 'GHG emissions, material cycle industries and their energy supply _3di_9di':
+        if Resultsheet2.cell(mci+1, 1).value == 'GHG emissions, material cycle industries and their energy supply _3di_9di':
             break # that gives us the right index to read the recycling credit from the result table.
         mci += 1
         
