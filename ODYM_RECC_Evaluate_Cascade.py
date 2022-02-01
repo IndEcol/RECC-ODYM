@@ -189,7 +189,7 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
 
     for r in range(0,NE): # RE scenario                
         # import system-wide GHG and material-related emissions
-        ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[r])) if filename.startswith('ODYM_RECC_ModelResults_')
+        ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,FolderList[r])) if filename.startswith('ODYM_RECC_ModelResults_')]
         Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,FolderList[r],ResFile[0]))
         Resultsheet2 = Resultfile2['Model_Results']
         # system-wide emissions results
