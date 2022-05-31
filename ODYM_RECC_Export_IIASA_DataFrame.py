@@ -96,7 +96,7 @@ for S in range(0,len(IIASA_ScNames)): # IIASA scenario index
     # Open scenario result file:
     # Find result fild with common start but unique UUID in name:
     ResFile = [filename for filename in os.listdir(os.path.join(RECC_Paths.results_path,RECC_ScFolders[S])) if filename.startswith('ODYM_RECC_ModelResults_')]
-    Resultfile2  = openpyxl.load_workbook(ResFile[0])
+    Resultfile2  = openpyxl.load_workbook(os.path.join(RECC_Paths.results_path,RECC_ScFolders[S],ResFile[0]))
     Resultsheet2 = Resultfile2['Model_Results']
     for I in range(0,len(IIASA_IndNames)): # IIASA indicator index
         # Define df row
