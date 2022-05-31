@@ -554,7 +554,7 @@ def main(RegionalScope,FolderList,SectorString,Current_UUID):
         for s in range(0,NS): # SSP scenario
             for c in range(0,NR):
                 for t in range(0,45): # time
-                    AnnEms[t,s,c,r]       = Resultsheet.cell_value(t +2, 1 + c + NR*s)
+                    AnnEms[t,s,c,r]       = Resultsheet2.cell(swe+ 2*s +c+1,t+9).value
                     MatEms[t,s,c,r]       = Resultsheet2.cell(mci+ 2*s +c+1,t+9).value
         # Use phase results export
         for s in range(0,NS): # SSP scenario
