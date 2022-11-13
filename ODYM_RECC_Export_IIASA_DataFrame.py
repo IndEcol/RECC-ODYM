@@ -20,9 +20,8 @@ import uuid
 import nomenclature
 import pyam
 from pathlib import Path
-P_irp = 'C:\\Users\\spauliuk.AD\\FILES\\ARBEIT\\PROJECTS\\ODYM-RECC\\IRP_GRO\\ModelSprint\\irp-internal-workflow'
-
 import RECC_Paths # Import path file
+P_irp = RECC_Paths.irp_path
 
 # Create UUID of script run
 Current_UUID = str(uuid.uuid4())
