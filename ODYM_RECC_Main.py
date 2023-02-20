@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 Created on February 21, 2020, as copy of ODYM_RECC_V2_3.py
 
@@ -368,8 +368,6 @@ FosFuel_loc   = IndexTable.Classification[IndexTable.index.get_loc('Environmenta
 MetOres_loc   = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), metal ores')
 nMetOres_loc  = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), non-metallic minerals')
 Biomass_loc   = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), biomass')
-
-
 Heating_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Heating')
 Cooling_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Cooling')
 DomstHW_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('DHW')
@@ -855,20 +853,35 @@ if ScriptConfig['Include_AluminiumElectricityMix'] == 'True':
     for mP in [PrimCastAl_loc,PrimWrAl_loc,EffCastAl_loc,EffWrAl_loc]:
         Par_ElectricityMix_P[mP,:,:,:] = np.einsum('I,Rt->RIt',ParameterDict['4_SHA_ElectricityMix_World_Alu'].Values[0,0,:,0],np.ones((NR,Nt)))
         
-# Time dependent extensions
+# Time dependent extensions. Versions: o-version for generic energy use, material-version for primary production. This is needed because aluminium might have a separate electricity mix, dependig on ScriptConfig
 ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'] = msc.Parameter(Name='4_PE_ProcessExtensions_EnergyCarriers_MJ_o', ID='4_PE_ProcessExtensions_EnergyCarriers_MJ_o',
                                             UUID=None, P_Res=None, MetaData=None,
                                             Indices='nxotR', Values=np.zeros((Nn,Nx,No,Nt,NR)), Uncert=None,
                                             Unit='impact-eq/MJ')
+ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'] = msc.Parameter(Name='4_PE_ProcessExtensions_EnergyCarriers_MJ_material', ID='4_PE_ProcessExtensions_EnergyCarriers_MJ_material',
+                                            UUID=None, P_Res=None, MetaData=None,
+                                            Indices='nxotR', Values=np.zeros((Nm,Nn,Nx,No,Nt,NR)), Uncert=None,
+                                            Unit='impact-eq/MJ')
+
 # replicate 2015 values. In current dataset is only initial value. Electricity is added separately in the next step
-ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values = np.einsum('nxo,n,tR->nxotR',ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,:,0],ParameterDict['4_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nt,NR)))
+ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values         = np.einsum('nxo,n,tR->nxotR',ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,:,0],ParameterDict['4_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nt,NR)))
+ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values = np.einsum('nxo,n,tRm->mnxotR',ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,:,0],ParameterDict['4_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nt,NR,Nm)))
 # Replicate 2015 values for 4_PE_ProcessExtensionsIndustry
 ParameterDict['4_PE_ProcessExtensions_Industry'].Values = np.einsum('Ixo,t->Ixot',ParameterDict['4_PE_ProcessExtensions_Industry'].Values[:,:,:,0],np.ones((Nt)))
 # add electricity calculated from electriciy mix
 ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[Electric_loc,:,:,:,:] = np.einsum('oRIt,Ixot->xotR',
                                                                                                     ParameterDict['4_SHA_ElectricityMix_World'].Values,             # MJ industry/MJ el        
                                                                                                     ParameterDict['4_PE_ProcessExtensions_Industry'].Values/3.6)    # impact/MJ industry
- 
+ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values[:,Electric_loc,:,:,:,:] = np.einsum('oRIt,Ixot,m->mxotR',
+                                                                                                    ParameterDict['4_SHA_ElectricityMix_World'].Values,             # MJ industry/MJ el        
+                                                                                                    ParameterDict['4_PE_ProcessExtensions_Industry'].Values/3.6,    # impact/MJ industry
+                                                                                                    np.ones((Nm)) )
+if ScriptConfig['Include_AluminiumElectricityMix'] == 'True':
+    # overwright aluminium energy mix
+    ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values[[WroughtAl_loc,CastAl_loc],Electric_loc,:,:,:,:] = np.einsum('oRIt,Ixot,m->mxotR',
+                                                                                                        ParameterDict['4_SHA_ElectricityMix_World_Alu'].Values,             # MJ industry/MJ el        
+                                                                                                        ParameterDict['4_PE_ProcessExtensions_Industry'].Values/3.6,    # impact/MJ industry
+                                                                                                        np.ones((2)) )
 # Now the same, but with extended regional scope for later use
 ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'] = msc.Parameter(Name='4_PE_ProcessExtensions_EnergyCarriers_MJ_r', ID='4_PE_ProcessExtensions_EnergyCarriers_MJ_r',
                                             UUID=None, P_Res=None, MetaData=None,
@@ -884,13 +897,14 @@ ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,
 # emission factors
 EmissionFactorElectricity_r = ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,GWP100_loc,:,:,:]
 EmissionFactorElectricity_o = ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[Electric_loc,GWP100_loc,0,:,:]
+
 # diagnostic
 impact_elect =  np.einsum('I,Ix->x',
                     ParameterDict['4_SHA_ElectricityMix_World'].Values[0,0,:,0],              # MJ industry/MJ el        
                     ParameterDict['4_PE_ProcessExtensions_Industry'].Values[:,:,0,0]/3.6,     # impact/MJ industry 
                      )  # Impact/MJ el
     
-# 24) COmputing residuals for material production processes   
+# 24) Computing residuals(=process emissions) for material production processes   
 ParameterDict['4_PE_ProcessExtensions_Residual'] = msc.Parameter(Name='4_PE_ProcessExtensions_Residual', ID='4_PE_ProcessExtensions_Residual',
                                             UUID=None, P_Res=None, MetaData=None,
                                             Indices='Pxt', Values=np.zeros((NP,Nx,Nt)), Uncert=None,
@@ -899,19 +913,19 @@ ParameterDict['4_PE_ProcessExtensions_Residual'] = msc.Parameter(Name='4_PE_Proc
 fuel_production = np.einsum('nx,n,Pn->Px',
                      ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,0,0], # impact/kg fuel        
                      ParameterDict['4_EI_SpecificEnergy_EnergyCarriers'].Values,             # kg fuel/MJ fuel 
-                     ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,0,0],           # MJ fuel/kg mat 
+                     ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,0,0]            # MJ fuel/kg mat 
                      )  # Impact/kg mat
 # Direct contributions
 direct_impact = np.einsum('Xn,xX,Pn->Px',
                      ParameterDict['6_PR_DirectEmissions'].Values[:,:],             # impact/MJ fuel  
                      ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],
-                     ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,0,0],  # MJ fuel/kg mat 
+                     ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,0,0]  # MJ fuel/kg mat 
                      )  # Impact/kg mat
 # Electricity generation
 elec_production = np.einsum('P,Pi,ix->Px',
                     ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,Electric_loc,0,0],    # MJ el/kg mat
                     Par_ElectricityMix_P[:,0,:,0],              # MJ industry/MJ el        
-                    ParameterDict['4_PE_ProcessExtensions_Industry'].Values[:,:,0,0]/3.6,       # impact/MJ industry 
+                    ParameterDict['4_PE_ProcessExtensions_Industry'].Values[:,:,0,0]/3.6        # impact/MJ industry 
                      )  # Impact/kg mat
 # compute residuals
 residuals = ParameterDict['4_PE_ProcessExtensions_Materials'].Values[:,:,0,0] - fuel_production - direct_impact - elec_production   # Index_ Px, Unit: impact/kg mat
@@ -928,6 +942,25 @@ ParameterDict['4_PE_ProcessExtensions_Residual'].Values[:,:,0] = residuals
 # Replicate residuals over time
 ParameterDict['4_PE_ProcessExtensions_Residual'].Values = np.einsum('Px,t->Pxt',ParameterDict['4_PE_ProcessExtensions_Residual'].Values[:,:,0],np.ones((Nt)))
 
+# 25) Dynamic primary production intensity for diagnostic purposes
+MaterialProductionIntensity_P = \
+    np.einsum('Pxt,R->PxtR',
+              ParameterDict['4_PE_ProcessExtensions_Residual'].Values,
+              np.ones((NR))) + \
+    np.einsum('Xn,xX,Pnt,R->PxtR',
+               ParameterDict['6_PR_DirectEmissions'].Values[:,:],              
+               ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],
+               ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],
+               np.ones((NR))) +\
+    np.einsum('nxtR,Pnt->PxtR',
+               ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,0,:,:],              
+               ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0])  
+MaterialProductionIntensity_m = np.einsum('PxtR,tmRP->mxtR',
+              MaterialProductionIntensity_P,
+              ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,:,:])
+MaterialProductionIntensityGHG_m = MaterialProductionIntensity_m[:,GWP100_loc,:,:]
+
+    
 ##########################################################
 #    Section 4) Initialize dynamic MFA model for RECC    #
 ##########################################################
@@ -1045,6 +1078,10 @@ ResBuildng_EnergyCons            = np.zeros((Nt,NB,Nr,NS,NR))
 GWP_bio_Credit                   = np.zeros((Nt,NS,NR))
 EnergyRecovery_WoodCombustion_EL = np.zeros((Nt,NS,NR))
 BiogenicCO2WasteCombustion       = np.zeros((Nt,NS,NR))
+
+
+
+
 
 NegInflowFlags                   = np.zeros((NG,NS,NR))
 time_dsm                         = np.arange(0,Nc,1) # time array of [0:Nc) needed for some sectors
@@ -2571,16 +2608,16 @@ for mS in range(0,NS):
         SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_Ot   = SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings - SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_EL
         SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_Ot       = SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles - SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_EL
         if Nr > 1:
-            SysExt_IndirectImpacts_EnergySupply_PrimaryProd            = 0.001 * np.einsum('nxot,tmPn->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_PrimaryProd)
-            SysExt_IndirectImpacts_EnergySupply_PrimaryProd_m          = 0.001 * np.einsum('nxot,tmPn->xtm', RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_PrimaryProd)
+            SysExt_IndirectImpacts_EnergySupply_PrimaryProd            = 0.001 * np.einsum('mnxot,tmPn->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values[:,:,:,:,:,mR],SysVar_EnergyDemand_PrimaryProd)
+            SysExt_IndirectImpacts_EnergySupply_PrimaryProd_m          = 0.001 * np.einsum('mnxot,tmPn->xtm', RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values[:,:,:,:,:,mR],SysVar_EnergyDemand_PrimaryProd)
             SysExt_IndirectImpacts_EnergySupply_Manufacturing          = 0.001 * np.einsum('nxot,tn->xt',    RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_Manufacturing)
             SysExt_IndirectImpacts_EnergySupply_WasteMgt               = 0.001 * np.einsum('nxot,tn->xt',    RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_WasteMgt)
             SysExt_IndirectImpacts_EnergySupply_Remelting              = 0.001 * np.einsum('nxot,tn->xt',    RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_Remelting)
             SysExt_IndirectImpacts_EnergySupply_Remelting_m            = 0.001 * np.einsum('nxot,tnm->xtm',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_Remelting_m)
             SysExt_IndirectImpacts_EnergySupply_WasteToEnergy          = -0.001 * np.einsum('nxot,tn->xt',    RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergySavings_WasteToEnerg)
         else:
-            SysExt_IndirectImpacts_EnergySupply_PrimaryProd            = 0.001 * np.einsum('nxt,tmPn->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergyDemand_PrimaryProd)
-            SysExt_IndirectImpacts_EnergySupply_PrimaryProd_m          = 0.001 * np.einsum('nxt,tmPn->xtm', RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergyDemand_PrimaryProd)
+            SysExt_IndirectImpacts_EnergySupply_PrimaryProd            = 0.001 * np.einsum('mnxt,tmPn->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values[:,:,:,0,:,mR],SysVar_EnergyDemand_PrimaryProd)
+            SysExt_IndirectImpacts_EnergySupply_PrimaryProd_m          = 0.001 * np.einsum('mnxt,tmPn->xtm', RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values[:,:,:,0,:,mR],SysVar_EnergyDemand_PrimaryProd)
             SysExt_IndirectImpacts_EnergySupply_Manufacturing          = 0.001 * np.einsum('nxt,tn->xt',    RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergyDemand_Manufacturing)
             SysExt_IndirectImpacts_EnergySupply_WasteMgt               = 0.001 * np.einsum('nxt,tn->xt',    RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergyDemand_WasteMgt)
             SysExt_IndirectImpacts_EnergySupply_Remelting              = 0.001 * np.einsum('nxt,tn->xt',    RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergyDemand_Remelting)
@@ -2599,7 +2636,7 @@ for mS in range(0,NS):
             SysExt_EnergyDemand_RecyclingCredit                 = -1 * 1000 * np.einsum('Pnt,tmP,tm->tmn'    ,RECC_System.ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0])
             SysExt_DirectImpacts_RecyclingCredit                = -1 * 0.001 * np.einsum('Xn,xX,tmn->xt' ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysExt_EnergyDemand_RecyclingCredit)
             SysExt_ProcessImpacts_RecyclingCredit               = -1 * np.einsum('Pxt,tmP,tm->xt'         ,RECC_System.ParameterDict['4_PE_ProcessExtensions_Residual'].Values,RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0])
-            SysExt_IndirectImpacts_EnergySupply_RecyclingCredit = -1 * 0.001 * np.einsum('nxt,tmn->xt'   ,RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,0,:,mR],SysExt_EnergyDemand_RecyclingCredit)
+            SysExt_IndirectImpacts_EnergySupply_RecyclingCredit = -1 * 0.001 * np.einsum('mnxt,tmn->xt'   ,RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values[:,:,:,0,:,mR],SysExt_EnergyDemand_RecyclingCredit)
         else:
             SysExt_EnergyDemand_RecyclingCredit                 = np.zeros((Nt,Nm,Nn))
             SysExt_DirectImpacts_RecyclingCredit                = np.zeros((Nx,Nt))
@@ -2650,7 +2687,6 @@ for mS in range(0,NS):
         SysExt_Impacts_UsePhase_7i_OtherIndir  = SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_Ot + SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_Ot
         SysExt_Impacts_PrimaryMaterial_3di     = np.einsum('xtm->xt',SysExt_DirectImpacts_PrimaryProd) + SysExt_ProcessImpacts_PrimaryProd + SysExt_IndirectImpacts_EnergySupply_PrimaryProd
         SysExt_Impacts_PrimaryMaterial_3di_m   = SysExt_DirectImpacts_PrimaryProd + SysExt_ProcessImpacts_PrimaryProd_m + SysExt_IndirectImpacts_EnergySupply_PrimaryProd_m
-        #SysExt_GHG_PrimaryMaterial_3di_m_unit  = SysExt_Impacts_PrimaryMaterial_3di_m[GWP100_loc] / RECC_System.FlowDict['F_3_4'].Values[:,:,0].copy()
         SysExt_Impacts_Manufacturing_5di       = SysExt_DirectImpacts_Manufacturing + SysExt_IndirectImpacts_EnergySupply_Manufacturing
         SysExt_Impacts_WasteMgtRemelting_9di   = SysExt_DirectImpacts_WasteMgt + SysExt_DirectImpacts_Remelting + SysExt_IndirectImpacts_EnergySupply_WasteMgt + SysExt_IndirectImpacts_EnergySupply_Remelting
         SysExt_Impacts_MaterialCycle_5di_9di   = SysExt_Impacts_Manufacturing_5di + SysExt_Impacts_WasteMgtRemelting_9di
