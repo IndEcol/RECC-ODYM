@@ -3720,7 +3720,7 @@ for mS in range(0,NS): # SSP
         axs[2].plot(np.arange(2016,2061), Impacts_System_3579di[Water_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
         plta = Line2D(np.arange(2016,2061), Impacts_System_3579di[Water_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
         ProxyHandlesList.append(plta) # create proxy artist for legend    
-        axs[2].set_title('Water consumption - billions l')
+        axs[2].set_title('Water consumption - billions m3')
         
         #handles, labels = ax.get_legend_handles_labels()
         #fig.legend(handles, labels, loc='upper center')
