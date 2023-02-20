@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Created on February 21, 2020, as copy of ODYM_RECC_V2_3.py
 
@@ -43,7 +43,7 @@ import pylab
 import pickle
 
 import RECC_Paths # Import path file
-
+log.getLogger('matplotlib.font_manager').disabled = True    # required for preventing debugging messages in some console versions
 #import re
 __version__ = str('2.5')
 ##################################
@@ -343,12 +343,14 @@ PrimCastAl_loc= IndexTable.Classification[IndexTable.index.get_loc('MaterialProd
 PrimWrAl_loc  = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of wrought Al, primary')
 EffCastAl_loc = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of cast Al, efficient')
 EffWrAl_loc   = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of wrought Al, efficient')
-PrimCGSteel_loc= IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of construction grade steel, primary')
-H2CGSteel_loc = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of construction grade steel, H2')
-H2ASteel_loc  = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of automotive steel, H2')
-H2Iron_loc    = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of cast iron, H2')
-PrimSSteel_loc= IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of stainless steel, primary')
-H2SSteel_loc  = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of stainless steel, H2')
+PrimCGSteel_loc  = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of construction grade steel, primary')
+PrimASteel_loc   = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of automotive steel, primary')
+PrimSSteel_loc   = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of stainless steel, primary')
+PrimCastIron_loc = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of cast iron, primary')
+H2CGSteel_loc    = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of construction grade steel, H2')
+H2ASteel_loc     = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of automotive steel, H2')
+H2SSteel_loc     = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of stainless steel, H2')
+H2CastIron_loc   = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of cast iron, H2')
 Woodwaste_loc = IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items.index('used construction wood')
 Electric_loc  = IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items.index('electricity')
 WoodFuel_loc  = IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items.index('fuel wood')
@@ -358,9 +360,16 @@ Carbon_loc    = IndexTable.Classification[IndexTable.index.get_loc('Element')].I
 ClimPolScen   = IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items.index('RCP2.6')
 CO2_loc       = IndexTable.Classification[IndexTable.index.get_loc('Extensions')].Items.index('CO2 emissions per main output')
 GWP100_loc    = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('GWP100')
-Land_loc      = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Land occupation')
-Water_loc     = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Water depletion')
+Land_loc      = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Land occupation (LOP)')
+Water_loc     = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Water consumption potential (WCP)')
 dynGWP100_loc = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('dynGWP100')
+AllMat_loc    = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), all materials')
+FosFuel_loc   = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), fossil fuels')
+MetOres_loc   = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), metal ores')
+nMetOres_loc  = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), non-metallic minerals')
+Biomass_loc   = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), biomass')
+
+
 Heating_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Heating')
 Cooling_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Cooling')
 DomstHW_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('DHW')
@@ -841,10 +850,11 @@ if 'nrb' in SectorList:
 # 23) Material and Process dependent electricity mix (with aluminium electricity mix)
 # reshape electricity mix: oRit->mRit
 Par_ElectricityMix_P  = np.einsum('RIt,P->PRIt', ParameterDict['4_SHA_ElectricityMix_World'].Values[0,:,:,:], np.ones(NP) )
-# overwright aluminium energy mix
-for mp in [PrimCastAl_loc,PrimWrAl_loc,EffCastAl_loc,EffWrAl_loc]:
-    Par_ElectricityMix_P[mp,:,:,:] = np.einsum('I,Rt->RIt',ParameterDict['4_SHA_ElectricityMix_World_Alu'].Values[0,0,:,0],np.ones((NR,Nt)))
-    
+if ScriptConfig['Include_AluminiumElectricityMix'] == 'True':
+    # overwright aluminium energy mix
+    for mP in [PrimCastAl_loc,PrimWrAl_loc,EffCastAl_loc,EffWrAl_loc]:
+        Par_ElectricityMix_P[mP,:,:,:] = np.einsum('I,Rt->RIt',ParameterDict['4_SHA_ElectricityMix_World_Alu'].Values[0,0,:,0],np.ones((NR,Nt)))
+        
 # Time dependent extensions
 ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'] = msc.Parameter(Name='4_PE_ProcessExtensions_EnergyCarriers_MJ_o', ID='4_PE_ProcessExtensions_EnergyCarriers_MJ_o',
                                             UUID=None, P_Res=None, MetaData=None,
@@ -904,25 +914,19 @@ elec_production = np.einsum('P,Pi,ix->Px',
                     ParameterDict['4_PE_ProcessExtensions_Industry'].Values[:,:,0,0]/3.6,       # impact/MJ industry 
                      )  # Impact/kg mat
 # compute residuals
-residuals = ParameterDict['4_PE_ProcessExtensions_Materials'].Values[:,:,0,0] - fuel_production - direct_impact - elec_production   # impact / kg mat
+residuals = ParameterDict['4_PE_ProcessExtensions_Materials'].Values[:,:,0,0] - fuel_production - direct_impact - elec_production   # Index_ Px, Unit: impact/kg mat
 
 # RCP production processes represent technologies that are not out there yet. They are modelled as the same production steps, with different energy inputs. Hence, the s (i.e. the process impacts) 
 # are the same as the Baseline technology.
-for loc in [EffCastAl_loc, EffWrAl_loc]:
-    residuals[loc,:] = residuals[PrimCastAl_loc,:]
-for loc in [H2CGSteel_loc, H2ASteel_loc, H2Iron_loc]:
-    residuals[loc,:] = residuals[PrimCGSteel_loc,:]
-residuals[H2SSteel_loc,:] = residuals[PrimSSteel_loc,:]    
-
-residuals_original = residuals.copy()
-if (residuals<0).sum()>0:
-    Mylog.info('Negative residuals!!')
-    residuals[residuals<0]=0
-    # filling the parameter parameter with thw new calculated residuals
+residuals[EffCastAl_loc,:]  = residuals[PrimCastAl_loc,:]
+residuals[EffWrAl_loc,:]    = residuals[PrimWrAl_loc,:]
+residuals[H2CGSteel_loc,:]  = residuals[PrimCGSteel_loc,:]
+residuals[H2ASteel_loc,:]   = residuals[PrimASteel_loc,:]
+residuals[H2CastIron_loc,:] = residuals[PrimCastIron_loc,:]
+residuals[H2SSteel_loc,:]   = residuals[PrimSSteel_loc,:]    
 ParameterDict['4_PE_ProcessExtensions_Residual'].Values[:,:,0] = residuals
 # Replicate residuals over time
 ParameterDict['4_PE_ProcessExtensions_Residual'].Values = np.einsum('Px,t->Pxt',ParameterDict['4_PE_ProcessExtensions_Residual'].Values[:,:,0],np.ones((Nt)))
-
 
 ##########################################################
 #    Section 4) Initialize dynamic MFA model for RECC    #
@@ -1563,8 +1567,7 @@ for mS in range(0,NS):
             if ScriptConfig['Include_Renovation_reb'] == 'True' and ScriptConfig['No_EE_Improvements'] == 'False': 
                 RenPot_E   = np.einsum('rcB,rB->rcB',RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:],RECC_System.ParameterDict['3_SHA_EnergySavingsPot_Renovation_ResBuildings'].Values[:,mS,:]) # Unit: 1
                 RenPot_E_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot_E) # Unit: 1, Defined as share of stock crB that is renovated by year t * energy saving potential
-                #RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cBVnr,trcB->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NB))-RenPot_E_t)) # cBVnrt
-                RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cBVnr,t->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:SwitchTime,:,:,:,:,mS],np.ones((Nt))) # cBVnrt
+                RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cBVnr,trcB->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NB))-RenPot_E_t)) # cBVnrt
                 # Add renovation material intensity to building material intensity:
                 RenPot_M_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crB that is renovated by year t
                 MC_Ren = RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS]*RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Relative'].Values + RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values
@@ -1683,9 +1686,9 @@ for mS in range(0,NS):
             else:
                 RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cNVnr,trcN->cNVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NN)))) # cNVnrt
             # Add values for future age-cohorts, convert from useful to final energy, expand from 'all' to specific energy carriers
-            RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[SwitchTime-1::,:,:,:,:,:]   = np.einsum('Vrnt,Vrnt,cBVnr,t->cBVnrt',ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[:,mR,:,:,:,mS],ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings_uf'].Values[:,mR,:,:,:,mS],RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[SwitchTime-1::,:,:,:,:,mS],np.ones(Nt))
+            RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[SwitchTime-1::,:,:,:,:,:]   = np.einsum('Vrnt,Vrnt,cNVr,t->cNVnrt',ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[:,mR,:,:,:,mS],ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings_uf'].Values[:,mR,:,:,:,mS],RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[SwitchTime-1::,:,:,all_loc,:,mS],np.ones(Nt))
             # Split energy into different carriers for historic age-cohorts:
-            RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:]     = np.einsum('Vrnt,cBVnrt->cBVnrt',RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:], RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:]) 
+            RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:]     = np.einsum('Vrnt,cNVrt->cNVnrt',RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:], RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,all_loc,:,:]) 
                           
         # Sector: Nonresidential buildings, global total
         if 'nrbg' in SectorList:
@@ -2391,11 +2394,11 @@ for mS in range(0,NS):
             SysVar_EnergyDemand_UsePhase_ByService_pav        = np.zeros((Nt,Nr,NV))
         if 'reb' in SectorList:
             # Note that for hist. c, 3_EI_Products_UsePhase_resbuildings_t contains EI for final energy (F_16_7), and for future c, it contains useful energy (F_7_0a).
-            #SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb  = np.einsum('Vrnt,cBVrt,tcBVr,tcBr->trBn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:], optimize = True)
-            #SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb += np.einsum('cBVrt,tcBVr,tcBr->trBn',      ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[SwitchTime::,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_B[:,SwitchTime::,:,:], optimize = True)
-            #SysVar_EnergyDemand_UsePhase_ByService_reb        = np.einsum('Vrnt,cBVrt,tcBVr,tcBr->trV',  RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:], optimize = True)
-            #SysVar_EnergyDemand_UsePhase_ByService_reb       += np.einsum('cBVrt,tcBVr,tcBr->trV',       ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[SwitchTime::,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_B[:,SwitchTime::,:,:], optimize = True)
-            #SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all += np.einsum('trpn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
+            # SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb  = np.einsum('Vrnt,cBVrt,tcBVr,tcBr->trBn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:], optimize = True)
+            # SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb += np.einsum('cBVnrt,tcBVr,tcBr->trBn',      ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[SwitchTime::,:,:,:,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_B[:,SwitchTime::,:,:], optimize = True)
+            # SysVar_EnergyDemand_UsePhase_ByService_reb        = np.einsum('Vrnt,cBVrt,tcBVr,tcBr->trV',  RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:], optimize = True)
+            # SysVar_EnergyDemand_UsePhase_ByService_reb       += np.einsum('cBVnrt,tcBVr,tcBr->trV',       ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[SwitchTime::,:,:,:,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_B[:,SwitchTime::,:,:], optimize = True)
+            # SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all += np.einsum('trpn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
             SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb  = np.einsum('cBVnrt,tcBVr,tcBr->trBn', ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:], optimize = True)
             SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb += np.einsum('cBVnrt,tcBVr,tcBr->trBn', ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[SwitchTime::,:,:,:,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_B[:,SwitchTime::,:,:], optimize = True)
             SysVar_EnergyDemand_UsePhase_ByService_reb        = np.einsum('cBVnrt,tcBVr,tcBr->trV',  ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:],RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:], optimize = True)
@@ -2416,8 +2419,12 @@ for mS in range(0,NS):
             SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb  = np.zeros((Nt,Nr,NB,Nn))
             SysVar_EnergyDemand_UsePhase_ByService_reb        = np.zeros((Nt,Nr,NV))
         if 'nrb' in SectorList: 
-            SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.einsum('Vrnt,cNVrt,cNVr,tcNr->trNn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_N[:,0:SwitchTime,:,:], optimize = True)
-            SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb += np.einsum('cNVrt,cNVr,tcNr->trNn',      ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[SwitchTime::,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_N[:,SwitchTime::,:,:], optimize = True)
+            # SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.einsum('Vrnt,cNVrt,cNVr,tcNr->trNn', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:],ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_N[:,0:SwitchTime,:,:], optimize = True)
+            # SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb += np.einsum('cNVrt,cNVr,tcNr->trNn',      ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[SwitchTime::,:,:,-1,:,:],RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_N[:,SwitchTime::,:,:], optimize = True)
+            SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.einsum('cNVnrt,cNVr,tcNr->trNn', ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:],RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[0:SwitchTime,:,:,:,mS],Stock_Detail_UsePhase_N[:,0:SwitchTime,:,:], optimize = True)
+            SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb += np.einsum('cNVnrt,cNVr,tcNr->trNn', ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[SwitchTime::,:,:,:,:,:],RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[SwitchTime::,:,:,:,mS],Stock_Detail_UsePhase_N[:,SwitchTime::,:,:], optimize = True)
+            
+            
             SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all += np.einsum('trpn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
         else:
             SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.zeros((Nt,Nr,NN,Nn))
@@ -2466,8 +2473,8 @@ for mS in range(0,NS):
         # a) Total roundwood and sawmill losses for construction wood production, energy use, by region
         Divisor = np.einsum('t,r->tr',np.einsum('trg->t',RECC_System.FlowDict['F_6_7'].Values[:,:,:,Wood_loc,Carbon_loc]),np.ones(Nr))
         Par_Carbon_Timber_ByRegion_Rel              = np.divide(RECC_System.FlowDict['F_6_7'].Values[:,:,:,Wood_loc,Carbon_loc].sum(axis=2), Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)  # aspects: [tr]        
-        SysVar_Construction_Roundwood_carbon_1_2_tr = np.einsum('tr,tr,tr->tr', 1 / ParameterDict['3_SHA_TimberRoundWood'].Values, Par_Carbon_Timber_ByRegion_Rel, np.einsum('t,r->tr',RECC_System.FlowDict['F_2_3'].Values[:,Wood_loc,Carbon_loc],np.ones(Nr)))
-        SysVar_Roundwood_Loss_carbon_2_7_tr         = SysVar_Construction_Roundwood_carbon_1_2_tr * (1 - ParameterDict['3_SHA_TimberRoundWood'].Values)
+        SysVar_Construction_Roundwood_carbon_1_2_tr = np.einsum('rt,tr,tr->tr', 1 / ParameterDict['3_SHA_TimberRoundWood'].Values[:,:,mS], Par_Carbon_Timber_ByRegion_Rel, np.einsum('t,r->tr',RECC_System.FlowDict['F_2_3'].Values[:,Wood_loc,Carbon_loc],np.ones(Nr)))
+        SysVar_Roundwood_Loss_carbon_2_7_tr         = SysVar_Construction_Roundwood_carbon_1_2_tr * (1 - np.einsum('rt->tr',ParameterDict['3_SHA_TimberRoundWood'].Values[:,:,mS]))
         
         # b) energy and carbon in fuel wood in TJ/yr (energy) and Mt/yr (carbon)
         SysVar_Energy_FuelWood_2_7_tr               = np.einsum('trp->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,WoodFuel_loc]) + np.einsum('trB->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,WoodFuel_loc]) + np.einsum('trN->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,WoodFuel_loc])
@@ -2533,42 +2540,19 @@ for mS in range(0,NS):
         Mylog.info('Total mass balance deviation (np.abs(Bal).sum() for socioeconomic scenario ' + SName + ' and RE scenario ' + RName + ': ' + str(BalAbs) + ' Mt.')                    
 
         # H) Calculate direct emissions by combustion of energy carriers in processes
-        SysVar_DirectEmissions_UsePhase_Vehicles    = 0.001 * np.einsum('Xn,trpn->Xtrp',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
         SysExt_DirectImpacts_UsePhase_Vehicles      = 0.001 * np.einsum('Xn,xX,trpn->xtrp',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
-        
-        SysVar_DirectEmissions_UsePhase_Buildings   = 0.001 * np.einsum('Xn,trBn->XtrB',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
         SysExt_DirectImpacts_UsePhase_Buildings     = 0.001 * np.einsum('Xn,xX,trBn->xtrB',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
-        
-        SysVar_DirectEmissions_UsePhase_NRBuildgs   = 0.001 * np.einsum('Xn,trNn->XtrN',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
         SysExt_DirectImpacts_UsePhase_NRBuildgs     = 0.001 * np.einsum('Xn,xX,trNn->xtrN',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
-        
-        SysVar_DirectEmissions_UsePhase_NRBuildgs_g = 0.001 * np.einsum('Xn,toNn->XtoN',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg)
         SysExt_DirectImpacts_UsePhase_NRBuildgs_g   = 0.001 * np.einsum('Xn,xX,toNn->xtoN',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg)
-        
-        # next term is removed because now SysVar_EnergyDemand_PrimaryProd double counts energy emission and process extensions
-        #SysVar_DirectEmissions_PrimaryProd         = 0.001 * np.einsum('Xn,tmPn->Xtm'  ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_PrimaryProd)
         SysExt_DirectImpacts_PrimaryProd            = 0.001 * np.einsum('Xn,xX,tmPn->xtm'  ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_PrimaryProd)
-        
-        SysVar_DirectEmissions_Manufacturing        = 0.001 * np.einsum('Xn,tn->Xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_Manufacturing)
         SysExt_DirectImpacts_Manufacturing          = 0.001 * np.einsum('Xn,xX,tn->xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_Manufacturing)
-        
-        SysVar_DirectEmissions_WasteMgt             = 0.001 * np.einsum('Xn,tn->Xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_WasteMgt)
         SysExt_DirectImpacts_WasteMgt               = 0.001 * np.einsum('Xn,xX,tn->xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_WasteMgt)
-        
-        SysVar_DirectEmissions_Remelting            = 0.001 * np.einsum('Xn,tn->Xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_Remelting)
         SysExt_DirectImpacts_Remelting              = 0.001 * np.einsum('Xn,xX,tn->xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_Remelting)
-        
-        SysVar_DirectEmissions_Remelting_m          = 0.001 * np.einsum('Xn,tnm->Xtm'  ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_Remelting_m)
         SysExt_DirectImpacts_Remelting_m            = 0.001 * np.einsum('Xn,xX,tnm->xtm'  ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_Remelting_m)
         # Unit: Mt/yr. 1 kg/MJ = 1kt/TJ
         
         # I) Calculate process emissions, double-counting is avoided since there are no process extensions for concrete, only for cement and aggregates.
         # now aspect m and P don't have a 1-to-1 correspondance anymore. 4_SHA_MaterialsTechnologyShare_debugging model this 1-to-1
-        #SysVar_ProcessEmissions_PrimaryProd       = np.einsum('mXt,tm->Xt'   ,RECC_System.ParameterDict['4_PE_ProcessExtensions'].Values[:,:,0,:,mR,mS],RECC_System.FlowDict['F_3_4'].Values[:,:,0])
-        #SysVar_ProcessEmissions_PrimaryProd_m     = np.einsum('mXt,tm->Xtm'   ,RECC_System.ParameterDict['4_PE_ProcessExtensions'].Values[:,:,0,:,mR,mS],RECC_System.FlowDict['F_3_4'].Values[:,:,0])
-        SysVar_ProcessEmissions_PrimaryProd         = np.einsum('PXt,tmP,tm->Xt',RECC_System.ParameterDict['4_PE_ProcessExtensions'].Values[:,:,0,:,mR,mS],ParameterDict['4_SHA_MaterialsTechnologyShare_debugging'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_3_4'].Values[:,:,0])
-        SysVar_ProcessEmissions_PrimaryProd_m       = np.einsum('PXt,tmP,tm->Xtm',RECC_System.ParameterDict['4_PE_ProcessExtensions'].Values[:,:,0,:,mR,mS],ParameterDict['4_SHA_MaterialsTechnologyShare_debugging'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_3_4'].Values[:,:,0])
-        # Unit: Mt/yr.
         # process emissions has now multiple contributions: residuals[ now called process ], energy carriers (and electricity), direct emissions. Direct contributions has been computet already in SysExt_DirectEmissions_PrimaryProd. Energy Carriers will be computed in the indirect contributions below
         SysExt_ProcessImpacts_PrimaryProd_mP         = np.einsum('Pxt,tmP,tm->xPmt',ParameterDict['4_PE_ProcessExtensions_Residual'].Values,RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_3_4'].Values[:,:,0])       
         SysExt_ProcessImpacts_PrimaryProd_P          = np.einsum('Pxt,tmP,tm->xPt', ParameterDict['4_PE_ProcessExtensions_Residual'].Values,RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_3_4'].Values[:,:,0])       
@@ -2576,42 +2560,17 @@ for mS in range(0,NS):
         SysExt_ProcessImpacts_PrimaryProd            = np.einsum('Pxt,tmP,tm->xt',  ParameterDict['4_PE_ProcessExtensions_Residual'].Values,RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_3_4'].Values[:,:,0])       
         
         # J) Calculate emissions from energy supply
-        SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings       = 0.001 * np.einsum('Xnrt,trBn->Xt',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) \
-                                                                       + 0.001 * np.einsum('Xnrt,trNn->Xt',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb) \
-                                                                       + 0.001 * np.einsum('Xnt,toNn->Xt', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg)
         SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings      = 0.001 * np.einsum('nxrt,trBn->xt',RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) \
                                                                        + 0.001 * np.einsum('nxrt,trNn->xt',RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb) \
                                                                        + 0.001 * np.einsum('nxot,toNn->xt',RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg)
-                                                                
-        SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles           = 0.001 * np.einsum('Xnrt,trpn->Xt',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
         SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles          = 0.001 * np.einsum('nxrt,trpn->xt',RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
-        
-        
-        SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings_EL    = 0.001 * np.einsum('Xrt,trB->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,0,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,Electric_loc]) \
-                                                                       + 0.001 * np.einsum('Xrt,trN->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,0,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,Electric_loc]) \
-                                                                       + 0.001 * np.einsum('Xt,toN->Xt',   RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,0,mS,mR,0,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg[:,:,:,Electric_loc]) # electricity only
         SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_EL   = 0.001 * np.einsum('xrt,trB->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,Electric_loc]) \
                                                                        + 0.001 * np.einsum('xrt,trN->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,Electric_loc]) \
                                                                        + 0.001 * np.einsum('xot,toN->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[Electric_loc,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg[:,:,:,Electric_loc]) # electricity only
-        
-        SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_EL        = 0.001 * np.einsum('Xrt,trp->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,0,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,Electric_loc])   # electricity only
         SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_EL       = 0.001 * np.einsum('xrt,trp->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,Electric_loc])   # electricity only
-        
-        SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings_Ot    = SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings - SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings_EL
         SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_Ot   = SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings - SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_EL
-        
-        SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_Ot        = SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles  - SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_EL
         SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_Ot       = SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles - SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_EL
-        
         if Nr > 1:
-            SysVar_IndirectGHGEms_EnergySupply_PrimaryProd             = 0.001 * np.einsum('Xnt,tmPn->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_PrimaryProd)
-            SysVar_IndirectGHGEms_EnergySupply_PrimaryProd_m           = 0.001 * np.einsum('Xnt,tmPn->Xtm', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_PrimaryProd)
-            SysVar_IndirectGHGEms_EnergySupply_Manufacturing           = 0.001 * np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Manufacturing)
-            SysVar_IndirectGHGEms_EnergySupply_WasteMgt                = 0.001 * np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_WasteMgt)
-            SysVar_IndirectGHGEms_EnergySupply_Remelting               = 0.001 * np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Remelting)
-            SysVar_IndirectGHGEms_EnergySupply_Remelting_m             = 0.001 * np.einsum('Xnt,tnm->Xtm',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Remelting_m)
-            SysVar_IndirectGHGEms_EnergySupply_WasteToEnergy           = -0.001* np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergySavings_WasteToEnerg)
-            
             SysExt_IndirectImpacts_EnergySupply_PrimaryProd            = 0.001 * np.einsum('nxot,tmPn->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_PrimaryProd)
             SysExt_IndirectImpacts_EnergySupply_PrimaryProd_m          = 0.001 * np.einsum('nxot,tmPn->xtm', RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_PrimaryProd)
             SysExt_IndirectImpacts_EnergySupply_Manufacturing          = 0.001 * np.einsum('nxot,tn->xt',    RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_Manufacturing)
@@ -2619,16 +2578,7 @@ for mS in range(0,NS):
             SysExt_IndirectImpacts_EnergySupply_Remelting              = 0.001 * np.einsum('nxot,tn->xt',    RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_Remelting)
             SysExt_IndirectImpacts_EnergySupply_Remelting_m            = 0.001 * np.einsum('nxot,tnm->xtm',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_Remelting_m)
             SysExt_IndirectImpacts_EnergySupply_WasteToEnergy          = -0.001 * np.einsum('nxot,tn->xt',    RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergySavings_WasteToEnerg)
-            
         else:
-            SysVar_IndirectGHGEms_EnergySupply_PrimaryProd             = 0.001 * np.einsum('Xnt,tmPn->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_PrimaryProd)
-            SysVar_IndirectGHGEms_EnergySupply_PrimaryProd_m           = 0.001 * np.einsum('Xnt,tmPn->Xtm', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_PrimaryProd)
-            SysVar_IndirectGHGEms_EnergySupply_Manufacturing           = 0.001 * np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Manufacturing)
-            SysVar_IndirectGHGEms_EnergySupply_WasteMgt                = 0.001 * np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_WasteMgt)
-            SysVar_IndirectGHGEms_EnergySupply_Remelting               = 0.001 * np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Remelting)
-            SysVar_IndirectGHGEms_EnergySupply_Remelting_m             = 0.001 * np.einsum('Xnt,tnm->Xtm',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Remelting_m)
-            SysVar_IndirectGHGEms_EnergySupply_WasteToEnergy           = -0.001* np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergySavings_WasteToEnerg)
-            
             SysExt_IndirectImpacts_EnergySupply_PrimaryProd            = 0.001 * np.einsum('nxt,tmPn->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergyDemand_PrimaryProd)
             SysExt_IndirectImpacts_EnergySupply_PrimaryProd_m          = 0.001 * np.einsum('nxt,tmPn->xtm', RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergyDemand_PrimaryProd)
             SysExt_IndirectImpacts_EnergySupply_Manufacturing          = 0.001 * np.einsum('nxt,tn->xt',    RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergyDemand_Manufacturing)
@@ -2639,11 +2589,6 @@ for mS in range(0,NS):
         # Unit: Mt/yr.
         
         # Calculate emissions by energy carrier:
-        SysVar_DirectEmissions_UsePhase_Vehicles_n                     = 0.001 * np.einsum('Xn,trpn->Xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
-        SysVar_DirectEmissions_UsePhase_ResBuildings_n                 = 0.001 * np.einsum('Xn,trBn->Xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
-        SysVar_IndirectGHGEms_EnergySupply_UsePhase_ResBuildings_n     = 0.001 * np.einsum('Xnrt,trBn->Xtrn',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) 
-        SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_n         = 0.001 * np.einsum('Xnrt,trpn->Xtrn',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
-        
         SysExt_DirectImpacts_UsePhase_Vehicles_n                       = 0.001 * np.einsum('Xn,xX,trpn->xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
         SysExt_DirectImpacts_UsePhase_ResBuildings_n                   = 0.001 * np.einsum('Xn,xX,trBn->xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
         SysExt_IndirectImpacts_EnergySupply_UsePhase_ResBuildings_n    = 0.001 * np.einsum('nxrt,trBn->xtrn',RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) 
@@ -2651,25 +2596,11 @@ for mS in range(0,NS):
         
         # K) Calculate emissions benefits
         if ScriptConfig['ScrapExportRecyclingCredit'] == 'True':
-            # now aspect m and P don't have a 1-to-1 correspondance anymore. 4_SHA_MaterialsTechnologyShare_debugging model this 1-to-1
-            #SysVar_EnergyDemand_RecyclingCredit                = -1 * 1000 * np.einsum('mnt,tm->tmn' ,RECC_System.ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0])
-            SysVar_EnergyDemand_RecyclingCredit                = -1 * 1000 * np.einsum('Pnt,tmP,tm->tmn' ,RECC_System.ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare_debugging'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0])
-            SysVar_DirectEmissions_RecyclingCredit             = -1 * 0.001 * np.einsum('Xn,tmn->Xt' ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_RecyclingCredit)
-            #SysVar_ProcessEmissions_RecyclingCredit            = -1 * np.einsum('mXt,tm->Xt'         ,RECC_System.ParameterDict['4_PE_ProcessExtensions'].Values[:,:,0,:,mR,mS],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0])
-            SysVar_ProcessEmissions_RecyclingCredit            = -1 * np.einsum('PXt,tmP,tm->Xt'         ,RECC_System.ParameterDict['4_PE_ProcessExtensions'].Values[:,:,0,:,mR,mS],RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare_debugging'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0])
-            SysVar_IndirectGHGEms_EnergySupply_RecyclingCredit = -1 * 0.001 * np.einsum('Xnt,tmn->Xt',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_RecyclingCredit)
-            
             SysExt_EnergyDemand_RecyclingCredit                 = -1 * 1000 * np.einsum('Pnt,tmP,tm->tmn'    ,RECC_System.ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0])
-            SysExt_DirectImpacts_RecyclingCredit                = -1 * 0.001 * np.einsum('Xn,xX,tmn->xt' ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_RecyclingCredit)
+            SysExt_DirectImpacts_RecyclingCredit                = -1 * 0.001 * np.einsum('Xn,xX,tmn->xt' ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysExt_EnergyDemand_RecyclingCredit)
             SysExt_ProcessImpacts_RecyclingCredit               = -1 * np.einsum('Pxt,tmP,tm->xt'         ,RECC_System.ParameterDict['4_PE_ProcessExtensions_Residual'].Values,RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0])
-            SysExt_IndirectImpacts_EnergySupply_RecyclingCredit = -1 * 0.001 * np.einsum('nxt,tmn->xt'   ,RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,0,:,mR],SysVar_EnergyDemand_RecyclingCredit)
-            
+            SysExt_IndirectImpacts_EnergySupply_RecyclingCredit = -1 * 0.001 * np.einsum('nxt,tmn->xt'   ,RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,0,:,mR],SysExt_EnergyDemand_RecyclingCredit)
         else:
-            SysVar_EnergyDemand_RecyclingCredit                = np.zeros((Nt,Nm,Nn))
-            SysVar_DirectEmissions_RecyclingCredit             = np.zeros((NX,Nt))
-            SysVar_ProcessEmissions_RecyclingCredit            = np.zeros((NX,Nt))
-            SysVar_IndirectGHGEms_EnergySupply_RecyclingCredit = np.zeros((NX,Nt))
-            
             SysExt_EnergyDemand_RecyclingCredit                 = np.zeros((Nt,Nm,Nn))
             SysExt_DirectImpacts_RecyclingCredit                = np.zeros((Nx,Nt))
             SysExt_ProcessImpacts_RecyclingCredit               = np.zeros((Nx,Nt))
@@ -2705,12 +2636,6 @@ for mS in range(0,NS):
                     SysVar_GHGEms_GWP_bio_o[0,ntt] += 44/12 * mass_C * GWP_bio # convert from C to CO2
         SysVar_GHGEms_GWP_bio = np.einsum('Xtr->Xt',SysVar_GHGEms_GWP_bio_r) + SysVar_GHGEms_GWP_bio_o
         
-        # not used anymore! Have time and process-explicit carbon flow and stock accounting now.
-        
-        SysVar_CO2UptakeEmissions_Forests = np.zeros((NX,Nt,Nr,Nm))
-        SysVar_CO2UptakeEmissions_Forests[CO2_loc,:,:,Wood_loc] = -1 * 44/12 * RECC_System.FlowDict['F_0_1'].Values[:,:,Carbon_loc] # negative sign because emissions are measured in X_0 direction.
-        SysVar_CO2UptakeEmissions_Forests[:,0,:,:] = 0
-        
         SysExt_CO2UptakeImpacts_Forests = np.zeros((Nx,Nt,Nr,Nm))
         SysExt_CO2UptakeImpacts_Forests[GWP100_loc,:,:,Wood_loc] = -1 * 44/12 * RECC_System.FlowDict['F_0_1'].Values[:,:,Carbon_loc] # negative sign because emissions are measured in X_0 direction.
         SysExt_CO2UptakeImpacts_Forests[:,0,:,:] = 0
@@ -2720,53 +2645,22 @@ for mS in range(0,NS):
         # M) Calculate emissions of system, by process group, INCLUDING GWPbio and credits
         # Number indicates the process number of the ODYM-RECC system definition
         # 'd' behind the number indicates direct, 'i' indirect emissions of that process.
-        SysVar_GHGEms_UsePhase_7d              = np.einsum('XtrB->Xt',SysVar_DirectEmissions_UsePhase_Buildings) + np.einsum('XtrN->Xt',SysVar_DirectEmissions_UsePhase_NRBuildgs) + np.einsum('XtoN->Xt',SysVar_DirectEmissions_UsePhase_NRBuildgs_g) + np.einsum('Xtrp->Xt',SysVar_DirectEmissions_UsePhase_Vehicles)
         SysExt_Impacts_UsePhase_7d             = np.einsum('xtrB->xt',SysExt_DirectImpacts_UsePhase_Buildings) + np.einsum('xtrN->xt',SysExt_DirectImpacts_UsePhase_NRBuildgs) + np.einsum('xtoN->xt',SysExt_DirectImpacts_UsePhase_NRBuildgs_g) + np.einsum('xtrp->xt',SysExt_DirectImpacts_UsePhase_Vehicles)
-        
-        SysVar_GHGEms_UsePhase_7i_Scope2_El    = SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings_EL + SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_EL
         SysExt_Impacts_UsePhase_7i_Scope2_El   = SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_EL + SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_EL
-        
-        SysVar_GHGEms_UsePhase_7i_OtherIndir   = SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings_Ot + SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_Ot
         SysExt_Impacts_UsePhase_7i_OtherIndir  = SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_Ot + SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_Ot
-        
-        # next variables are now counted without SysVar_ProcessEmissions_PrimaryProd because it would double count ProcessExtension and EnergyIntensity
-        #SysVar_GHGEms_PrimaryMaterial_3di      = np.einsum('Xtm->Xt',SysVar_DirectEmissions_PrimaryProd) + SysVar_ProcessEmissions_PrimaryProd + SysVar_IndirectGHGEms_EnergySupply_PrimaryProd
-        #SysVar_GHGEms_PrimaryMaterial_3di_m    = SysVar_DirectEmissions_PrimaryProd + SysVar_ProcessEmissions_PrimaryProd_m + SysVar_IndirectGHGEms_EnergySupply_PrimaryProd_m
-        SysVar_GHGEms_PrimaryMaterial_3di      = SysVar_ProcessEmissions_PrimaryProd + SysVar_IndirectGHGEms_EnergySupply_PrimaryProd
-        SysVar_GHGEms_PrimaryMaterial_3di_m    = SysVar_ProcessEmissions_PrimaryProd_m + SysVar_IndirectGHGEms_EnergySupply_PrimaryProd_m
-        
         SysExt_Impacts_PrimaryMaterial_3di     = np.einsum('xtm->xt',SysExt_DirectImpacts_PrimaryProd) + SysExt_ProcessImpacts_PrimaryProd + SysExt_IndirectImpacts_EnergySupply_PrimaryProd
         SysExt_Impacts_PrimaryMaterial_3di_m   = SysExt_DirectImpacts_PrimaryProd + SysExt_ProcessImpacts_PrimaryProd_m + SysExt_IndirectImpacts_EnergySupply_PrimaryProd_m
-        
-        SysVar_GHGEms_Manufacturing_5di        = SysVar_DirectEmissions_Manufacturing + SysVar_IndirectGHGEms_EnergySupply_Manufacturing
+        #SysExt_GHG_PrimaryMaterial_3di_m_unit  = SysExt_Impacts_PrimaryMaterial_3di_m[GWP100_loc] / RECC_System.FlowDict['F_3_4'].Values[:,:,0].copy()
         SysExt_Impacts_Manufacturing_5di       = SysExt_DirectImpacts_Manufacturing + SysExt_IndirectImpacts_EnergySupply_Manufacturing
-        
-        SysVar_GHGEms_WasteMgtRemelting_9di    = SysVar_DirectEmissions_WasteMgt + SysVar_DirectEmissions_Remelting + SysVar_IndirectGHGEms_EnergySupply_WasteMgt + SysVar_IndirectGHGEms_EnergySupply_Remelting
         SysExt_Impacts_WasteMgtRemelting_9di   = SysExt_DirectImpacts_WasteMgt + SysExt_DirectImpacts_Remelting + SysExt_IndirectImpacts_EnergySupply_WasteMgt + SysExt_IndirectImpacts_EnergySupply_Remelting
-        
-        SysVar_GHGEms_MaterialCycle_5di_9di    = SysVar_GHGEms_Manufacturing_5di + SysVar_GHGEms_WasteMgtRemelting_9di
         SysExt_Impacts_MaterialCycle_5di_9di   = SysExt_Impacts_Manufacturing_5di + SysExt_Impacts_WasteMgtRemelting_9di
-        
-        SysVar_GHGEms_RecyclingCredit          = SysVar_DirectEmissions_RecyclingCredit + SysVar_ProcessEmissions_RecyclingCredit + SysVar_IndirectGHGEms_EnergySupply_RecyclingCredit
         SysExt_Impacts_RecyclingCredit         = SysExt_DirectImpacts_RecyclingCredit + SysExt_ProcessImpacts_RecyclingCredit + SysExt_IndirectImpacts_EnergySupply_RecyclingCredit
-        
-        SysVar_GHGEms_EnergyRecoveryWaste_9di  = np.zeros((NX,Nt))
         SysExt_Impacts_EnergyRecoveryWaste_9di = np.zeros((Nx,Nt))
-        
-        SysVar_GHGEms_EnergyRecoveryWaste_9di[CO2_loc,:] = BiogenicCO2WasteCombustion[t,mS,mR].copy()
         SysExt_Impacts_EnergyRecoveryWaste_9di[GWP100_loc,:] = BiogenicCO2WasteCombustion[t,mS,mR].copy()
-        
-        SysVar_GHGEms_EnergyRecoveryWaste_9di += SysVar_IndirectGHGEms_EnergySupply_WasteToEnergy
-        SysVar_GHGEms_EnergyRecoveryWaste_9di += SysVar_IndirectGHGEms_EnergySupply_WasteToEnergy
-        
+        SysExt_Impacts_EnergyRecoveryWaste_9di += SysExt_IndirectImpacts_EnergySupply_WasteToEnergy
         # Calculate total emissions of system
-        SysVar_GHGEms_OtherThanUsePhaseDirect  = SysVar_GHGEms_UsePhase_7i_Scope2_El + SysVar_GHGEms_UsePhase_7i_OtherIndir + SysVar_GHGEms_PrimaryMaterial_3di + SysVar_GHGEms_MaterialCycle_5di_9di
         SysExt_Impacts_OtherThanUsePhaseDirect = SysExt_Impacts_UsePhase_7i_Scope2_El + SysExt_Impacts_UsePhase_7i_OtherIndir + SysExt_Impacts_PrimaryMaterial_3di + SysExt_Impacts_MaterialCycle_5di_9di
-        
-        SysVar_TotalGHGEms_3579di              = SysVar_GHGEms_UsePhase_7d + SysVar_GHGEms_OtherThanUsePhaseDirect + SysVar_GHGEms_EnergyRecoveryWaste_9di + np.einsum('Xtrm->Xt',SysVar_CO2UptakeEmissions_Forests)
         SysExt_TotalImpacts_3579di             = SysExt_Impacts_UsePhase_7d + SysExt_Impacts_OtherThanUsePhaseDirect + SysExt_Impacts_EnergyRecoveryWaste_9di + np.einsum('xtrm->xt',SysExt_CO2UptakeImpacts_Forests)
-
-        SysVar_GHGEms_Materials_3di_9di        = SysVar_GHGEms_PrimaryMaterial_3di + SysVar_GHGEms_WasteMgtRemelting_9di
         SysExt_Impacts_Materials_3di_9di       = SysExt_Impacts_PrimaryMaterial_3di + SysExt_Impacts_WasteMgtRemelting_9di
         # Unit: Mt/yr.
         
@@ -2775,39 +2669,6 @@ for mS in range(0,NS):
         # Unit: million $ / yr.
         
         # O) Compile results
-        # Emissions breakdown by system processes, GWP100
-        GWP_System_3579di[:,mS,mR]                  = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_TotalGHGEms_3579di)[GWP100_loc,:].copy()
-        GWP_UsePhase_7d[:,mS,mR]                    = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_UsePhase_7d)[GWP100_loc,:].copy()
-        GWP_UsePhase_7i_Scope2_El[:,mS,mR]          = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_UsePhase_7i_Scope2_El)[GWP100_loc,:].copy()
-        GWP_UsePhase_7i_OtherIndir[:,mS,mR]         = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_UsePhase_7i_OtherIndir)[GWP100_loc,:].copy()
-        GWP_MaterialCycle_5di_9di[:,mS,mR]          = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_MaterialCycle_5di_9di)[GWP100_loc,:].copy()
-        GWP_RecyclingCredit[:,mS,mR]                = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_RecyclingCredit)[GWP100_loc,:].copy()
-        GWP_ForestCO2Uptake[:,mS,mR]                = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],np.einsum('Xtrm->Xt',SysVar_CO2UptakeEmissions_Forests))[GWP100_loc,:].copy()
-        GWP_ForestCO2Uptake_r[:,:,mS,mR]            = np.einsum('xX,Xtr->xtr'   ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],np.einsum('Xtrm->Xtr',SysVar_CO2UptakeEmissions_Forests))[GWP100_loc,:,:].copy()
-        GWP_EnergyRecoveryWasteWood[:,mS,mR]        = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_EnergyRecoveryWaste_9di)[GWP100_loc,:].copy()
-        GWP_OtherThanUsePhaseDirect[:,mS,mR]        = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_OtherThanUsePhaseDirect)[GWP100_loc,:].copy() # all non use-phase processes
-        GWP_Materials_3di_9di[:,mS,mR]              = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_Materials_3di_9di)[GWP100_loc,:].copy()
-        GWP_Vehicles_Direct[:,:,mS,mR]              = np.einsum('xX,Xtrp->xtr'  ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_DirectEmissions_UsePhase_Vehicles)[GWP100_loc,:,:].copy()
-        GWP_ReBuildgs_Direct[:,:,mS,mR]             = np.einsum('xX,XtrB->xtr'  ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_DirectEmissions_UsePhase_Buildings)[GWP100_loc,:,:].copy()
-        GWP_NRBuildgs_Direct[:,:,mS,mR]             = np.einsum('xX,XtrN->xtr'  ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_DirectEmissions_UsePhase_NRBuildgs)[GWP100_loc,:,:].copy()
-        GWP_NRBuildgs_Direct_g[:,mS,mR]             = np.einsum('xX,XtoN->xt'   ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_DirectEmissions_UsePhase_NRBuildgs_g)[GWP100_loc,:].copy()
-        GWP_PrimaryMaterial_3di[:,mS,mR]            = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_PrimaryMaterial_3di)[GWP100_loc,:].copy()
-        GWP_PrimaryMaterial_3di_m[:,:,mS,mR]        = np.einsum('xX,Xtm->xtm'   ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_PrimaryMaterial_3di_m)[GWP100_loc,:,:].copy()
-        GWP_Manufact_5di_all[:,mS,mR]               = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_Manufacturing_5di)[GWP100_loc,:].copy()
-        GWP_WasteMgt_9di_all[:,mS,mR]               = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_WasteMgtRemelting_9di)[GWP100_loc,:].copy()
-        # other emissions breakdown
-        GWP_SecondaryMetal_di_m[:,:,mS,mR]          = np.einsum('xX,Xtm->xtm'   ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_DirectEmissions_Remelting_m + SysVar_IndirectGHGEms_EnergySupply_Remelting_m)[GWP100_loc,:,:].copy()
-        GWP_Vehicles_indir[:,mS,mR]                 = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles)[GWP100_loc,:].copy()
-        GWP_AllBuildings_indir[:,mS,mR]             = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings)[GWP100_loc,:].copy()
-        GWP_ByEnergyCarrier_UsePhase_d[:,:,:,mS,mR] = np.einsum('xX,Xtrn->xtrn' ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_DirectEmissions_UsePhase_Vehicles_n + SysVar_DirectEmissions_UsePhase_ResBuildings_n)[GWP100_loc,:,:,:].copy()
-        GWP_ByEnergyCarrier_UsePhase_i[:,:,:,mS,mR] = np.einsum('xX,Xtrn->xtrn' ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_n + SysVar_IndirectGHGEms_EnergySupply_UsePhase_ResBuildings_n)[GWP100_loc,:,:,:].copy()
-        GWP_WoodCycle[:,mS,mR]                      = GWP_ForestCO2Uptake[:,mS,mR].copy() + GWP_EnergyRecoveryWasteWood[:,mS,mR].copy() # net wood use emissions, not exported.
-        # Emissions breakdown by system processes, dynGWP100
-        dynGWP_System_3579di[mS,mR]                 = np.einsum('xXt,Xt->x'      ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_TotalGHGEms_3579di)[dynGWP100_loc].copy()
-        dynGWP_WoodCycle[mS,mR]                     = np.einsum('xXt,Xt->x'      ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,np.einsum('Xtrm->Xt',SysVar_CO2UptakeEmissions_Forests))[dynGWP100_loc].copy() + np.einsum('xXt,Xt->x'      ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_GHGEms_EnergyRecoveryWaste_9di)[dynGWP100_loc].copy()
-        # the above equation is the dynGWP equivalent of GWP_ForestCO2Uptake[:,mS,mR].copy() + GWP_EnergyRecoveryWasteWood[:,mS,mR].copy() # net wood use emissions, not exported.
-        
-        # new export variables.
         Impacts_System_3579di[:,:,mS,mR]                  = SysExt_TotalImpacts_3579di[:,:].copy()
         Impacts_UsePhase_7d[:,:,mS,mR]                    = SysExt_Impacts_UsePhase_7d[:,:].copy()
         Impacts_UsePhase_7i_Scope2_El[:,:,mS,mR]          = SysExt_Impacts_UsePhase_7i_Scope2_El[:,:].copy()
@@ -2888,6 +2749,182 @@ for mS in range(0,NS):
         Outflow_Materials_Usephase_all[:,:,mS,mR]   = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() + np.einsum('tclLm->tm',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy() + np.einsum('tcoOm->tm',RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy()
         WasteMgtLosses_To_Landfill[:,:,mS,mR]       = RECC_System.FlowDict['F_9_0'].Values.copy()
         StockCurves_Mat[:,:,mS,mR]                  = np.einsum('tcrgm->tm',RECC_System.StockDict['S_7'].Values[:,:,:,:,:,0]).copy() + np.einsum('tclLm->tm',RECC_System.StockDict['S_7_Nl'].Values[:,:,:,:,:,0]).copy() + np.einsum('tcoOm->tm',RECC_System.StockDict['S_7_No'].Values[:,:,:,:,:,0]).copy()
+        
+        
+        ################################
+        # Sandbox for old calculations #
+        ################################
+        
+        # H) Calculate direct emissions by combustion of energy carriers in processes
+        SysVar_DirectEmissions_UsePhase_Vehicles    = 0.001 * np.einsum('Xn,trpn->Xtrp',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
+        SysVar_DirectEmissions_UsePhase_Buildings   = 0.001 * np.einsum('Xn,trBn->XtrB',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
+        SysVar_DirectEmissions_UsePhase_NRBuildgs   = 0.001 * np.einsum('Xn,trNn->XtrN',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
+        SysVar_DirectEmissions_UsePhase_NRBuildgs_g = 0.001 * np.einsum('Xn,toNn->XtoN',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg)
+        # next term is removed because now SysVar_EnergyDemand_PrimaryProd double counts energy emission and process extensions
+        #SysVar_DirectEmissions_PrimaryProd         = 0.001 * np.einsum('Xn,tmPn->Xtm'  ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_PrimaryProd)
+        SysVar_DirectEmissions_Manufacturing        = 0.001 * np.einsum('Xn,tn->Xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_Manufacturing)
+        SysVar_DirectEmissions_WasteMgt             = 0.001 * np.einsum('Xn,tn->Xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_WasteMgt)
+        SysVar_DirectEmissions_Remelting            = 0.001 * np.einsum('Xn,tn->Xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_Remelting)
+        SysVar_DirectEmissions_Remelting_m          = 0.001 * np.einsum('Xn,tnm->Xtm'  ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_Remelting_m)
+        # Unit: Mt/yr. 1 kg/MJ = 1kt/TJ
+        
+        # I) Calculate process emissions, double-counting is avoided since there are no process extensions for concrete, only for cement and aggregates.
+        # now aspect m and P don't have a 1-to-1 correspondance anymore. 4_SHA_MaterialsTechnologyShare_debugging model this 1-to-1
+        #SysVar_ProcessEmissions_PrimaryProd       = np.einsum('mXt,tm->Xt'   ,RECC_System.ParameterDict['4_PE_ProcessExtensions'].Values[:,:,0,:,mR,mS],RECC_System.FlowDict['F_3_4'].Values[:,:,0])
+        #SysVar_ProcessEmissions_PrimaryProd_m     = np.einsum('mXt,tm->Xtm'   ,RECC_System.ParameterDict['4_PE_ProcessExtensions'].Values[:,:,0,:,mR,mS],RECC_System.FlowDict['F_3_4'].Values[:,:,0])
+        SysVar_ProcessEmissions_PrimaryProd         = np.einsum('PXt,tmP,tm->Xt',RECC_System.ParameterDict['4_PE_ProcessExtensions'].Values[:,:,0,:,mR,mS],ParameterDict['4_SHA_MaterialsTechnologyShare_debugging'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_3_4'].Values[:,:,0])
+        SysVar_ProcessEmissions_PrimaryProd_m       = np.einsum('PXt,tmP,tm->Xtm',RECC_System.ParameterDict['4_PE_ProcessExtensions'].Values[:,:,0,:,mR,mS],ParameterDict['4_SHA_MaterialsTechnologyShare_debugging'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_3_4'].Values[:,:,0])
+        # Unit: Mt/yr.
+        
+        # J) Calculate emissions from energy supply
+        SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings       = 0.001 * np.einsum('Xnrt,trBn->Xt',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) \
+                                                                       + 0.001 * np.einsum('Xnrt,trNn->Xt',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb) \
+                                                                       + 0.001 * np.einsum('Xnt,toNn->Xt', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg)
+        SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles           = 0.001 * np.einsum('Xnrt,trpn->Xt',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
+        SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings_EL    = 0.001 * np.einsum('Xrt,trB->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,0,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,Electric_loc]) \
+                                                                       + 0.001 * np.einsum('Xrt,trN->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,0,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,Electric_loc]) \
+                                                                       + 0.001 * np.einsum('Xt,toN->Xt',   RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,0,mS,mR,0,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg[:,:,:,Electric_loc]) # electricity only
+        SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_EL        = 0.001 * np.einsum('Xrt,trp->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,0,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,Electric_loc])   # electricity only
+        SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings_Ot    = SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings - SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings_EL
+        SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_Ot        = SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles  - SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_EL
+        if Nr > 1:
+            SysVar_IndirectGHGEms_EnergySupply_PrimaryProd             = 0.001 * np.einsum('Xnt,tmPn->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_PrimaryProd)
+            SysVar_IndirectGHGEms_EnergySupply_PrimaryProd_m           = 0.001 * np.einsum('Xnt,tmPn->Xtm', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_PrimaryProd)
+            SysVar_IndirectGHGEms_EnergySupply_Manufacturing           = 0.001 * np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Manufacturing)
+            SysVar_IndirectGHGEms_EnergySupply_WasteMgt                = 0.001 * np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_WasteMgt)
+            SysVar_IndirectGHGEms_EnergySupply_Remelting               = 0.001 * np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Remelting)
+            SysVar_IndirectGHGEms_EnergySupply_Remelting_m             = 0.001 * np.einsum('Xnt,tnm->Xtm',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Remelting_m)
+            SysVar_IndirectGHGEms_EnergySupply_WasteToEnergy           = -0.001* np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergySavings_WasteToEnerg)
+        else:
+            SysVar_IndirectGHGEms_EnergySupply_PrimaryProd             = 0.001 * np.einsum('Xnt,tmPn->Xt',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_PrimaryProd)
+            SysVar_IndirectGHGEms_EnergySupply_PrimaryProd_m           = 0.001 * np.einsum('Xnt,tmPn->Xtm', RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_PrimaryProd)
+            SysVar_IndirectGHGEms_EnergySupply_Manufacturing           = 0.001 * np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Manufacturing)
+            SysVar_IndirectGHGEms_EnergySupply_WasteMgt                = 0.001 * np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_WasteMgt)
+            SysVar_IndirectGHGEms_EnergySupply_Remelting               = 0.001 * np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Remelting)
+            SysVar_IndirectGHGEms_EnergySupply_Remelting_m             = 0.001 * np.einsum('Xnt,tnm->Xtm',  RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_Remelting_m)
+            SysVar_IndirectGHGEms_EnergySupply_WasteToEnergy           = -0.001* np.einsum('Xnt,tn->Xt',    RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,0,:],SysVar_EnergySavings_WasteToEnerg)
+        # Unit: Mt/yr   
+        
+        # Calculate emissions by energy carrier:
+        SysVar_DirectEmissions_UsePhase_Vehicles_n                     = 0.001 * np.einsum('Xn,trpn->Xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
+        SysVar_DirectEmissions_UsePhase_ResBuildings_n                 = 0.001 * np.einsum('Xn,trBn->Xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
+        SysVar_IndirectGHGEms_EnergySupply_UsePhase_ResBuildings_n     = 0.001 * np.einsum('Xnrt,trBn->Xtrn',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) 
+        SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_n         = 0.001 * np.einsum('Xnrt,trpn->Xtrn',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply'].Values[:,:,mS,mR,:,:],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
+        
+        # K) Calculate emissions benefits
+        if ScriptConfig['ScrapExportRecyclingCredit'] == 'True':
+            # now aspect m and P don't have a 1-to-1 correspondance anymore. 4_SHA_MaterialsTechnologyShare_debugging model this 1-to-1
+            #SysVar_EnergyDemand_RecyclingCredit                = -1 * 1000 * np.einsum('mnt,tm->tmn' ,RECC_System.ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0])
+            SysVar_EnergyDemand_RecyclingCredit                = -1 * 1000 * np.einsum('Pnt,tmP,tm->tmn' ,RECC_System.ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare_debugging'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0])
+            SysVar_DirectEmissions_RecyclingCredit             = -1 * 0.001 * np.einsum('Xn,tmn->Xt' ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,SysVar_EnergyDemand_RecyclingCredit)
+            #SysVar_ProcessEmissions_RecyclingCredit            = -1 * np.einsum('mXt,tm->Xt'         ,RECC_System.ParameterDict['4_PE_ProcessExtensions'].Values[:,:,0,:,mR,mS],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0])
+            SysVar_ProcessEmissions_RecyclingCredit            = -1 * np.einsum('PXt,tmP,tm->Xt'         ,RECC_System.ParameterDict['4_PE_ProcessExtensions'].Values[:,:,0,:,mR,mS],RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare_debugging'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0])
+            SysVar_IndirectGHGEms_EnergySupply_RecyclingCredit = -1 * 0.001 * np.einsum('Xnt,tmn->Xt',RECC_System.ParameterDict['4_PE_GHGIntensityEnergySupply_World'].Values[:,:,mS,mR,0,:],SysVar_EnergyDemand_RecyclingCredit)
+            
+        else:
+            SysVar_EnergyDemand_RecyclingCredit                = np.zeros((Nt,Nm,Nn))
+            SysVar_DirectEmissions_RecyclingCredit             = np.zeros((NX,Nt))
+            SysVar_ProcessEmissions_RecyclingCredit            = np.zeros((NX,Nt))
+            SysVar_IndirectGHGEms_EnergySupply_RecyclingCredit = np.zeros((NX,Nt))
+            
+        # L) GWP_bio calculation, using the original RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values
+        # and NOT the extended lifetime.
+        SysVar_GHGEms_GWP_bio_r = np.zeros((NX,Nt,Nr))
+        SysVar_GHGEms_GWP_bio_o = np.zeros((NX,Nt))
+        
+        if 'reb' in SectorList:
+            for ntt in range(0,Nt):
+                for nrr in range(0,Nr):
+                    for nBB in range(0,NB):
+                        #total carbon in wood (carbon content ca. 0.5)
+                        mass_C  = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] *12/44 * RECC_System.FlowDict['F_6_7'].Values[ntt,nrr,Sector_reb_rge[nBB],9,0]
+                        GWP_bio = RECC_System.ParameterDict['6_MIP_GWP_Bio'].Values[int(np.floor(RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values[nBB,nrr,ntt+SwitchTime-1]))]
+                        SysVar_GHGEms_GWP_bio_r[0,ntt,nrr] += 44/12 * mass_C * GWP_bio # convert from C to CO2
+        if 'nrb' in SectorList:
+            for ntt in range(0,Nt):
+                for nrr in range(0,Nr):
+                    for nNN in range(0,NN):
+                        #total carbon in wood (carbon content ca. 0.5)
+                        mass_C  = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] *12/44 * RECC_System.FlowDict['F_6_7'].Values[ntt,nrr,Sector_nrb_rge[nNN],9,0]
+                        GWP_bio = RECC_System.ParameterDict['6_MIP_GWP_Bio'].Values[int(np.floor(RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_NonResbuildings'].Values[nNN,nrr,ntt+SwitchTime-1]))]
+                        SysVar_GHGEms_GWP_bio_r[0,ntt,nrr] += 44/12 * mass_C * GWP_bio # convert from C to CO2     
+        if 'nrbg' in SectorList:
+            for ntt in range(0,Nt):
+                for nNN in range(0,NN):
+                    #total carbon in wood (carbon content ca. 0.5)
+                    mass_C  = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] *12/44 * RECC_System.FlowDict['F_6_7_No'].Values[ntt,0,Sector_nrbg_rge_reg[nNN],9,0]
+                    GWP_bio = RECC_System.ParameterDict['6_MIP_GWP_Bio'].Values[int(np.floor(RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_nonresbuildings_g'].Values[nNN,0,ntt+SwitchTime-1]))]
+                    SysVar_GHGEms_GWP_bio_o[0,ntt] += 44/12 * mass_C * GWP_bio # convert from C to CO2
+        SysVar_GHGEms_GWP_bio = np.einsum('Xtr->Xt',SysVar_GHGEms_GWP_bio_r) + SysVar_GHGEms_GWP_bio_o
+        
+        # not used anymore! Have time and process-explicit carbon flow and stock accounting now.
+        
+        SysVar_CO2UptakeEmissions_Forests = np.zeros((NX,Nt,Nr,Nm))
+        SysVar_CO2UptakeEmissions_Forests[CO2_loc,:,:,Wood_loc] = -1 * 44/12 * RECC_System.FlowDict['F_0_1'].Values[:,:,Carbon_loc] # negative sign because emissions are measured in X_0 direction.
+        SysVar_CO2UptakeEmissions_Forests[:,0,:,:] = 0
+        
+       # For the GrowthCurve Method, F_0_1 has a large negative initial value due to the boundary conditions. The value for year 0 is set to 0 in the results of the calculations using this system variable, as year 0 is for initialisation only.
+        
+         # M) Calculate emissions of system, by process group, INCLUDING GWPbio and credits
+        # Number indicates the process number of the ODYM-RECC system definition
+        # 'd' behind the number indicates direct, 'i' indirect emissions of that process.
+        SysVar_GHGEms_UsePhase_7d              = np.einsum('XtrB->Xt',SysVar_DirectEmissions_UsePhase_Buildings) + np.einsum('XtrN->Xt',SysVar_DirectEmissions_UsePhase_NRBuildgs) + np.einsum('XtoN->Xt',SysVar_DirectEmissions_UsePhase_NRBuildgs_g) + np.einsum('Xtrp->Xt',SysVar_DirectEmissions_UsePhase_Vehicles)
+        SysVar_GHGEms_UsePhase_7i_Scope2_El    = SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings_EL + SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_EL
+        SysVar_GHGEms_UsePhase_7i_OtherIndir   = SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings_Ot + SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_Ot
+        # next variables are now counted without SysVar_ProcessEmissions_PrimaryProd because it would double count ProcessExtension and EnergyIntensity
+        #SysVar_GHGEms_PrimaryMaterial_3di      = np.einsum('Xtm->Xt',SysVar_DirectEmissions_PrimaryProd) + SysVar_ProcessEmissions_PrimaryProd + SysVar_IndirectGHGEms_EnergySupply_PrimaryProd
+        #SysVar_GHGEms_PrimaryMaterial_3di_m    = SysVar_DirectEmissions_PrimaryProd + SysVar_ProcessEmissions_PrimaryProd_m + SysVar_IndirectGHGEms_EnergySupply_PrimaryProd_m
+        SysVar_GHGEms_PrimaryMaterial_3di      = SysVar_ProcessEmissions_PrimaryProd + SysVar_IndirectGHGEms_EnergySupply_PrimaryProd
+        SysVar_GHGEms_PrimaryMaterial_3di_m    = SysVar_ProcessEmissions_PrimaryProd_m + SysVar_IndirectGHGEms_EnergySupply_PrimaryProd_m
+        SysVar_GHGEms_Manufacturing_5di        = SysVar_DirectEmissions_Manufacturing + SysVar_IndirectGHGEms_EnergySupply_Manufacturing
+        SysVar_GHGEms_WasteMgtRemelting_9di    = SysVar_DirectEmissions_WasteMgt + SysVar_DirectEmissions_Remelting + SysVar_IndirectGHGEms_EnergySupply_WasteMgt + SysVar_IndirectGHGEms_EnergySupply_Remelting
+        SysVar_GHGEms_MaterialCycle_5di_9di    = SysVar_GHGEms_Manufacturing_5di + SysVar_GHGEms_WasteMgtRemelting_9di
+        SysVar_GHGEms_RecyclingCredit          = SysVar_DirectEmissions_RecyclingCredit + SysVar_ProcessEmissions_RecyclingCredit + SysVar_IndirectGHGEms_EnergySupply_RecyclingCredit
+        SysVar_GHGEms_EnergyRecoveryWaste_9di  = np.zeros((NX,Nt))
+        SysVar_GHGEms_EnergyRecoveryWaste_9di[CO2_loc,:] = BiogenicCO2WasteCombustion[t,mS,mR].copy()
+        SysVar_GHGEms_EnergyRecoveryWaste_9di += SysVar_IndirectGHGEms_EnergySupply_WasteToEnergy
+        # Calculate total emissions of system
+        SysVar_GHGEms_OtherThanUsePhaseDirect  = SysVar_GHGEms_UsePhase_7i_Scope2_El + SysVar_GHGEms_UsePhase_7i_OtherIndir + SysVar_GHGEms_PrimaryMaterial_3di + SysVar_GHGEms_MaterialCycle_5di_9di
+        SysVar_TotalGHGEms_3579di              = SysVar_GHGEms_UsePhase_7d + SysVar_GHGEms_OtherThanUsePhaseDirect + SysVar_GHGEms_EnergyRecoveryWaste_9di + np.einsum('Xtrm->Xt',SysVar_CO2UptakeEmissions_Forests)
+        SysVar_GHGEms_Materials_3di_9di        = SysVar_GHGEms_PrimaryMaterial_3di + SysVar_GHGEms_WasteMgtRemelting_9di
+        # Unit: Mt/yr.    
+        
+        # Emissions breakdown by system processes, GWP100
+        GWP_System_3579di[:,mS,mR]                  = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_TotalGHGEms_3579di)[GWP100_loc,:].copy()
+        GWP_UsePhase_7d[:,mS,mR]                    = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_UsePhase_7d)[GWP100_loc,:].copy()
+        GWP_UsePhase_7i_Scope2_El[:,mS,mR]          = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_UsePhase_7i_Scope2_El)[GWP100_loc,:].copy()
+        GWP_UsePhase_7i_OtherIndir[:,mS,mR]         = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_UsePhase_7i_OtherIndir)[GWP100_loc,:].copy()
+        GWP_MaterialCycle_5di_9di[:,mS,mR]          = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_MaterialCycle_5di_9di)[GWP100_loc,:].copy()
+        GWP_RecyclingCredit[:,mS,mR]                = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_RecyclingCredit)[GWP100_loc,:].copy()
+        GWP_ForestCO2Uptake[:,mS,mR]                = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],np.einsum('Xtrm->Xt',SysVar_CO2UptakeEmissions_Forests))[GWP100_loc,:].copy()
+        GWP_ForestCO2Uptake_r[:,:,mS,mR]            = np.einsum('xX,Xtr->xtr'   ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],np.einsum('Xtrm->Xtr',SysVar_CO2UptakeEmissions_Forests))[GWP100_loc,:,:].copy()
+        GWP_EnergyRecoveryWasteWood[:,mS,mR]        = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_EnergyRecoveryWaste_9di)[GWP100_loc,:].copy()
+        GWP_OtherThanUsePhaseDirect[:,mS,mR]        = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_OtherThanUsePhaseDirect)[GWP100_loc,:].copy() # all non use-phase processes
+        GWP_Materials_3di_9di[:,mS,mR]              = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_Materials_3di_9di)[GWP100_loc,:].copy()
+        GWP_Vehicles_Direct[:,:,mS,mR]              = np.einsum('xX,Xtrp->xtr'  ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_DirectEmissions_UsePhase_Vehicles)[GWP100_loc,:,:].copy()
+        GWP_ReBuildgs_Direct[:,:,mS,mR]             = np.einsum('xX,XtrB->xtr'  ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_DirectEmissions_UsePhase_Buildings)[GWP100_loc,:,:].copy()
+        GWP_NRBuildgs_Direct[:,:,mS,mR]             = np.einsum('xX,XtrN->xtr'  ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_DirectEmissions_UsePhase_NRBuildgs)[GWP100_loc,:,:].copy()
+        GWP_NRBuildgs_Direct_g[:,mS,mR]             = np.einsum('xX,XtoN->xt'   ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_DirectEmissions_UsePhase_NRBuildgs_g)[GWP100_loc,:].copy()
+        GWP_PrimaryMaterial_3di[:,mS,mR]            = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_PrimaryMaterial_3di)[GWP100_loc,:].copy()
+        GWP_PrimaryMaterial_3di_m[:,:,mS,mR]        = np.einsum('xX,Xtm->xtm'   ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_PrimaryMaterial_3di_m)[GWP100_loc,:,:].copy()
+        GWP_Manufact_5di_all[:,mS,mR]               = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_Manufacturing_5di)[GWP100_loc,:].copy()
+        GWP_WasteMgt_9di_all[:,mS,mR]               = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_GHGEms_WasteMgtRemelting_9di)[GWP100_loc,:].copy()
+        # other emissions breakdown
+        GWP_SecondaryMetal_di_m[:,:,mS,mR]          = np.einsum('xX,Xtm->xtm'   ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_DirectEmissions_Remelting_m + SysVar_IndirectGHGEms_EnergySupply_Remelting_m)[GWP100_loc,:,:].copy()
+        GWP_Vehicles_indir[:,mS,mR]                 = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles)[GWP100_loc,:].copy()
+        GWP_AllBuildings_indir[:,mS,mR]             = np.einsum('xX,Xt->xt'     ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_IndirectGHGEms_EnergySupply_UsePhase_AllBuildings)[GWP100_loc,:].copy()
+        GWP_ByEnergyCarrier_UsePhase_d[:,:,:,mS,mR] = np.einsum('xX,Xtrn->xtrn' ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_DirectEmissions_UsePhase_Vehicles_n + SysVar_DirectEmissions_UsePhase_ResBuildings_n)[GWP100_loc,:,:,:].copy()
+        GWP_ByEnergyCarrier_UsePhase_i[:,:,:,mS,mR] = np.einsum('xX,Xtrn->xtrn' ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_IndirectGHGEms_EnergySupply_UsePhase_Vehicles_n + SysVar_IndirectGHGEms_EnergySupply_UsePhase_ResBuildings_n)[GWP100_loc,:,:,:].copy()
+        GWP_WoodCycle[:,mS,mR]                      = GWP_ForestCO2Uptake[:,mS,mR].copy() + GWP_EnergyRecoveryWasteWood[:,mS,mR].copy() # net wood use emissions, not exported.
+        # Emissions breakdown by system processes, dynGWP100
+        dynGWP_System_3579di[mS,mR]                 = np.einsum('xXt,Xt->x'      ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_TotalGHGEms_3579di)[dynGWP100_loc].copy()
+        dynGWP_WoodCycle[mS,mR]                     = np.einsum('xXt,Xt->x'      ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,np.einsum('Xtrm->Xt',SysVar_CO2UptakeEmissions_Forests))[dynGWP100_loc].copy() + np.einsum('xXt,Xt->x'      ,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_GHGEms_EnergyRecoveryWaste_9di)[dynGWP100_loc].copy()
+        # the above equation is the dynGWP equivalent of GWP_ForestCO2Uptake[:,mS,mR].copy() + GWP_EnergyRecoveryWasteWood[:,mS,mR].copy() # net wood use emissions, not exported.
+        
+        ##################
+        # End of sandbox #
+        ##################
+        
         
 #        # Diagnostics:
 #        Aa = np.einsum('trpn->trp',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)   # Total use phase energy demand, pav
@@ -3336,11 +3373,27 @@ EF_RCP = pd.DataFrame( data =EmissionFactorElectricity_r[:,:,1].transpose(), col
 EF_bas.to_excel(os.path.join(ProjectSpecs_Path_Result,'EF_baseline.xlsx'))
 EF_RCP.to_excel(os.path.join(ProjectSpecs_Path_Result,'EF_RCP.xlsx'))
 
-# export original residuals before correction
+# export residuals  
 pd.DataFrame( 
     data = residuals[:,:], 
     columns = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items,
     index = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items).to_excel(os.path.join(ProjectSpecs_Path_Result,'Residuals.xlsx'))
+
+# pd.DataFrame( # energy carriers contributions
+#     data = fuel_production[:,:], 
+#     columns = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items,
+#     index = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items).to_excel(os.path.join(ProjectSpecs_Path_Result,'fuels.xlsx'))
+
+# pd.DataFrame( # direct contributions
+#     data = direct_impact[:,:], 
+#     columns = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items,
+#     index = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items).to_excel(os.path.join(ProjectSpecs_Path_Result,'direct.xlsx'))
+
+# pd.DataFrame( # electricity production contribution
+#     data = elec_production[:,:], 
+#     columns = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items,
+#     index = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items).to_excel(os.path.join(ProjectSpecs_Path_Result,'electric.xlsx'))
+
 
 ##############################
 # PLOT
@@ -3526,15 +3579,65 @@ SSPScens   = ['LED','SSP1','SSP2']
 RCPScens   = ['No climate policy','RCP2.6 energy mix']
 Area       = ['use phase','use phase, scope 2 (el)','use phase, other indirect','primary material product.','manufact. & recycling','total (+ forest & biogen. C)']     
 DataAExp   = np.zeros((NS,NR,Nt,6))
-DataAExp_new   = np.zeros((NS,NR,Nt,6))
+
 
 for mS in range(0,NS): # SSP
     for mR in range(0,NR): # RCP
-
+    
         fig  = plt.figure(figsize=(8,5))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
         
         ProxyHandlesList = []   # For legend     
+        
+        # plot area
+        ax1.fill_between(np.arange(2015,2061),np.zeros((Nt)), Impacts_UsePhase_7d[GWP100_loc,:,mS,mR], linestyle = '-', facecolor = MyColorCycle[1,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[1,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2015,2061),Impacts_UsePhase_7d[GWP100_loc,:,mS,mR], Impacts_UsePhase_7d[GWP100_loc,:,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,:,mS,mR], linestyle = '-', facecolor = MyColorCycle[2,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[2,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2015,2061),Impacts_UsePhase_7d[GWP100_loc,:,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,:,mS,mR], Impacts_UsePhase_7d[GWP100_loc,:,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,:,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,:,mS,mR], linestyle = '-', facecolor = MyColorCycle[3,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[3,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2016,2061),Impacts_UsePhase_7d[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,1::,mS,mR], Impacts_UsePhase_7d[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,1::,mS,mR] + Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[4,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend    
+        ax1.fill_between(np.arange(2016,2061),Impacts_UsePhase_7d[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,1::,mS,mR] + Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR], Impacts_UsePhase_7d[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,1::,mS,mR] + Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR] + Impacts_MaterialCycle_5di_9di[GWP100_loc,1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[5,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[5,:])) # create proxy artist for legend    
+        plt.plot(np.arange(2016,2061), Impacts_System_3579di[GWP100_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
+        plta = Line2D(np.arange(2016,2061), Impacts_System_3579di[GWP100_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
+        ProxyHandlesList.append(plta) # create proxy artist for legend    
+        #plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
+        
+        #copy data to export array
+        DataAExp[mS,mR,:,0] = Impacts_UsePhase_7d[GWP100_loc,:,mS,mR].copy()
+        DataAExp[mS,mR,:,1] = Impacts_UsePhase_7i_Scope2_El[GWP100_loc,:,mS,mR].copy()
+        DataAExp[mS,mR,:,2] = Impacts_UsePhase_7i_OtherIndir[GWP100_loc,:,mS,mR].copy()
+        DataAExp[mS,mR,:,3] = Impacts_PrimaryMaterial_3di[GWP100_loc,:,mS,mR].copy()
+        DataAExp[mS,mR,:,4] = Impacts_MaterialCycle_5di_9di[GWP100_loc,:,mS,mR].copy()
+        DataAExp[mS,mR,:,5] = Impacts_System_3579di[GWP100_loc,:,mS,mR].copy()
+        
+        plt.title('GHG emissions, stacked by process group, \n' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.', fontsize = 18)
+        plt.ylabel(r'Mt of CO$_2$-eq.', fontsize = 18)
+        plt.xlabel('Year', fontsize = 18)
+        plt.xticks(fontsize=18)
+        plt.yticks(fontsize=18)
+        plt.legend(handles = reversed(ProxyHandlesList),labels = reversed(Area), shadow = False, prop={'size':14},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
+        ax1.set_xlim([2015, 2060])
+        #ax1.set_ylim([0, 220])
+        
+        plt.show()
+        fig_name = 'GWP_TimeSeries_AllProcesses_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
+        # include figure in logfile:
+        fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+        # comment out to save disk space in archive:
+        fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
+        Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+        Figurecounter += 1
+
+        ###################################################
+        # plot sandbox of old calculations for diagnostic #
+        ###################################################
+        fig  = plt.figure(figsize=(8,5))
+        ax1  = plt.axes([0.08,0.08,0.85,0.9])
+        
+        ProxyHandlesList = []   # For legend  
         
         # plot area
         ax1.fill_between(np.arange(2015,2061),np.zeros((Nt)), GWP_UsePhase_7d[:,mS,mR], linestyle = '-', facecolor = MyColorCycle[1,:], linewidth = 0.5)
@@ -3577,75 +3680,28 @@ for mS in range(0,NS): # SSP
         fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
         Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
         Figurecounter += 1
-
-# with NEW values for diagnostic
-for mS in range(0,NS): # SSP
-    for mR in range(0,NR): # RCP
-
-        fig  = plt.figure(figsize=(8,5))
-        ax1  = plt.axes([0.08,0.08,0.85,0.9])
+        ##################
+        # end of sandbox #
+        ##################
         
-        ProxyHandlesList = []   # For legend     
-        
-        # plot area
-        ax1.fill_between(np.arange(2015,2061),np.zeros((Nt)), Impacts_UsePhase_7d[GWP100_loc,:,mS,mR], linestyle = '-', facecolor = MyColorCycle[1,:], linewidth = 0.5)
-        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[1,:])) # create proxy artist for legend
-        ax1.fill_between(np.arange(2015,2061),Impacts_UsePhase_7d[GWP100_loc,:,mS,mR], Impacts_UsePhase_7d[GWP100_loc,:,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,:,mS,mR], linestyle = '-', facecolor = MyColorCycle[2,:], linewidth = 0.5)
-        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[2,:])) # create proxy artist for legend
-        ax1.fill_between(np.arange(2015,2061),Impacts_UsePhase_7d[GWP100_loc,:,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,:,mS,mR], Impacts_UsePhase_7d[GWP100_loc,:,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,:,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,:,mS,mR], linestyle = '-', facecolor = MyColorCycle[3,:], linewidth = 0.5)
-        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[3,:])) # create proxy artist for legend
-        ax1.fill_between(np.arange(2016,2061),Impacts_UsePhase_7d[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,1::,mS,mR], Impacts_UsePhase_7d[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,1::,mS,mR] + Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[4,:], linewidth = 0.5)
-        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend    
-        ax1.fill_between(np.arange(2016,2061),Impacts_UsePhase_7d[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,1::,mS,mR] + Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR], Impacts_UsePhase_7d[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,1::,mS,mR] + Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR] + Impacts_MaterialCycle_5di_9di[GWP100_loc,1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[5,:], linewidth = 0.5)
-        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[5,:])) # create proxy artist for legend    
-        plt.plot(np.arange(2016,2061), Impacts_System_3579di[GWP100_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
-        plta = Line2D(np.arange(2016,2061), Impacts_System_3579di[GWP100_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
-        ProxyHandlesList.append(plta) # create proxy artist for legend    
-        #plt.text(Data[m,:].min()*0.55, 7.8, 'Baseline: ' + ("%3.0f" % Base[m]) + ' Mt/yr.',fontsize=14,fontweight='bold')
-        
-        #copy data to export array
-        DataAExp_new[mS,mR,:,0] = Impacts_UsePhase_7d[GWP100_loc,:,mS,mR].copy()
-        DataAExp_new[mS,mR,:,1] = Impacts_UsePhase_7i_Scope2_El[GWP100_loc,:,mS,mR].copy()
-        DataAExp_new[mS,mR,:,2] = Impacts_UsePhase_7i_OtherIndir[GWP100_loc,:,mS,mR].copy()
-        DataAExp_new[mS,mR,:,3] = Impacts_PrimaryMaterial_3di[GWP100_loc,:,mS,mR].copy()
-        DataAExp_new[mS,mR,:,4] = Impacts_MaterialCycle_5di_9di[GWP100_loc,:,mS,mR].copy()
-        DataAExp_new[mS,mR,:,5] = Impacts_System_3579di[GWP100_loc,:,mS,mR].copy()
-        
-        plt.title('GHG emissions, stacked by process group, \n' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.', fontsize = 18)
-        plt.ylabel(r'Mt of CO$_2$-eq.', fontsize = 18)
-        plt.xlabel('Year', fontsize = 18)
-        plt.xticks(fontsize=18)
-        plt.yticks(fontsize=18)
-        plt.legend(handles = reversed(ProxyHandlesList),labels = reversed(Area), shadow = False, prop={'size':14},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
-        ax1.set_xlim([2015, 2060])
-        #ax1.set_ylim([0, 220])
-        
-        plt.show()
-        fig_name = 'GWP_TimeSeries_AllProcesses_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
-        # include figure in logfile:
-        fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-        # comment out to save disk space in archive:
-        fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
-        Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-        Figurecounter += 1
-
 # Area plot, for material industries:
 Area2   = ['primary material product.','waste mgt. & recycling','manufacturing']     
 
+
 for mS in range(0,NS): # SSP
     for mR in range(0,NR): # RCP
-
+    
         fig  = plt.figure(figsize=(8,5))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
         
         ProxyHandlesList = []   # For legend     
         
         # plot area
-        ax1.fill_between(np.arange(2016,2061),np.zeros((Nt-1)), GWP_PrimaryMaterial_3di[1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[4,:], linewidth = 0.5)
+        ax1.fill_between(np.arange(2016,2061),np.zeros((Nt-1)), Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[4,:], linewidth = 0.5)
         ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend
-        ax1.fill_between(np.arange(2016,2061),GWP_PrimaryMaterial_3di[1::,mS,mR], GWP_PrimaryMaterial_3di[1::,mS,mR] + GWP_WasteMgt_9di_all[1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[5,:], linewidth = 0.5)
+        ax1.fill_between(np.arange(2016,2061),Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR], Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR] + Impacts_WasteMgt_9di_all[GWP100_loc,1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[5,:], linewidth = 0.5)
         ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[5,:])) # create proxy artist for legend
-        ax1.fill_between(np.arange(2016,2061),GWP_PrimaryMaterial_3di[1::,mS,mR] + GWP_WasteMgt_9di_all[1::,mS,mR], GWP_PrimaryMaterial_3di[1::,mS,mR] + GWP_WasteMgt_9di_all[1::,mS,mR] + GWP_Manufact_5di_all[1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[6,:], linewidth = 0.5)
+        ax1.fill_between(np.arange(2016,2061),Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR] + Impacts_WasteMgt_9di_all[GWP100_loc,1::,mS,mR], Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR] + Impacts_WasteMgt_9di_all[GWP100_loc,1::,mS,mR] + Impacts_Manufact_5di_all[GWP100_loc,1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[6,:], linewidth = 0.5)
         ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[6,:])) # create proxy artist for legend
         
         
@@ -3665,6 +3721,43 @@ for mS in range(0,NS): # SSP
         fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
         Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
         Figurecounter += 1
+    
+        ###################################################
+        # plot sandbox of old calculations for diagnostic #
+        ###################################################
+        fig  = plt.figure(figsize=(8,5))
+        ax1  = plt.axes([0.08,0.08,0.85,0.9])
+        
+        ProxyHandlesList = []   # For legend     
+        
+        # plot area
+        ax1.fill_between(np.arange(2016,2061),np.zeros((Nt-1)), GWP_PrimaryMaterial_3di[1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[4,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2016,2061),GWP_PrimaryMaterial_3di[1::,mS,mR], GWP_PrimaryMaterial_3di[1::,mS,mR] + GWP_WasteMgt_9di_all[1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[5,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[5,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2016,2061),GWP_PrimaryMaterial_3di[1::,mS,mR] + GWP_WasteMgt_9di_all[1::,mS,mR], GWP_PrimaryMaterial_3di[1::,mS,mR] + GWP_WasteMgt_9di_all[1::,mS,mR] + GWP_Manufact_5di_all[1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[6,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[6,:])) # create proxy artist for legend
+        
+        
+        plt.title('OLD GHG emissions, stacked by process group, \n' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.', fontsize = 18)
+        plt.ylabel('Mt of CO2-eq.', fontsize = 18)
+        plt.xlabel('Year', fontsize = 18)
+        plt.xticks(fontsize=18)
+        plt.yticks(fontsize=18)
+        plt.legend(handles = reversed(ProxyHandlesList),labels = reversed(Area2), shadow = False, prop={'size':14},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
+        ax1.set_xlim([2015, 2060])
+        
+        plt.show()
+        fig_name = 'GWP_TimeSeries_Materials_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
+        # include figure in logfile:
+        fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+        # comment out to save disk space in archive:
+        fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
+        Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+        Figurecounter += 1
+        ##################
+        # end of sandbox #
+        ##################
         
 # Area plot for three ENVIRONMENTAL INDICATORS
 for mS in range(0,NS): # SSP
@@ -3705,7 +3798,7 @@ for mS in range(0,NS): # SSP
         axs[1].plot(np.arange(2016,2061), Impacts_System_3579di[Land_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
         plta = Line2D(np.arange(2016,2061), Impacts_System_3579di[Land_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
         ProxyHandlesList.append(plta) # create proxy artist for legend    
-        axs[1].set_title('Land occupation - 1000 km2a')
+        axs[1].set_title('Land use impact on species - 1000 km2a')
         # water
         axs[2].fill_between(np.arange(2015,2061),np.zeros((Nt)), Impacts_UsePhase_7d[Water_loc,:,mS,mR], linestyle = '-', facecolor = MyColorCycle[1,:], linewidth = 0.5)
         ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[1,:])) # create proxy artist for legend
@@ -3722,8 +3815,6 @@ for mS in range(0,NS): # SSP
         ProxyHandlesList.append(plta) # create proxy artist for legend    
         axs[2].set_title('Water consumption - billions l')
         
-        #handles, labels = ax.get_legend_handles_labels()
-        #fig.legend(handles, labels, loc='upper center')
         fig.legend(handles = reversed(ProxyHandlesList),labels = reversed(Area), shadow = False, prop={'size':14},ncol=2, loc = 'upper center',bbox_to_anchor=(0.5, -0.02)) 
         plt.tight_layout()
         plt.show()
@@ -3734,48 +3825,92 @@ for mS in range(0,NS): # SSP
         fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
         Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
         Figurecounter += 1
+ 
+    
+# Area plot for MATERIAL FOOTPRINT
+Area3   = ['Biomass','Non-metallic minerals','Metal ores','Fossil fuels','All materials']
+
+for mS in range(0,NS): # SSP
+    for mR in range(0,NR): # RCP
+    
+        fig  = plt.figure(figsize=(8,5))
+        ax1  = plt.axes([0.08,0.08,0.85,0.9])
         
-# Plot of impacts contributions
-process = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items
-indexes = [GWP100_loc,Land_loc,Water_loc]
-fig, axs = plt.subplots(nrows=3, ncols=2 , figsize=(7, 7), sharex=True)
-width = 0.35
-labels = ['Fuels','Direct','Electricity','Residual']
+        ProxyHandlesList = []   # For legend     
+        
+        # plot area
+        ax1.fill_between(np.arange(2016,2061), np.zeros((Nt-1)), Impacts_System_3579di[Biomass_loc,1::,mS,mR], linestyle = '-', facecolor = 'saddlebrown', linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc='saddlebrown')) # create proxy artist for legend
+        ax1.fill_between(np.arange(2016,2061), Impacts_System_3579di[Biomass_loc,1::,mS,mR], Impacts_System_3579di[Biomass_loc,1::,mS,mR] + Impacts_System_3579di[nMetOres_loc,1::,mS,mR], linestyle = '-', facecolor = 'tan', linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc='tan')) # create proxy artist for legend
+        ax1.fill_between(np.arange(2016,2061), Impacts_System_3579di[Biomass_loc,1::,mS,mR] + Impacts_System_3579di[nMetOres_loc,1::,mS,mR], Impacts_System_3579di[Biomass_loc,1::,mS,mR] + Impacts_System_3579di[nMetOres_loc,1::,mS,mR] + Impacts_System_3579di[MetOres_loc,1::,mS,mR], linestyle = '-', facecolor = 'silver', linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc='silver')) # create proxy artist for legend
+        ax1.fill_between(np.arange(2016,2061), Impacts_System_3579di[Biomass_loc,1::,mS,mR] + Impacts_System_3579di[nMetOres_loc,1::,mS,mR] + Impacts_System_3579di[MetOres_loc,1::,mS,mR],  Impacts_System_3579di[Biomass_loc,1::,mS,mR] + Impacts_System_3579di[nMetOres_loc,1::,mS,mR] + Impacts_System_3579di[MetOres_loc,1::,mS,mR] + Impacts_System_3579di[FosFuel_loc,1::,mS,mR], linestyle = '-', facecolor = 'darkcyan', linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc='darkcyan')) # create proxy artist for legend    
+        plt.plot(np.arange(2016,2061), Impacts_System_3579di[AllMat_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
+        plta = Line2D(np.arange(2016,2061), Impacts_System_3579di[AllMat_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
+        ProxyHandlesList.append(plta) # create proxy artist for legend    
+        
+        plt.title('Raw material input, stacked by category, \n' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.', fontsize = 18)
+        plt.ylabel('Mt of raw materials', fontsize = 18)
+        plt.xlabel('Year', fontsize = 18)
+        plt.xticks(fontsize=18)
+        plt.yticks(fontsize=18)
+        plt.legend(handles = reversed(ProxyHandlesList),labels = reversed(Area3), shadow = False, prop={'size':14},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
+        ax1.set_xlim([2016, 2060])
+        
+        plt.show()
+        fig_name = 'MaterialInput_TimeSeries_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
+        # include figure in logfile:
+        fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+        # comment out to save disk space in archive:
+        fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
+        Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+        Figurecounter += 1
+    
+        
 
-tot = fuel_production + direct_impact + elec_production + residuals    # compute percentages
-prcg_fuel   = np.divide(fuel_production, tot, out=np.zeros_like(fuel_production), where=tot!=0)
-prcg_direct = np.divide(direct_impact,   tot, out=np.zeros_like(direct_impact),   where=tot!=0)
-prcg_elec   = np.divide(elec_production, tot, out=np.zeros_like(elec_production), where=tot!=0)
-prcg_res    = np.divide(residuals,       tot, out=np.zeros_like(residuals),       where=tot!=0)
+# #Plot of impacts contributions. Meaningful if no negative residuals
+# process = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items
+# indexes = [GWP100_loc, Land_loc, Water_loc]
+# fig, axs = plt.subplots(nrows=3, ncols=2 , figsize=(7, 7), sharex=True)
+# width = 0.35
+# labels = ['Fuels','Direct','Electricity','Residual']
 
-i=0
-for loc in indexes:
-    axs[0+i,0].bar(process, fuel_production[:,loc], width, label='fuel')
-    axs[0+i,0].bar(process, direct_impact[:,loc],   width,  bottom=fuel_production[:,loc], label='direct')
-    axs[0+i,0].bar(process, elec_production[:,loc], width,  bottom=fuel_production[:,loc]+direct_impact[:,loc], label='elec')
-    axs[0+i,0].bar(process, residuals[:,loc],       width,  bottom=fuel_production[:,loc]+direct_impact[:,loc]+elec_production[:,loc], label='residual')
+# tot = fuel_production + direct_impact + elec_production + residuals    # compute percentages
+# prcg_fuel   = np.divide(fuel_production, tot, out=np.zeros_like(fuel_production), where=tot!=0)
+# prcg_direct = np.divide(direct_impact,   tot, out=np.zeros_like(direct_impact),   where=tot!=0)
+# prcg_elec   = np.divide(elec_production, tot, out=np.zeros_like(elec_production), where=tot!=0)
+# prcg_res    = np.divide(residuals,       tot, out=np.zeros_like(residuals),       where=tot!=0)
+
+# i=0
+# for loc in indexes:
+#     axs[0+i,0].bar(process, fuel_production[:,loc], width, label='fuel')
+#     axs[0+i,0].bar(process, direct_impact[:,loc],   width,  bottom=fuel_production[:,loc], label='direct')
+#     axs[0+i,0].bar(process, elec_production[:,loc], width,  bottom=fuel_production[:,loc]+direct_impact[:,loc], label='elec')
+#     axs[0+i,0].bar(process, residuals[:,loc],       width,  bottom=fuel_production[:,loc]+direct_impact[:,loc]+elec_production[:,loc], label='residual')
     
-    axs[0+i,1].bar(process, prcg_fuel[:,loc],   width, label='Fuel production')
-    axs[0+i,1].bar(process, prcg_direct[:,loc], width, bottom=prcg_fuel[:,loc], label='Direct contribution')
-    axs[0+i,1].bar(process, prcg_elec[:,loc],   width, bottom=prcg_fuel[:,loc] + prcg_direct[:,loc], label='Electricity generation')
-    axs[0+i,1].bar(process, prcg_res[:,loc],    width, bottom=prcg_fuel[:,loc] + prcg_direct[:,loc] + prcg_elec[:,loc], label='residual')
+#     axs[0+i,1].bar(process, prcg_fuel[:,loc],   width, label='Fuel production')
+#     axs[0+i,1].bar(process, prcg_direct[:,loc], width, bottom=prcg_fuel[:,loc], label='Direct contribution')
+#     axs[0+i,1].bar(process, prcg_elec[:,loc],   width, bottom=prcg_fuel[:,loc] + prcg_direct[:,loc], label='Electricity generation')
+#     axs[0+i,1].bar(process, prcg_res[:,loc],    width, bottom=prcg_fuel[:,loc] + prcg_direct[:,loc] + prcg_elec[:,loc], label='residual')
     
-    i+=1
+#     i+=1
     
-axs[0,0].set_title('Absolute')
-axs[0,1].set_title('Relative')
-for ax in fig.axes:
-    ax.tick_params(labelrotation=90)
-fig.legend(labels, shadow = False, prop={'size':12},ncol=4, loc = 'upper center',bbox_to_anchor=(0.5, -0.02)) 
-plt.tight_layout()
-plt.show()
-fig_name = 'Residuals'
-# include figure in logfile:
-fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + '.png'
-# comment out to save disk space in archive:
-fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=200, bbox_inches='tight')
-Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-Figurecounter += 1
+# axs[0,0].set_title('Absolute')
+# axs[0,1].set_title('Relative')
+# for ax in fig.axes:
+#     ax.tick_params(labelrotation=90)
+# fig.legend(labels, shadow = False, prop={'size':12},ncol=4, loc = 'upper center',bbox_to_anchor=(0.5, -0.02)) 
+# plt.tight_layout()
+# plt.show()
+# fig_name = 'Residuals'
+# # include figure in logfile:
+# fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + '.png'
+# # comment out to save disk space in archive:
+# fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=200, bbox_inches='tight')
+# Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
+# Figurecounter += 1
     
     
 
@@ -3880,7 +4015,11 @@ if len(REStratList) > 0:
             DescrString += REStrat        
     
 ProjectSpecs_Path_Result_New = os.path.join(RECC_Paths.results_path, Name_Scenario + '__' + TimeString + DescrString)
-os.rename(ProjectSpecs_Path_Result,ProjectSpecs_Path_Result_New)
+try:
+    os.rename(ProjectSpecs_Path_Result,ProjectSpecs_Path_Result_New)
+except:
+    Mylog.info('Folder file not renamed. Acces is denied')
+        
 
 print('done.')
 
