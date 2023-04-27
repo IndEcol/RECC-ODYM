@@ -18,3 +18,5 @@ RECC v2.4. input database: [https://zenodo.org/record/4671644#.YtezrN9CRhE](http
 RECC v2.4 model result database: [https://zenodo.org/record/4698619#.Yte09t9CRhE](https://zenodo.org/record/4698619#.Yte09t9CRhE)
 
 RECC model tutorial video: [https://www.youtube.com/watch?v=zOfo1WTk7d8](https://www.youtube.com/watch?v=zOfo1WTk7d8). This tutorial video show how to run the ODYM-RECC dynamic material flow analysis (MFA) model on your own machine. It explains where the model config information is stored and how the different model scripts work together to compute both single and multiple scenarios. 
+
+## For current info, see the landing page for the ODYM MFA software and the RECC model: [https://www.industrialecology.uni-freiburg.de/odym-recc](https://www.industrialecology.uni-freiburg.de/odym-recc)
