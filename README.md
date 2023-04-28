@@ -5,6 +5,8 @@ The resource efficiency–climate change (RECC) mitigation model framework is a 
 
 RECC resources:
 
+Zenodo repository with publications and additional resources: https://doi.org/10.5281/zenodo.3542680
+
 Journal paper on the framework (open access): [https://onlinelibrary.wiley.com/doi/full/10.1111/jiec.13023](https://onlinelibrary.wiley.com/doi/full/10.1111/jiec.13023)
 
 RECC Python code on GitHub: [https://github.com/YaleCIE/RECC-ODYM](https://github.com/YaleCIE/RECC-ODYM)
