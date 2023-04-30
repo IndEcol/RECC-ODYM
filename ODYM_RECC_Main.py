@@ -630,6 +630,10 @@ if 'nrb' in SectorList:
                                                 UUID=None, P_Res=None, MetaData=None,
                                                 Indices='cNVnrt', Values=np.zeros((Nc,NN,NV,Nn,Nr,Nt)), Uncert=None,
                                                 Unit='MJ/m2/yr')
+    ParameterDict['3_MC_RECC_NonResBuildings_t'] = msc.Parameter(Name='3_MC_RECC_NonResBuildings_t', ID='3_MC_RECC_NonResBuildings_t',
+                                                UUID=None, P_Res=None, MetaData=None,
+                                                Indices='mNrctS', Values=np.zeros((Nm,NN,Nr,Nc,Nt,NS)), Uncert=None,
+                                                Unit='kg/m2')      
 
 if 'nrbg' in SectorList:
     # Split concrete into cement and aggregates:
@@ -1542,7 +1546,7 @@ for mS in range(0,NS):
                     # Increase lifetime of all res. buildings instantaneously:
                     Par_RECC_ProductLifetime_B = np.einsum('Brc,Brc->Brc',np.einsum('Br,c->Brc',1 + RECC_System.ParameterDict['6_PR_LifeTimeExtension_resbuildings'].Values[:,:,mS],np.ones(Nc)),Par_RECC_ProductLifetime_B)
                 else:
-                    # gradual incurease of lifetime by age-cohort, including historic age-cohorts, starting from 0:
+                    # gradual increase of lifetime by age-cohort, including historic age-cohorts, starting from 0:
                     for B in range(0, NB):
                         for r in range(0, Nr):
                             LTE_Pot = RECC_System.ParameterDict['6_PR_LifeTimeExtension_resbuildings'].Values[B,r,mS]
@@ -1600,7 +1604,7 @@ for mS in range(0,NS):
             Inflow_Prod_r[:,:,Sector_reb_rge,mS,mR]  = np.einsum('tBr->trB',Inflow_Detail_UsePhase_B).copy()
             Outflow_Prod[:,Sector_reb_rge,mS,mR]     = np.einsum('tcBr->tB',Outflow_Detail_UsePhase_B).copy()
             
-            # Include renovation
+            # Include renovation of reb:
             RECC_System.ParameterDict['3_MC_RECC_Buildings_t'].Values[:,:,:,:,:,mS] = np.einsum('cmBr,t->mBrct',RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS],np.ones(Nt)) # mBrctS
             if ScriptConfig['Include_Renovation_reb'] == 'True' and ScriptConfig['No_EE_Improvements'] == 'False': 
                 RenPot_E   = np.einsum('rcB,rB->rcB',RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:],RECC_System.ParameterDict['3_SHA_EnergySavingsPot_Renovation_ResBuildings'].Values[:,mS,:]) # Unit: 1
@@ -1658,7 +1662,7 @@ for mS in range(0,NS):
                     # Increase lifetime of all nonres. buildings instantaneously:
                     Par_RECC_ProductLifetime_N = np.einsum('Nrc,Nrc->Nrc',np.einsum('Nr,c->Nrc',1 + RECC_System.ParameterDict['6_PR_LifeTimeExtension_nonresbuildings'].Values[:,:],np.ones(Nc)),Par_RECC_ProductLifetime_N)
                 else:
-                    # gradual incurease of lifetime by age-cohort, including historic age-cohorts, starting from 0:
+                    # gradual increase of lifetime by age-cohort, including historic age-cohorts, starting from 0:
                     for N in range(0, NN):
                         for r in range(0, Nr):
                             LTE_Pot = RECC_System.ParameterDict['6_PR_LifeTimeExtension_nonresbuildings'].Values[N,r]
@@ -1716,18 +1720,23 @@ for mS in range(0,NS):
             Inflow_Prod_r[:,:,Sector_nrb_rge,mS,mR]  = np.einsum('tNr->trN',Inflow_Detail_UsePhase_N).copy()
             Outflow_Prod[:,Sector_nrb_rge,mS,mR]     = np.einsum('tcNr->tN',Outflow_Detail_UsePhase_N).copy()
 
-            # Include renovation, so far, only the energy intensity of building operation is covered, not the renovatoin materials!
+            # Include renovation of nrb:
+            RECC_System.ParameterDict['3_MC_RECC_NonResBuildings_t'].Values[:,:,:,:,:,mS] = np.einsum('cmNr,t->mNrct',RECC_System.ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[:,:,:,:,mS],np.ones(Nt)) # mNrctS
             if ScriptConfig['Include_Renovation_nrb'] == 'True' and ScriptConfig['No_EE_Improvements'] == 'False': 
-                RenPot   = np.einsum('rcN,rN->rcN',RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_NonResBuildings'].Values[:,0:SwitchTime,:],RECC_System.ParameterDict['3_SHA_EnergySavingsPot_Renovation_NonResBuildings'].Values[:,mS,:]) # Unit: 1
-                RenPot_t = np.einsum('tr,rcN->trcN',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot) # Unit: 1
-                RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cNVnr,trcN->cNVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NN))-RenPot_t)) # cNVnrt
+                RenPot_E   = np.einsum('rcN,rN->rcN',RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_NonResBuildings'].Values[:,0:SwitchTime,:],RECC_System.ParameterDict['3_SHA_EnergySavingsPot_Renovation_NonResBuildings'].Values[:,mS,:]) # Unit: 1
+                RenPot_E_t = np.einsum('tr,rcN->trcN',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot_E) # Unit: 1
+                RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cNVnr,trcN->cNVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NN))-RenPot_E_t)) # cNVnrt
+                # Add renovation material intensity to building material intensity:
+                RenPot_M_t = np.einsum('tr,rcN->trcN',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_NonResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crN that is renovated by year t
+                MC_Ren = RECC_System.ParameterDict['3_MC_RECC_NonResBuildings_Renovation_Absolute'].Values
+                RECC_System.ParameterDict['3_MC_RECC_NonResBuildings_t'].Values[:,:,:,0:SwitchTime,:,mS] += np.einsum('cmNr,trcN->mNrct',MC_Ren[0:SwitchTime,:,:,:],RenPot_M_t)
             else:
                 RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cNVnr,trcN->cNVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:SwitchTime,:,:,:,:,mS],(np.ones((Nt,Nr,Nc-Nt+1,NN)))) # cNVnrt
             # Add values for future age-cohorts, convert from useful to final energy, expand from 'all' to specific energy carriers
             RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[SwitchTime-1::,:,:,:,:,:]   = np.einsum('Vrnt,Vrnt,cNVr,t->cNVnrt',ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[:,mR,:,:,:,mS],ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings_uf'].Values[:,mR,:,:,:,mS],RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[SwitchTime-1::,:,:,all_loc,:,mS],np.ones(Nt))
             # Split energy into different carriers for historic age-cohorts:
             RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:]     = np.einsum('Vrnt,cNVrt->cNVnrt',RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:], RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,all_loc,:,:]) 
-                          
+            
         # Sector: Nonresidential buildings, global total
         if 'nrbg' in SectorList:
             Mylog.info('Calculate inflows and outflows for use phase, nonresidential buildings.')
