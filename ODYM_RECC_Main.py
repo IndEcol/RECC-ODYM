@@ -362,7 +362,7 @@ CO2_loc       = IndexTable.Classification[IndexTable.index.get_loc('Extensions')
 GWP100_loc    = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('GWP100')
 Land_loc      = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Land occupation (LOP)')
 Water_loc     = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Water consumption potential (WCP)')
-dynGWP100_loc = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('dynGWP100')
+dynGWP100_loc = IndexTable.Classification[IndexTable.index.get_loc('Cumulative env. pressure')].Items.index('dynGWP100')
 AllMat_loc    = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), all materials')
 FosFuel_loc   = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), fossil fuels')
 MetOres_loc   = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), metal ores')
@@ -916,8 +916,8 @@ fuel_production = np.einsum('nx,n,Pn->Px',
                      )  # Impact/kg mat
 # Direct contributions
 direct_impact = np.einsum('Xn,xX,Pn->Px',
-                     ParameterDict['6_PR_DirectEmissions'].Values[:,:],             # impact/MJ fuel  
-                     ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],
+                     ParameterDict['6_PR_DirectEmissions'].Values,             # impact/MJ fuel  
+                     ParameterDict['6_MIP_CharacterisationFactors'].Values,
                      ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,0,0]  # MJ fuel/kg mat 
                      )  # Impact/kg mat
 # Electricity generation
@@ -949,7 +949,7 @@ MaterialProductionIntensity_P = \
               np.ones((NR))) + \
     np.einsum('Xn,xX,Pnt,R->PxtR',
                ParameterDict['6_PR_DirectEmissions'].Values[:,:],              
-               ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],
+               ParameterDict['6_MIP_CharacterisationFactors'].Values,
                ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],
                np.ones((NR))) +\
     np.einsum('nxtR,Pnt->PxtR',
@@ -2472,15 +2472,15 @@ for mS in range(0,NS):
 
         # H) Calculate direct combustion-related GHG emissions in the use phase (resulting from the combustion of energy carriers in processes)
         # Unit: Mt/yr. 1 kg/MJ = 1kt/TJ
-        SysExt_DirectImpacts_UsePhase_Vehicles      = 0.001 * np.einsum('Xn,xX,trpn->xtrp',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
-        SysExt_DirectImpacts_UsePhase_Buildings     = 0.001 * np.einsum('Xn,xX,trBn->xtrB',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
-        SysExt_DirectImpacts_UsePhase_NRBuildgs     = 0.001 * np.einsum('Xn,xX,trNn->xtrN',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
-        SysExt_DirectImpacts_UsePhase_NRBuildgs_g   = 0.001 * np.einsum('Xn,xX,toNn->xtoN',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg)
-        SysExt_DirectImpacts_PrimaryProd            = 0.001 * np.einsum('Xn,xX,tmPn->xtm' ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_PrimaryProd)
-        SysExt_DirectImpacts_Manufacturing          = 0.001 * np.einsum('Xn,xX,tn->xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_Manufacturing)
-        SysExt_DirectImpacts_WasteMgt               = 0.001 * np.einsum('Xn,xX,tn->xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_WasteMgt)
-        SysExt_DirectImpacts_Remelting              = 0.001 * np.einsum('Xn,xX,tn->xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_Remelting)
-        SysExt_DirectImpacts_Remelting_m            = 0.001 * np.einsum('Xn,xX,tnm->xtm'  ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_Remelting_m)
+        SysExt_DirectImpacts_UsePhase_Vehicles      = 0.001 * np.einsum('Xn,xX,trpn->xtrp',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
+        SysExt_DirectImpacts_UsePhase_Buildings     = 0.001 * np.einsum('Xn,xX,trBn->xtrB',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
+        SysExt_DirectImpacts_UsePhase_NRBuildgs     = 0.001 * np.einsum('Xn,xX,trNn->xtrN',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
+        SysExt_DirectImpacts_UsePhase_NRBuildgs_g   = 0.001 * np.einsum('Xn,xX,toNn->xtoN',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg)
+        SysExt_DirectImpacts_PrimaryProd            = 0.001 * np.einsum('Xn,xX,tmPn->xtm' ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_PrimaryProd)
+        SysExt_DirectImpacts_Manufacturing          = 0.001 * np.einsum('Xn,xX,tn->xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_Manufacturing)
+        SysExt_DirectImpacts_WasteMgt               = 0.001 * np.einsum('Xn,xX,tn->xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_WasteMgt)
+        SysExt_DirectImpacts_Remelting              = 0.001 * np.einsum('Xn,xX,tn->xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_Remelting)
+        SysExt_DirectImpacts_Remelting_m            = 0.001 * np.einsum('Xn,xX,tnm->xtm'  ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_Remelting_m)
 
         # I) Calculate process emissions in industry.
         # Double-counting is avoided since there are no process extensions for concrete, only for cement and aggregates.
@@ -2525,15 +2525,15 @@ for mS in range(0,NS):
             SysExt_IndirectImpacts_EnergySupply_WasteToEnergy          = -1e-3 * np.einsum('nxt,tn->xt',     RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergySavings_WasteToEnerg)
         
         # Calculate emissions by energy carrier:
-        SysExt_DirectImpacts_UsePhase_Vehicles_n                       = 0.001 * np.einsum('Xn,xX,trpn->xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
-        SysExt_DirectImpacts_UsePhase_ResBuildings_n                   = 0.001 * np.einsum('Xn,xX,trBn->xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
+        SysExt_DirectImpacts_UsePhase_Vehicles_n                       = 0.001 * np.einsum('Xn,xX,trpn->xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
+        SysExt_DirectImpacts_UsePhase_ResBuildings_n                   = 0.001 * np.einsum('Xn,xX,trBn->xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
         SysExt_IndirectImpacts_EnergySupply_UsePhase_ResBuildings_n    = 0.001 * np.einsum('nxrt,trBn->xtrn',   RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) 
         SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_n        = 0.001 * np.einsum('nxrt,trpn->xtrn',   RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
         
         # K) Calculate emissions benefits  
         if ScriptConfig['ScrapExportRecyclingCredit'] == 'True':
             SysExt_EnergyDemand_RecyclingCredit                 = -1 * 1000  * np.einsum('Pnt,tmP,tm->tmn',RECC_System.ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0]) # in TJ/yr
-            SysExt_DirectImpacts_RecyclingCredit                = -1 * 0.001 * np.einsum('Xn,xX,tmn->xt'  ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values[:,:,0],SysExt_EnergyDemand_RecyclingCredit) # in Mt CO2-eq/yr
+            SysExt_DirectImpacts_RecyclingCredit                = -1 * 0.001 * np.einsum('Xn,xX,tmn->xt'  ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysExt_EnergyDemand_RecyclingCredit) # in Mt CO2-eq/yr
             SysExt_ProcessImpacts_RecyclingCredit               = -1 *         np.einsum('Pxt,tmP,tm->xt' ,RECC_System.ParameterDict['4_PE_ProcessExtensions_Residual'].Values,RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0]) # Unit: 1 billion (1e9) impact units: Mt CO2-eq, Mt of material, km³ of water, 1000 km² of land.
             SysExt_IndirectImpacts_EnergySupply_RecyclingCredit = -1 * 0.001 * np.einsum('mnxt,tmn->xt'   ,RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values[:,:,:,0,:,mR],SysExt_EnergyDemand_RecyclingCredit) # Unit: 1 billion (1e9) impact units: Mt CO2-eq, Mt of material, km³ of water, 1000 km² of land. 
         else:
@@ -2630,8 +2630,9 @@ for mS in range(0,NS):
         Impacts_ByEnergyCarrier_UsePhase_d[:,:,:,:,mS,mR] = (SysExt_DirectImpacts_UsePhase_Vehicles_n + SysExt_DirectImpacts_UsePhase_ResBuildings_n)[:,:,:,:].copy()
         Impacts_ByEnergyCarrier_UsePhase_i[:,:,:,:,mS,mR] = (SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_n + SysExt_IndirectImpacts_EnergySupply_UsePhase_ResBuildings_n)[:,:,:,:].copy()
         Impacts_WoodCycle[:,:,mS,mR]                      = Impacts_ForestCO2Uptake[:,:,mS,mR].copy() + Impacts_EnergyRecoveryWasteWood[:,:,mS,mR].copy() # net wood use emissions, not exported.
-        dynGWP_System_3579di[mS,mR]                       = SysExt_TotalImpacts_3579di[GWP100_loc,:].sum()
-        dynGWP_WoodCycle[mS,mR]                           = SysExt_CO2UptakeImpacts_Forests[GWP100_loc,:,:,:].sum() + SysExt_Impacts_EnergyRecoveryWaste_9di[GWP100_loc,:].sum()
+        
+        dynGWP_System_3579di[mS,mR]                       = np.einsum('t,t->',SysExt_TotalImpacts_3579di[GWP100_loc,:],RECC_System.ParameterDict['6_MIP_Cumulative_Pressure_Indicators'].Values[GWP100_loc,dynGWP100_loc,:])
+        dynGWP_WoodCycle[mS,mR]                           = np.einsum('tr,t->',SysExt_CO2UptakeImpacts_Forests[GWP100_loc,:,:,Wood_loc],RECC_System.ParameterDict['6_MIP_Cumulative_Pressure_Indicators'].Values[GWP100_loc,dynGWP100_loc,:]) + np.einsum('t,t->',SysExt_Impacts_EnergyRecoveryWaste_9di[GWP100_loc,:],RECC_System.ParameterDict['6_MIP_Cumulative_Pressure_Indicators'].Values[GWP100_loc,dynGWP100_loc,:])
         
         # Mass flows
         Material_Inflow[:,:,:,mS,mR]                = np.einsum('trgm->tgm',RECC_System.FlowDict['F_6_7'].Values[:,:,:,:,0]).copy()
