@@ -858,10 +858,11 @@ ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'] = msc.Parameter(Name
                                             Unit='impact-eq/MJ')
 ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'] = msc.Parameter(Name='4_PE_ProcessExtensions_EnergyCarriers_MJ_material', ID='4_PE_ProcessExtensions_EnergyCarriers_MJ_material',
                                             UUID=None, P_Res=None, MetaData=None,
-                                            Indices='nxotR', Values=np.zeros((Nm,Nn,Nx,No,Nt,NR)), Uncert=None,
-                                            Unit='impact-eq/MJ')
+                                            Indices='mnxotR', Values=np.zeros((Nm,Nn,Nx,No,Nt,NR)), Uncert=None,
+                                            Unit='impact-eq/MJ') # For energy demand of material production
 
 # replicate 2015 values. The current dataset contains only the 2015 initial value. 
+# Formula calculates impact / kg * kg /MJ = impact / MJ
 # Electricity is added separately in the next step
 ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values         = np.einsum('nxo,n,tR->nxotR',  ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,:,0],ParameterDict['4_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nt,NR)))
 ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values = np.einsum('nxo,n,tRm->mnxotR',ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,:,0],ParameterDict['4_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nt,NR,Nm)))
@@ -887,6 +888,7 @@ ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'] = msc.Parameter(Name
                                             Indices='nxrtR', Values=np.zeros((Nn,Nx,Nr,Nt,NR)), Uncert=None,
                                             Unit='[impact unit]/MJ')
 # replicate 2015 values. In current dataset is only initial value. Electricity is added separately in the next step
+# Formula calculates impact / kg * kg /MJ = impact / MJ
 ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values = np.einsum('nx,n,rtR->nxrtR',ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,0,0],ParameterDict['4_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nr,Nt,NR)))
 
 # add electricity calculated from electriciy mix
@@ -2361,7 +2363,6 @@ for mS in range(0,NS):
             SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all += np.einsum('trpn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
         else:
             SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.zeros((Nt,Nr,NN,Nn))
-            #SysVar_EnergyDemand_UsePhase_ByService_nrb        = np.zeros((Nt,Nr,NV))
         if 'nrbg' in SectorList:     
             SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg = np.zeros((Nt,No,NN,Nn)) # Not yet quantified!
         else:
@@ -2369,6 +2370,8 @@ for mS in range(0,NS):
             
         # D) Calculate energy demand of the other industries, all in TJ/yr.
         SysVar_EnergyDemand_PrimaryProd    = 1000 * np.einsum('Pnt,tmP,tm->tmPn',RECC_System.ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_3_4'].Values[:,:,0])
+        # Since we have no separate hydrogen production and no impacts from H2 production, loop back the energy demand of H2 production and add it to the parameter:
+        SysVar_EnergyDemand_PrimaryProd   += np.einsum('tmPY,Ynt->tmPn',SysVar_EnergyDemand_PrimaryProd,RECC_System.ParameterDict['4_EI_HydrogenEnergyDemand'].Values)
         SysVar_EnergyDemand_Manufacturing  = np.zeros((Nt,Nn))
         if 'pav' in SectorList:
             SysVar_EnergyDemand_Manufacturing += np.einsum('pn,tpr->tn',RECC_System.ParameterDict['4_EI_ManufacturingEnergyIntensity'].Values[Sector_pav_rge,:,110,-1],Inflow_Detail_UsePhase_p)        # conversion factor: 1, as MJ/item     = TJ/Million items.
@@ -3101,10 +3104,10 @@ ws3 = book2.create_sheet('Scenario_Indicators')
 Items_SSP    = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items
 Items_RCP    = IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items
 for m in range(0,2*NS):
-    ws3.cell(row=2, column=m+2).value = Items_SSP[m//2]
-    ws3.cell(row=2, column=m+2).font  = openpyxl.styles.Font(bold=True)
-    ws3.cell(row=3, column=m+2).value = Items_RCP[m%2]
-    ws3.cell(row=3, column=m+2).font  = openpyxl.styles.Font(bold=True)
+    ws3.cell(row=2, column=m+3).value = Items_SSP[m//2]
+    ws3.cell(row=2, column=m+3).font  = openpyxl.styles.Font(bold=True)
+    ws3.cell(row=3, column=m+3).value = Items_RCP[m%2]
+    ws3.cell(row=3, column=m+3).font  = openpyxl.styles.Font(bold=True)
 
 ws3.cell(row=4, column=1).value = 'dynGWP_System_3579di'
 ws3.cell(row=4, column=1).font  = openpyxl.styles.Font(bold=True)
@@ -3498,7 +3501,7 @@ for mS in range(0,NS): # SSP
         plta = Line2D(np.arange(2016,2061), Impacts_System_3579di[AllMat_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
         ProxyHandlesList.append(plta) # create proxy artist for legend    
         
-        plt.title('Raw material input, stacked by category, \n' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.', fontsize = 18)
+        plt.title('Raw material input for engineering materials, by category, \n' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.', fontsize = 18)
         plt.ylabel('Mt of raw materials', fontsize = 18)
         plt.xlabel('Year', fontsize = 18)
         plt.xticks(fontsize=18)
