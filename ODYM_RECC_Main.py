@@ -117,9 +117,9 @@ Mylog.info('### 1.3 Organize model output folder and logger')
 shutil.copy(os.path.join(RECC_Paths.data_path,ProjectSpecs_Name_ConFile), os.path.join(ProjectSpecs_Path_Result, ProjectSpecs_Name_ConFile))
 #shutil.copy(Name_Script + '.py'      , os.path.join(ProjectSpecs_Path_Result, Name_Script + '.py'))
 
-#####################################################
-#     Section 2) Read classifications and data      #
-#####################################################
+######################################################
+#     Section 2a) Read classifications and data      #
+######################################################
 Mylog.info('## 2 - Read classification items and define all classifications')
 ### 2.1) # Read model run config data
 Mylog.info('### 2.1 - Read model run config data')
@@ -131,7 +131,7 @@ Classsheet           = Classfile['MAIN_Table']
 MasterClassification = msf.ParseClassificationFile_Main(Classsheet,Mylog)
     
 Mylog.info('Read and parse config table, including the model index table, from model config sheet.')
-IT_Aspects,IT_Description,IT_Dimension,IT_Classification,IT_Selector,IT_IndexLetter,PL_Names,PL_Description,PL_Version,PL_IndexStructure,PL_IndexMatch,PL_IndexLayer,PrL_Number,PrL_Name,PrL_Comment,PrL_Type,ScriptConfig = msf.ParseConfigFile(Model_Configsheet,ScriptConfig,Mylog)    
+IT_Aspects,IT_Description,IT_Dimension,IT_Classification,IT_Selector,IT_IndexLetter,PL_Names,PL_Description,PL_Version,PL_IndexStructure,PL_IndexMatch,PL_IndexLayer,PL_SubFolder,PL_ProxyCode,PrL_Number,PrL_Name,PrL_Comment,PrL_Type,ScriptConfig = msf.ParseConfigFile(Model_Configsheet,ScriptConfig,Mylog)    
 
 Mylog.info('Define model classifications and select items for model classifications according to information provided by config file.')
 ModelClassification  = {} # Dict of model classifications
@@ -177,7 +177,7 @@ IndexTable_ClassificationNames = [IndexTable.Classification[i].Name for i in ran
 Nt = len(IndexTable.Classification[IndexTable.index.get_loc('Time')].Items)
 Ne = len(IndexTable.Classification[IndexTable.index.get_loc('Element')].Items)
 Nc = len(IndexTable.Classification[IndexTable.index.get_loc('Cohort')].Items)
-Nr = len(IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items)
+Nr = len(IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items)
 Nl = len(IndexTable.Classification[IndexTable.index.get_loc('Region11')].Items)
 No = len(IndexTable.Classification[IndexTable.index.get_loc('Region1')].Items)
 NG = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('G')].Items)
@@ -219,7 +219,10 @@ except:
     for mo in range(mo_start,len(PL_Names)):
         #mo = 76 # set mo for re-reading a certain parameter
         #ParPath = os.path.join(os.path.abspath(os.path.join(ProjectSpecs_Path_Main, '.')), 'ODYM_RECC_Database', PL_Version[mo])
-        ParPath = os.path.join(RECC_Paths.data_path, PL_Names[mo] + '_' + PL_Version[mo])
+        if PL_SubFolder[mo] == 'default': # path is not in subfolder
+            ParPath = os.path.join(RECC_Paths.data_path, PL_Names[mo] + '_' + PL_Version[mo])
+        else: # parameter file is in subfolder, add this to path
+            ParPath = os.path.join(RECC_Paths.data_path, PL_SubFolder[mo], PL_Names[mo] + '_' + PL_Version[mo])
         Mylog.info('Reading parameter ' + PL_Names[mo])
         #MetaData, Values = msf.ReadParameter(ParPath = ParPath,ThisPar = PL_Names[mo], ThisParIx = PL_IndexStructure[mo], IndexMatch = PL_IndexMatch[mo], ThisParLayerSel = PL_IndexLayer[mo], MasterClassification,IndexTable,IndexTable_ClassificationNames,ScriptConfig,Mylog) # Do not change order of parameters handed over to function!
         # Do not change order of parameters handed over to function!
@@ -244,6 +247,20 @@ except:
     
 Mylog.info('_')
 Mylog.info('_')
+
+########################################################
+#     Section 2b) Automatic assignment of proxies      #
+########################################################
+# assign proxy data to model parameters
+for mo in range(0,len(PL_Names)):
+    ProxyCommands = PL_ProxyCode[mo].split('_')
+    if ProxyCommands[0] == 'replicate': # replicate the values of another regional index for the focus region index r:
+        IndexStructure_Old = ParameterDict[PL_Names[mo]].Indices
+        IndexStructure_New = IndexStructure_Old.replace(ProxyCommands[1],'r')
+        ParameterDict[PL_Names[mo]].Indices = IndexStructure_New # note down the focus region aspect in the parameter definition
+        # Assing new values with specified proxy mapper: 
+        ParameterDict[PL_Names[mo]].Values = np.einsum(IndexStructure_Old+',r'+ProxyCommands[1]+'->'+IndexStructure_New,ParameterDict[PL_Names[mo]].Values,ParameterDict[ScriptConfig[PL_ProxyCode[mo]+'_Proxy']].Values)
+        
 ##############################################################
 #     Section 3)  Interpolate missing parameter values:      #
 ##############################################################
@@ -679,6 +696,12 @@ ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values        = np.einsum('Rt
 # 9) LED scenario data from proxy scenarios:
 # 2_P_RECC_Population_SSP_32R
 ParameterDict['2_P_RECC_Population_SSP_32R'].Values[:,:,:,LEDindex]                    = ParameterDict['2_P_RECC_Population_SSP_32R'].Values[:,:,:,SSP2index].copy()
+# Set reference population dataset.
+ParameterDict['2_P_Population_Reference'] = msc.Parameter(Name='2_P_Population_Reference', ID='2_P_Population_Reference',
+                                            UUID=ParameterDict[ScriptConfig['Population_Reference']].UUID, P_Res=None, MetaData=ParameterDict[ScriptConfig['Population_Reference']].MetaData,
+                                            Indices=ParameterDict[ScriptConfig['Population_Reference']].Indices, Values=ParameterDict[ScriptConfig['Population_Reference']].Values, Uncert=None,
+                                            Unit=ParameterDict[ScriptConfig['Population_Reference']].MetaData['Dataset_Unit'])
+
 # 3_EI_Products_UsePhase, historic
 ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,:,:,:,LEDindex]    = ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,:,:,:,SSP2index].copy()
 ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,:,:,:,LEDindex]    = ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,:,:,:,SSP2index].copy()
@@ -819,11 +842,11 @@ pC_AgeCohortHist           = np.zeros((NG,Nr))
 #pC_FutureStock             = np.zeros((NS,NG,Nr))
 # a) from historic data:
 Stocks_2016_passvehicles   = ParameterDict['2_S_RECC_FinalProducts_2015_passvehicles'].Values[0,:,:,:].sum(axis=0)
-pCStocks_2016_passvehicles = np.einsum('pr,r->rp',Stocks_2016_passvehicles,1/ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,0,:,1]) 
+pCStocks_2016_passvehicles = np.einsum('pr,r->rp',Stocks_2016_passvehicles,1/ParameterDict['2_P_Population_Reference'].Values[0,0,:,1]) 
 Stocks_2016_resbuildings   = ParameterDict['2_S_RECC_FinalProducts_2015_resbuildings'].Values[0,:,:,:].sum(axis=0)
-pCStocks_2016_resbuildings = np.einsum('Br,r->rB',Stocks_2016_resbuildings,1/ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,0,:,1]) 
+pCStocks_2016_resbuildings = np.einsum('Br,r->rB',Stocks_2016_resbuildings,1/ParameterDict['2_P_Population_Reference'].Values[0,0,:,1]) 
 Stocks_2016_nresbuildings  = ParameterDict['2_S_RECC_FinalProducts_2015_nonresbuildings'].Values[0,:,:,:].sum(axis=0)
-pCStocks_2016_nresbuildings= np.einsum('Nr,r->rN',Stocks_2016_nresbuildings,1/ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,0,:,1]) 
+pCStocks_2016_nresbuildings= np.einsum('Nr,r->rN',Stocks_2016_nresbuildings,1/ParameterDict['2_P_Population_Reference'].Values[0,0,:,1]) 
 if 'pav' in SectorList:
     pC_AgeCohortHist[Sector_pav_loc, :] = pCStocks_2016_passvehicles.sum(axis =1)
 if 'reb' in SectorList:
@@ -1387,7 +1410,7 @@ for mS in range(0,NS):
             # iii) Make sure that for no scenario, stock values are below LED values, which is assumed to be the lowest possible stock level.         
             # This needs to be made sure during the scenario framing process! Here, only the accounting and model equations to convert PKM to VKM and stock are executed, no further checks are made.
             TotalStockCurves_UsePhase_p_pC   = TotalStockCurves_UsePhase_p_pC_test.copy()
-            TotalStockCurves_UsePhase_p      = np.einsum('tr,tr->tr',TotalStockCurves_UsePhase_p_pC, RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS])
+            TotalStockCurves_UsePhase_p      = np.einsum('tr,tr->tr',TotalStockCurves_UsePhase_p_pC, RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS])
             RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'].Values[mS,:,Sector_pav_loc,:] = TotalStockCurves_UsePhase_p_pC.copy() 
             
             # iv) adjust vehicle lifetime to new effective value to reflect impact of car-sharing:
@@ -1458,7 +1481,7 @@ for mS in range(0,NS):
             StockCurves_Totl[:,Sector_pav_loc,mS,mR] = TotalStockCurves_UsePhase_p.sum(axis =1).copy()
             StockCurves_Prod[:,Sector_pav_rge,mS,mR] = np.einsum('tcpr->tp',Stock_Detail_UsePhase_p).copy()
             pCStocksCurves[:,Sector_pav_loc,:,mS,mR] = TotalStockCurves_UsePhase_p_pC.copy()
-            Population[:,:,mS,mR]                    = RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]
+            Population[:,:,mS,mR]                    = RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]
             Inflow_Prod[:,Sector_pav_rge,mS,mR]      = np.einsum('tpr->tp',Inflow_Detail_UsePhase_p).copy()
             Inflow_Prod_r[:,:,Sector_pav_rge,mS,mR]  = np.einsum('tpr->trp',Inflow_Detail_UsePhase_p).copy()
             Outflow_Prod[:,Sector_pav_rge,mS,mR]     = np.einsum('tcpr->tp',Outflow_Detail_UsePhase_p).copy()
@@ -1491,7 +1514,7 @@ for mS in range(0,NS):
             # Make sure that for no scenario, stock values are below LED values, which is assumed to be the lowest possible stock level.
             TotalStockCurves_UsePhase_B_pC_LED_ref = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings'].Values[LEDindex,:,Sector_reb_loc,:]
             TotalStockCurves_UsePhase_B_pC         = np.maximum(TotalStockCurves_UsePhase_B_pC_test,TotalStockCurves_UsePhase_B_pC_LED_ref)
-            TotalStockCurves_UsePhase_B            = np.einsum('tr,tr->tr',TotalStockCurves_UsePhase_B_pC,RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]) 
+            TotalStockCurves_UsePhase_B            = np.einsum('tr,tr->tr',TotalStockCurves_UsePhase_B_pC,RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]) 
             RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_act'].Values[mS,:,Sector_reb_loc,:] = TotalStockCurves_UsePhase_B_pC.copy()
         
             # Include_REStrategy_LifeTimeExtension: Product lifetime extension.
@@ -1560,7 +1583,7 @@ for mS in range(0,NS):
             StockCurves_Totl[:,Sector_reb_loc,mS,mR] = TotalStockCurves_UsePhase_B.sum(axis =1).copy()
             StockCurves_Prod[:,Sector_reb_rge,mS,mR] = np.einsum('tcBr->tB',Stock_Detail_UsePhase_B).copy()
             pCStocksCurves[:,Sector_reb_loc,:,mS,mR] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_act'].Values[mS,:,Sector_reb_loc,:].copy()
-            Population[:,:,mS,mR]                    = RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]
+            Population[:,:,mS,mR]                    = RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]
             Inflow_Prod[:,Sector_reb_rge,mS,mR]      = np.einsum('tBr->tB',Inflow_Detail_UsePhase_B).copy()
             Inflow_Prod_r[:,:,Sector_reb_rge,mS,mR]  = np.einsum('tBr->trB',Inflow_Detail_UsePhase_B).copy()
             Outflow_Prod[:,Sector_reb_rge,mS,mR]     = np.einsum('tcBr->tB',Outflow_Detail_UsePhase_B).copy()
@@ -1611,7 +1634,7 @@ for mS in range(0,NS):
             # Make sure that for no scenario, stock values are below LED values, which is assumed to be the lowest possible stock level.
             TotalStockCurves_UsePhase_N_pC_LED_ref = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings'].Values[Sector_nrb_loc,:,:,LEDindex]
             TotalStockCurves_UsePhase_N_pC         = np.maximum(TotalStockCurves_UsePhase_N_pC_test,TotalStockCurves_UsePhase_N_pC_LED_ref)
-            TotalStockCurves_UsePhase_N            = np.einsum('rt,tr->tr',TotalStockCurves_UsePhase_N_pC,RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]) 
+            TotalStockCurves_UsePhase_N            = np.einsum('rt,tr->tr',TotalStockCurves_UsePhase_N_pC,RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]) 
             RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings_act'].Values[Sector_nrb_loc,:,:,mS] = TotalStockCurves_UsePhase_N_pC.copy()
         
             # Include_REStrategy_LifeTimeExtension: Product lifetime extension.
@@ -1676,7 +1699,7 @@ for mS in range(0,NS):
             StockCurves_Totl[:,Sector_nrb_loc,mS,mR] = TotalStockCurves_UsePhase_N.sum(axis =1).copy()
             StockCurves_Prod[:,Sector_nrb_rge,mS,mR] = np.einsum('tcNr->tN',Stock_Detail_UsePhase_N).copy()
             pCStocksCurves[:,Sector_nrb_loc,:,mS,mR] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings_act'].Values[Sector_nrb_loc,:,:,mS].transpose().copy()
-            Population[:,:,mS,mR]                    = RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]
+            Population[:,:,mS,mR]                    = RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]
             Inflow_Prod[:,Sector_nrb_rge,mS,mR]      = np.einsum('tNr->tN',Inflow_Detail_UsePhase_N).copy()
             Inflow_Prod_r[:,:,Sector_nrb_rge,mS,mR]  = np.einsum('tNr->trN',Inflow_Detail_UsePhase_N).copy()
             Outflow_Prod[:,Sector_nrb_rge,mS,mR]     = np.einsum('tcNr->tN',Outflow_Detail_UsePhase_N).copy()
@@ -2666,7 +2689,7 @@ for mS in range(0,NS):
         EnergyCons_UP_total[:,:,mS,mR]              = SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all.copy()
         EnergyCons_total[:,:,mS,mR]                 = SysVar_TotalEnergyDemand.copy()
         # Service flows
-        Passenger_km[:,mS,mR]                       = np.einsum('rt,tr->t',RECC_System.ParameterDict['1_F_Function_Future'].Values[Sector_pav_loc,:,:,mS],RECC_System.ParameterDict['2_P_RECC_Population_SSP_32R'].Values[0,:,:,mS]).copy()
+        Passenger_km[:,mS,mR]                       = np.einsum('rt,tr->t',RECC_System.ParameterDict['1_F_Function_Future'].Values[Sector_pav_loc,:,:,mS],RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]).copy()
         # Hop over to save memory:
         # Vehicle_km[:,mS,mR]                         = np.einsum('tcpr->t',SysVar_StockServiceProvision_UsePhase_pav[:,:,:,:,Service_Driving])
         Vehicle_km[:,mS,mR]                         = np.einsum('rt,tcpr->t', RECC_System.ParameterDict['3_IO_Vehicles_UsePhase_eff' ].Values[Service_Drivg,:,:,mS],   Stock_Detail_UsePhase_p)
@@ -2827,24 +2850,24 @@ newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat.sum(axis=1),newrowoffse
 #per capita stocks per sector
 for mr in range(0,Nr):
     for mG in range(0,NG):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,pCStocksCurves[:,mG,mr,:,:],newrowoffset,len(ColLabels),'per capita in-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Sectors')].Items[mG],'vehicles: cars per person, buildings: m2 per person',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'S_7 (part, per capita)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,pCStocksCurves[:,mG,mr,:,:],newrowoffset,len(ColLabels),'per capita in-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Sectors')].Items[mG],'vehicles: cars per person, buildings: m2 per person',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part, per capita)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 #population
 for mr in range(0,Nr):
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Population[:,mr,:,:],newrowoffset,len(ColLabels),'Population','million',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'P (population)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Population[:,mr,:,:],newrowoffset,len(ColLabels),'Population','million',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'P (population)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 #UsingLessMaterialByDesign and Mat subst. shares
 # a) pass. vehicles:
 if 'pav' in SectorList:
     for mr in range(0,Nr):
         for ms in range(0,Ns): # vehicle downsizing parameter is modified by script, result exported here.
-            newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[ms,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Segment split of newly registered pass. vehicles, ' +IndexTable.Classification[IndexTable.index.get_loc('Car_segments')].Items[ms],'1',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[ms,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Segment split of newly registered pass. vehicles, ' +IndexTable.Classification[IndexTable.index.get_loc('Car_segments')].Items[ms],'1',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
         for mp in range(0,len(Sector_pav_rge)): # vehicle lightweighting parameter is modified by script, result exported here.
-            newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[mp,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels), 'Share of light-weighted cars in newly registered ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_pav_rge[mp]],'%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)      
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[mp,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels), 'Share of light-weighted cars in newly registered ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_pav_rge[mp]],'%',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)      
         for mp in range(0,len(Sector_pav_rge)): # export vehicle type split
-            newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('Rt,S->tSR',ParameterDict['3_SHA_TypeSplit_Vehicles'].Values[Sector_pav_loc,mr,:,mp,:],np.ones((NS))),newrowoffset,len(ColLabels), 'Type split of newly registered cars, ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_pav_rge[mp]],'%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)                      
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('Rt,S->tSR',ParameterDict['3_SHA_TypeSplit_Vehicles'].Values[Sector_pav_loc,mr,:,mp,:],np.ones((NS))),newrowoffset,len(ColLabels), 'Type split of newly registered cars, ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_pav_rge[mp]],'%',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)                      
 # b) res. buildings   
 if 'reb' in SectorList:     
     for mr in range(0,Nr): # building downsizing parameter is modified by script, result exported here.
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Buildings'].Values[0,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of newly built downsized res. buildings','%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_DownSizing_Buildings'].Values[0,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of newly built downsized res. buildings','%',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
         for mB in range(0,len(Sector_reb_rge)): # building lightweighting parameter is modified by script, result exported here.
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tS,R->tSR',ParameterDict['3_SHA_LightWeighting_Buildings'].Values[mB,mr,:,:],np.ones((NR))),newrowoffset,len(ColLabels),'Share of newly built light-weighted ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_reb_rge[mB]],'%',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
 #passenger and vehicle km, building service
@@ -2897,11 +2920,11 @@ if 'pav' in SectorList:
 if 'reb' in SectorList:
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod[:,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), all res. building types together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     for mr in range(0,Nr):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), all res. building types together','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), all res. building types together','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
 if 'nrb' in SectorList:
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod[:,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), all nonres. building types together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     for mr in range(0,Nr):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), all nonres. building types together','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), all nonres. building types together','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
 for mg in range(0,Ng):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'EoL products (use phase outflow), ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 if 'pav' in SectorList:
@@ -2918,26 +2941,26 @@ newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Inflow.sum(axis=1), newrowo
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Outflow.sum(axis=1),newrowoffset,len(ColLabels),'Carbon in wood and wood products, EoL flows, outflow use phase','Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Stock.sum(axis=1),  newrowoffset,len(ColLabels),'Carbon in wood and wood products, in-use stock','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
 for mr in range(0,Nr):
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Inflow[:,mr,:,:], newrowoffset,len(ColLabels),'Carbon in wood and wood products, final consumption/inflow by region','Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Outflow[:,mr,:,:],newrowoffset,len(ColLabels),'Carbon in wood and wood products, EoL flows, outflow use phase by region','Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Stock[:,mr,:,:],  newrowoffset,len(ColLabels),'Carbon in wood and wood products, in-use stock by region','Mt',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Inflow[:,mr,:,:], newrowoffset,len(ColLabels),'Cement, final consumption/inflow by region','Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Inflow[:,mr,:,:], newrowoffset,len(ColLabels),'Carbon in wood and wood products, final consumption/inflow by region','Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Outflow[:,mr,:,:],newrowoffset,len(ColLabels),'Carbon in wood and wood products, EoL flows, outflow use phase by region','Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Stock[:,mr,:,:],  newrowoffset,len(ColLabels),'Carbon in wood and wood products, in-use stock by region','Mt',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Inflow[:,mr,:,:], newrowoffset,len(ColLabels),'Cement, final consumption/inflow by region','Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_WoodCycle[GWP100_loc,:,:,:], newrowoffset,len(ColLabels),'Net climate impact of woood cycle','Mt CO2-eq/yr',ScriptConfig['RegionalScope'],'F_9_0 (CO2) - F_0_1 (CO2)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
 # specific energy consumption of vehicles and buildings
 for mr in range(0,Nr):
     for mp in range(0,len(Sector_pav_rge)):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Vehicle_FuelEff[:,mp,mr,:,:],newrowoffset,len(ColLabels),'specific energy consumption, driving, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_pav_rge[mp]],'MJ/km',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Vehicle_FuelEff[:,mp,mr,:,:],newrowoffset,len(ColLabels),'specific energy consumption, driving, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_pav_rge[mp]],'MJ/km',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 for mr in range(0,Nr):
     for mB in range(0,len(Sector_reb_rge)):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ResBuildng_EnergyCons[:,mB,mr,:,:],newrowoffset,len(ColLabels),'specific energy consumption, heating/cooling/DHW, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_reb_rge[mB]],'MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ResBuildng_EnergyCons[:,mB,mr,:,:],newrowoffset,len(ColLabels),'specific energy consumption, heating/cooling/DHW, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_reb_rge[mB]],'MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 # specific energy consumption of vehicles and residential buildings
 for mr in range(0,Nr):
     for mV in range(0,NV):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Service[:,mr,mV,:,:],newrowoffset,len(ColLabels),'Total use phase energy consumption, ' + IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items[mV],'TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Service[:,mr,mV,:,:],newrowoffset,len(ColLabels),'Total use phase energy consumption, ' + IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items[mV],'TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 # GWP by energy carrier, vehicles and residential buildings
 for mr in range(0,Nr):
     for mn in range(0,Nn):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_ByEnergyCarrier_UsePhase_d[0,:,mr,mn,:,:] + Impacts_ByEnergyCarrier_UsePhase_i[0,:,mr,mn,:,:],newrowoffset,len(ColLabels),'GWP by energy carrier, use phase direct + indirect, all sectors covered by model run, ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[mn],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'use phase and scope 2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_ByEnergyCarrier_UsePhase_d[0,:,mr,mn,:,:] + Impacts_ByEnergyCarrier_UsePhase_i[0,:,mr,mn,:,:],newrowoffset,len(ColLabels),'GWP by energy carrier, use phase direct + indirect, all sectors covered by model run, ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[mn],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase and scope 2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 # carbon credit from longterm biomass storage
 # newrowoffset = msf.xlsxExportAdd_tAB(ws2,GWP_bio_Credit,newrowoffset,len(ColLabels),'GWP_bio_usephase','Mt / yr',ScriptConfig['RegionalScope'],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
 # Excess secondary material export    
@@ -2986,7 +3009,7 @@ for me in range(0,Ne):
 for mm in range(0,Nm):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,RenovationMaterialInflow_7[:,mm,:,:],newrowoffset,len(ColLabels),'Inflow of renovation material into use phase, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part: renovation inflow)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 for mr in range(0,Nr):
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_ForestCO2Uptake_r[0,:,mr,:,:], newrowoffset,len(ColLabels),'CO2 uptake by forests by region (no trade)','Mt CO2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items[mr],'F_0_1','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_ForestCO2Uptake_r[0,:,mr,:,:], newrowoffset,len(ColLabels),'CO2 uptake by forests by region (no trade)','Mt CO2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_0_1','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
 
     
 book2 = openpyxl.Workbook() # Export other model results, calibration values, flags, etc.
@@ -3008,7 +3031,7 @@ if 'pav' in SectorList:
     pav_Sheet.cell(2,2).value = 'region'
     pav_Sheet.cell(2,2).font  = openpyxl.styles.Font(bold=True)
     m=2
-    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
         pav_Sheet.cell(m+1,2).value = Rname
         pav_Sheet.cell(m+1,2).font  = openpyxl.styles.Font(bold=True)
         m+=1
@@ -3016,35 +3039,35 @@ if 'pav' in SectorList:
     pav_Sheet.cell(2,3).value = '2015 per capita stock values, total (all segments and drive technologies), by model region. Unit: 1 (veh. per person).'
     pav_Sheet.cell(2,3).font  = openpyxl.styles.Font(bold=True)
     m=2
-    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
         pav_Sheet.cell(m+1,3).value = TotalStockCurves_UsePhase_p_pC[0,m-2]
         m+=1
     # passenger-km
     pav_Sheet.cell(2,4).value = '2015 annual passenger kilometrage, by model region. Unit: km/yr.'
     pav_Sheet.cell(2,4).font  = openpyxl.styles.Font(bold=True)
     m=2
-    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
         pav_Sheet.cell(m+1,4).value = Total_Service_pav_tr_pC[0,m-2]
         m+=1
     # vehicle km
     pav_Sheet.cell(2,5).value = '2015 annual vehicle kilometrage, by model region. Unit: km/yr. Value for SSP1.'
     pav_Sheet.cell(2,5).font  = openpyxl.styles.Font(bold=True)
     m=2
-    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
         pav_Sheet.cell(m+1,5).value = ParameterDict['3_IO_Vehicles_UsePhase_eff'].Values[Service_Drivg,m-2,0,1]
         m+=1
     # vehicle occupancy rate
     pav_Sheet.cell(2,6).value = '2015 average vehicle occupancy rate, across all segments and drive technologies, by model region. Unit: km/yr. Value for SSP1.'
     pav_Sheet.cell(2,6).font  = openpyxl.styles.Font(bold=True)
     m=2
-    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
         pav_Sheet.cell(m+1,6).value = ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,m-2,0,1]
         m+=1
     # energy consumption, use phase
     pav_Sheet.cell(2,7).value = '2015 use phase energy consumption, across all segments and drive technologies, by model region. Unit: TJ/yr. Value for SSP1.'
     pav_Sheet.cell(2,7).font  = openpyxl.styles.Font(bold=True)
     m=2
-    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
         pav_Sheet.cell(m+1,7).value = E_Calib_Vehicles[0,m-2]
         m+=1
         
@@ -3055,7 +3078,7 @@ if 'reb' in SectorList:
     reb_Sheet.cell(2,2).value = 'region'
     reb_Sheet.cell(2,2).font  = openpyxl.styles.Font(bold=True)
     m=2
-    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
         reb_Sheet.cell(m+1,2).value = Rname
         reb_Sheet.cell(m+1,2).font  = openpyxl.styles.Font(bold=True)        
         m+=1
@@ -3063,14 +3086,14 @@ if 'reb' in SectorList:
     reb_Sheet.cell(2,3).value = '2015 per capita stock values, total (all building types and energy standards), by model region. Unit: m2 per person.'
     reb_Sheet.cell(2,3).font  = openpyxl.styles.Font(bold=True)      
     m=2
-    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
         reb_Sheet.cell(m+1,3).value = TotalStockCurves_UsePhase_B_pC[0,m-2]
         m+=1
     # energy consumption, use phase
     reb_Sheet.cell(2,4).value = '2015 use phase energy consumption, across all building types and energy standards, by model region. Unit: TJ/yr. Value for SSP1.'
     reb_Sheet.cell(2,4).font  = openpyxl.styles.Font(bold=True)      
     m=2
-    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
         reb_Sheet.cell(m+1,4).value = E_Calib_Buildings[0,m-2]
         m+=1            
 
@@ -3081,21 +3104,21 @@ if 'nrb' in SectorList:
     nrb_Sheet.cell(2,2).value = 'region'
     nrb_Sheet.cell(2,2).font  = openpyxl.styles.Font(bold=True)
     m=2
-    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
         nrb_Sheet.cell(m+1,2).value = Rname
         m+=1
     # pC stock values
     nrb_Sheet.cell(2,3).value = '2015 per capita stock values, total (all building types and energy standards), by model region. Unit: m2 per person.'
     nrb_Sheet.cell(2,3).font  = openpyxl.styles.Font(bold=True)
     m=2
-    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
         nrb_Sheet.cell(m+1,3).value = TotalStockCurves_UsePhase_N_pC[0,m-2]
         m+=1
     # energy consumption, use phase
     nrb_Sheet.cell(2,4).value = '2015 use phase energy consumption, across all building types and energy standards, by model region. Unit: TJ/yr. Value for SSP1.'
     nrb_Sheet.cell(2,4).font  = openpyxl.styles.Font(bold=True)
     m=2
-    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items:
+    for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
         nrb_Sheet.cell(m+1,4).value = E_Calib_NRBuildgs[0,m-2]
         m+=1     
         
@@ -3124,8 +3147,8 @@ for m in range(0,NS):
 # export emission factors. Unit: kgCO2 eq/MJ
 pd_xlsx_writer = pd.ExcelWriter(os.path.join(ProjectSpecs_Path_Result,'Extensions_'+ ScriptConfig['Current_UUID'] + '.xlsx'), engine="xlsxwriter")
 
-EF_bas = pd.DataFrame( data =EmissionFactorElectricity_r[:,:,0].transpose(), columns = IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items)
-EF_RCP = pd.DataFrame( data =EmissionFactorElectricity_r[:,:,1].transpose(), columns = IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items)
+EF_bas = pd.DataFrame( data =EmissionFactorElectricity_r[:,:,0].transpose(), columns = IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items)
+EF_RCP = pd.DataFrame( data =EmissionFactorElectricity_r[:,:,1].transpose(), columns = IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items)
 
 EF_bas.to_excel(pd_xlsx_writer, sheet_name="EF_baseline")
 EF_RCP.to_excel(pd_xlsx_writer, sheet_name="EF_RCP")    
@@ -3534,15 +3557,15 @@ DF_GHGA_global = pd.DataFrame(np.einsum('SRts->sSRt',DataAExp).reshape(36,46), i
 # Export total material stock
 ColIndex       = IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items
 if 'pav' in SectorList:
-    RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items,IndexTable.Classification[IndexTable.index.get_loc('Cars')].Items], names=('Region','Stock_Item'))
+    RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items,IndexTable.Classification[IndexTable.index.get_loc('Cars')].Items], names=('Region','Stock_Item'))
     DF_matstock2015 = pd.DataFrame(np.einsum('mpr->rpm',TotalMaterialStock_2015_pav).reshape(Nr*Np,Nm), index=RowIndex, columns=ColIndex)
     DF_matstock2015.to_excel(pd_xlsx_writer, sheet_name="RECC_matstock_2015_pav_Mt", merge_cells=False) 
 if 'reb' in SectorList:
-    RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items,IndexTable.Classification[IndexTable.index.get_loc('ResidentialBuildings')].Items], names=('Region','Stock_Item'))
+    RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items,IndexTable.Classification[IndexTable.index.get_loc('ResidentialBuildings')].Items], names=('Region','Stock_Item'))
     DF_matstock2015 = pd.DataFrame(np.einsum('mBr->rBm',TotalMaterialStock_2015_reb).reshape(Nr*NB,Nm), index=RowIndex, columns=ColIndex)
     DF_matstock2015.to_excel(pd_xlsx_writer, sheet_name="RECC_matstock_2015_reb_Mt", merge_cells=False)
 if 'nrb' in SectorList:
-    RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region32')].Items,IndexTable.Classification[IndexTable.index.get_loc('NonresidentialBuildings')].Items], names=('Region','Stock_Item'))
+    RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items,IndexTable.Classification[IndexTable.index.get_loc('NonresidentialBuildings')].Items], names=('Region','Stock_Item'))
     DF_matstock2015 = pd.DataFrame(np.einsum('mNr->rNm',TotalMaterialStock_2015_nrb).reshape(Nr*NN,Nm), index=RowIndex, columns=ColIndex)
     DF_matstock2015.to_excel(pd_xlsx_writer, sheet_name="RECC_matstock_2015_nrb_Mt", merge_cells=False)
 
