@@ -251,7 +251,21 @@ Mylog.info('_')
 ########################################################
 #     Section 2b) Automatic assignment of proxies      #
 ########################################################
-# assign proxy data to model parameters
+# 0) obtain specific indices and positions:
+LEDindex        = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('LED')
+SSP1index       = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP1')
+SSP2index       = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP2')
+
+# a) LED scenario data from proxy scenarios:
+# 2_P_RECC_Population_SSP_32R
+ParameterDict['2_P_RECC_Population_SSP_32R'].Values[:,:,:,LEDindex]                    = ParameterDict['2_P_RECC_Population_SSP_32R'].Values[:,:,:,SSP2index].copy()
+# b) Set reference population dataset.
+ParameterDict['2_P_Population_Reference'] = msc.Parameter(Name='2_P_Population_Reference', ID='2_P_Population_Reference',
+                                            UUID=ParameterDict[ScriptConfig['Population_Reference']].UUID, P_Res=None, MetaData=ParameterDict[ScriptConfig['Population_Reference']].MetaData,
+                                            Indices=ParameterDict[ScriptConfig['Population_Reference']].Indices, Values=ParameterDict[ScriptConfig['Population_Reference']].Values, Uncert=None,
+                                            Unit=ParameterDict[ScriptConfig['Population_Reference']].MetaData['Dataset_Unit'])
+
+# c) assign proxy data to model parameters
 for mo in range(0,len(PL_Names)):
     ProxyCommands = PL_ProxyCode[mo].split('_')
     if ProxyCommands[0] == 'replicate': # replicate the values of another regional index for the focus region index r:
@@ -259,17 +273,38 @@ for mo in range(0,len(PL_Names)):
         IndexStructure_New = IndexStructure_Old.replace(ProxyCommands[1],'r')
         ParameterDict[PL_Names[mo]].Indices = IndexStructure_New # note down the focus region aspect in the parameter definition
         # Assing new values with specified proxy mapper: 
-        ParameterDict[PL_Names[mo]].Values = np.einsum(IndexStructure_Old+',r'+ProxyCommands[1]+'->'+IndexStructure_New,ParameterDict[PL_Names[mo]].Values,ParameterDict[ScriptConfig[PL_ProxyCode[mo]+'_Proxy']].Values)
-        
+        ParameterDict[PL_Names[mo]].Values = np.einsum(IndexStructure_Old+',r'+ProxyCommands[1]+'->'+IndexStructure_New,ParameterDict[PL_Names[mo]].Values,ParameterDict[ScriptConfig['r_'+ProxyCommands[1]+'_Mapping']].Values)
+    if ProxyCommands[0] == 'scale': # scale down the values of another regional index for the focus region index r according to another indicator (usually population).
+        if ProxyCommands[1] == 'P-startyear': # scale with population in the start year, which has NO aspects t and S.
+            IndexStructure_Old = ParameterDict[PL_Names[mo]].Indices
+            IndexStructure_New = IndexStructure_Old.replace(ProxyCommands[2],'r')
+            ParameterDict[PL_Names[mo]].Indices = IndexStructure_New # note down the focus region aspect in the parameter definition
+            NewRegIndLength = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc(ProxyCommands[2])].Items)
+            # Calculate population shares of actual (high-resolution) model region in proxy (aggregate) region:
+            Pop_r_Agg = np.einsum('r,r'+ProxyCommands[2]+'->'+ProxyCommands[2],ParameterDict['2_P_Population_Reference'].Values[0,0,:,0],ParameterDict[ScriptConfig['r_'+ProxyCommands[2]+'_Mapping']].Values) # population in r summed up to aggregate region (like d)
+            Pop_r_rep = np.einsum('r,'+ProxyCommands[2]+'->r'+ProxyCommands[2],ParameterDict['2_P_Population_Reference'].Values[0,0,:,0],np.ones((NewRegIndLength)))
+            Pop_r_rep_filter = np.multiply(Pop_r_rep,ParameterDict[ScriptConfig['r_'+ProxyCommands[2]+'_Mapping']].Values)
+            Pop_rep_d = np.einsum(ProxyCommands[2]+',r->r'+ProxyCommands[2],Pop_r_Agg,np.ones((Nr))) # Replicate the aggregated population values across high-resolution regional dimension
+            P_Share_Proxy = np.divide(Pop_r_rep_filter,Pop_rep_d) # Calculate share of disaggregated in aggregated population for full regional resolution r
+            P_Share_Proxy[np.isnan(P_Share_Proxy)] = 0
+            ParameterDict[PL_Names[mo]].Values = np.einsum(IndexStructure_Old+',r'+ProxyCommands[2]+'->'+IndexStructure_New,ParameterDict[PL_Names[mo]].Values,P_Share_Proxy)        
+        if ProxyCommands[1] == 'P': # scale with population, which has aspects t and S, so these must be present in the affected parameter!
+            IndexStructure_Old = ParameterDict[PL_Names[mo]].Indices
+            IndexStructure_New = IndexStructure_Old.replace(ProxyCommands[2],'r')
+            ParameterDict[PL_Names[mo]].Indices = IndexStructure_New # note down the focus region aspect in the parameter definition
+            NewRegIndLength = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc(ProxyCommands[2])].Items)
+            # Calculate population shares of actual (high-resolution) model region in proxy (aggregate) region:
+            Pop_r_Agg = np.einsum('trS,r'+ProxyCommands[2]+'->t'+ProxyCommands[2]+'S',ParameterDict['2_P_Population_Reference'].Values[0,:,:,:],ParameterDict[ScriptConfig['r_'+ProxyCommands[2]+'_Mapping']].Values) # population in r summed up to aggregate region (like d)
+            Pop_r_rep = np.einsum('trS,'+ProxyCommands[2]+'->tr'+ProxyCommands[2]+'S',ParameterDict['2_P_Population_Reference'].Values[0,:,:,:],np.ones((NewRegIndLength)))
+            Pop_r_rep_filter = np.multiply(Pop_r_rep,np.einsum('r'+ProxyCommands[2]+',tS->trdS',ParameterDict[ScriptConfig['r_'+ProxyCommands[2]+'_Mapping']].Values,np.ones((Nt,NS))))
+            Pop_rep_d = np.einsum('t'+ProxyCommands[2]+'S,r->tr'+ProxyCommands[2]+'S',Pop_r_Agg,np.ones((Nr))) # Replicate the aggregated population values across high-resolution regional dimension
+            P_Share_Proxy = np.divide(Pop_r_rep_filter,Pop_rep_d) # Calculate share of disaggregated in aggregated population for full regional resolution r
+            P_Share_Proxy[np.isnan(P_Share_Proxy)] = 0
+            ParameterDict[PL_Names[mo]].Values = np.einsum(IndexStructure_Old+',tr'+ProxyCommands[2]+'S->'+IndexStructure_New,ParameterDict[PL_Names[mo]].Values,P_Share_Proxy)        
+            
 ##############################################################
 #     Section 3)  Interpolate missing parameter values:      #
 ##############################################################
-# 0) obtain specific indices and positions:
-# m_reg_o         = 0 # reference region for GHG prices and intensities (Default: 0, which is the first region selected in the config file.)
-LEDindex        = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('LED')
-SSP1index       = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP1')
-SSP2index       = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP2')
-
 SectorList      = eval(ScriptConfig['SectorSelect'])
 if 'nrb' in SectorList and 'nrbg' in SectorList:
     raise AssertionError('Fatal: Non-residential buildings are included both globally (nrbg) and for individual regions (nrb). Double-counting. Exiting the script, check config file.')    
@@ -694,13 +729,7 @@ ParameterDict['3_SHA_BuildingRenovationScaleUp_r'] = msc.Parameter(Name='3_SHA_B
 ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values        = np.einsum('RtS,r->trSR',ParameterDict['3_SHA_BuildingRenovationScaleUp'].Values[:,0,:,:],np.ones(Nr)).copy()
 
 # 9) LED scenario data from proxy scenarios:
-# 2_P_RECC_Population_SSP_32R
-ParameterDict['2_P_RECC_Population_SSP_32R'].Values[:,:,:,LEDindex]                    = ParameterDict['2_P_RECC_Population_SSP_32R'].Values[:,:,:,SSP2index].copy()
-# Set reference population dataset.
-ParameterDict['2_P_Population_Reference'] = msc.Parameter(Name='2_P_Population_Reference', ID='2_P_Population_Reference',
-                                            UUID=ParameterDict[ScriptConfig['Population_Reference']].UUID, P_Res=None, MetaData=ParameterDict[ScriptConfig['Population_Reference']].MetaData,
-                                            Indices=ParameterDict[ScriptConfig['Population_Reference']].Indices, Values=ParameterDict[ScriptConfig['Population_Reference']].Values, Uncert=None,
-                                            Unit=ParameterDict[ScriptConfig['Population_Reference']].MetaData['Dataset_Unit'])
+### Moved up to section 2 because it's needed there already! Check in section to for LED proxy generation if changes are needed.
 
 # 3_EI_Products_UsePhase, historic
 ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,:,:,:,LEDindex]    = ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,:,:,:,SSP2index].copy()
