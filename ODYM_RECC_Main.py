@@ -3126,7 +3126,7 @@ if 'reb' in SectorList:
     reb_Sheet.cell(2,3).font  = openpyxl.styles.Font(bold=True)      
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
-        reb_Sheet.cell(m+1,3).value = TotalStockCurves_UsePhase_B_pC[0,m-2]
+        reb_Sheet.cell(m+1,3).value = TotalStockCurves_UsePhase_B_pC[0,m-2] # index structure is tr!
         m+=1
     # energy consumption, use phase
     reb_Sheet.cell(2,4).value = '2015 use phase energy consumption, across all building types and energy standards, by model region. Unit: TJ/yr. Value for SSP1.'
@@ -3151,7 +3151,7 @@ if 'nrb' in SectorList:
     nrb_Sheet.cell(2,3).font  = openpyxl.styles.Font(bold=True)
     m=2
     for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
-        nrb_Sheet.cell(m+1,3).value = TotalStockCurves_UsePhase_N_pC[0,m-2]
+        nrb_Sheet.cell(m+1,3).value = TotalStockCurves_UsePhase_N_pC[m-2,0] # index structure is rt!
         m+=1
     # energy consumption, use phase
     nrb_Sheet.cell(2,4).value = '2015 use phase energy consumption, across all building types and energy standards, by model region. Unit: TJ/yr. Value for SSP1.'
