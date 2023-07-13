@@ -420,6 +420,7 @@ FosFuel_loc   = IndexTable.Classification[IndexTable.index.get_loc('Environmenta
 MetOres_loc   = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), metal ores')
 nMetOres_loc  = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), non-metallic minerals')
 Biomass_loc   = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('Raw material input (RMI), biomass')
+PrimEn_loc    = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items.index('primary energy')
 Heating_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Heating')
 Cooling_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Cooling')
 DomstHW_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('DHW')
@@ -916,8 +917,8 @@ ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'] = msc.Parame
 # replicate 2015 values. The current dataset contains only the 2015 initial value. 
 # Formula calculates impact / kg * kg /MJ = impact / MJ
 # Electricity is added separately in the next step
-ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values         = np.einsum('nxo,n,tR->nxotR',  ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,:,0],ParameterDict['4_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nt,NR)))
-ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values = np.einsum('nxo,n,tRm->mnxotR',ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,:,0],ParameterDict['4_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nt,NR,Nm)))
+ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values         = np.einsum('nxo,n,tR->nxotR',  ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,:,0],ParameterDict['3_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nt,NR)))
+ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values = np.einsum('nxo,n,tRm->mnxotR',ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,:,0],ParameterDict['3_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nt,NR,Nm)))
 # Replicate 2015 values for 4_PE_ProcessExtensions_Industry
 ParameterDict['4_PE_ProcessExtensions_Industry'].Values = np.einsum('Ixo,t->Ixot',ParameterDict['4_PE_ProcessExtensions_Industry'].Values[:,:,:,0],np.ones((Nt)))
 # add electricity calculated from electriciy mix
@@ -941,7 +942,7 @@ ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'] = msc.Parameter(Name
                                             Unit='[impact unit]/MJ')
 # replicate 2015 values. In current dataset is only initial value. Electricity is added separately in the next step
 # Formula calculates impact / kg * kg /MJ = impact / MJ
-ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values = np.einsum('nx,n,rtR->nxrtR',ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,0,0],ParameterDict['4_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nr,Nt,NR)))
+ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values = np.einsum('nx,n,rtR->nxrtR',ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,0,0],ParameterDict['3_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nr,Nt,NR)))
 
 # add electricity calculated from electriciy mix
 ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,:,:,:,:] = np.einsum('rRIt,Ixt->xrtR',
@@ -965,7 +966,7 @@ ParameterDict['4_PE_ProcessExtensions_Residual'] = msc.Parameter(Name='4_PE_Proc
 # Fuel contributions
 fuel_production = np.einsum('nx,n,Pn->Px',
                      ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,0,0], # impact/kg fuel        
-                     ParameterDict['4_EI_SpecificEnergy_EnergyCarriers'].Values,             # kg fuel/MJ fuel 
+                     ParameterDict['3_EI_SpecificEnergy_EnergyCarriers'].Values,             # kg fuel/MJ fuel 
                      ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,0,0]            # MJ fuel/kg mat 
                      )  # Impact/kg mat
 # Direct contributions
@@ -1049,6 +1050,7 @@ Impacts_WoodCycle                    = np.zeros((Nx,Nt,NS,NR)) # net GHG impact 
 Impacts_EnergyRecoveryWasteWood      = np.zeros((Nx,Nt,NS,NR))
 Impacts_ByEnergyCarrier_UsePhase_d   = np.zeros((Nx,Nt,Nr,Nn,NS,NR))
 Impacts_ByEnergyCarrier_UsePhase_i   = np.zeros((Nx,Nt,Nr,Nn,NS,NR))
+Impacts_Energy_Supply_All            = np.zeros((Nx,Nt,NS,NR)) # impacts of all energy carriers for all processes. 
 
 dynGWP_System_3579di                 = np.zeros((NS,NR)) # dynGWP100 of entire system
 dynGWP_WoodCycle                     = np.zeros((NS,NR)) # dynGWP100 of wood use: forest uptake + wood-related emissions from waste mgt. Pos sign for flow from system to environment.
@@ -1071,6 +1073,8 @@ EnergyCons_UP_Vh                 = np.zeros((Nt,NS,NR))
 EnergyCons_UP_Bd                 = np.zeros((Nt,NS,NR))
 EnergyCons_Mn                    = np.zeros((Nt,NS,NR))
 EnergyCons_Wm                    = np.zeros((Nt,NS,NR))
+EnergyCons_PP                    = np.zeros((Nt,NS,NR))
+EnergyCons_PP_m                  = np.zeros((Nt,Nm,NS,NR))
 EnergyCons_UP_Service            = np.zeros((Nt,Nr,NV,NS,NR))
 EnergyCons_UP_total              = np.zeros((Nt,Nn,NS,NR))
 EnergyCons_total                 = np.zeros((Nt,Nn,NS,NR))
@@ -2376,7 +2380,8 @@ for mS in range(0,NS):
         ##########################################################
         #    Section 6) Post-process RECC model solution         #
         ##########################################################            
-        # All GHG and material flows/indicators in Mt/yr, all energy flows in TJ/yr
+        # All GHG and material flows/indicators in Mt/yr, all energy flows in TJ/yr.
+        # All energy flows are _final_ energy unless otherwise indicated by variable name.
                     
         # A) Calculate intensity of operation, by sector
         # Hop over to save computation time:
@@ -2446,9 +2451,9 @@ for mS in range(0,NS):
                                                     np.einsum('wn,trw->tn',RECC_System.ParameterDict['4_EI_WasteMgtEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_10_No'].Values[:,:,:,0]))
         SysVar_EnergyDemand_Remelting      = 1000 * np.einsum('mn,trm->tn',RECC_System.ParameterDict['4_EI_RemeltingEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_12'].Values[:,:,:,0])
         SysVar_EnergyDemand_Remelting_m    = 1000 * np.einsum('mn,trm->tnm',RECC_System.ParameterDict['4_EI_RemeltingEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_12'].Values[:,:,:,0])
-        SysVar_EnergySavings_WasteToEnerg  = np.zeros((Nt,Nn))
+        SysVar_EnergySavings_WasteToEnergy  = np.zeros((Nt,Nn))
         if  mR == ClimPolScen: # in the climate policy scenario:
-            SysVar_EnergySavings_WasteToEnerg[:,Electric_loc] = EnergyRecovery_WoodCombustion_EL[:,mS,mR].copy()
+            SysVar_EnergySavings_WasteToEnergy[:,Electric_loc] = EnergyRecovery_WoodCombustion_EL[:,mS,mR].copy()
         # Unit: TJ/yr.
         
         # Calculate total energy demand by individual energy carrier
@@ -2573,7 +2578,8 @@ for mS in range(0,NS):
             SysExt_IndirectImpacts_EnergySupply_WasteMgt               = 0.001 * np.einsum('nxot,tn->xt',     RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_WasteMgt)
             SysExt_IndirectImpacts_EnergySupply_Remelting              = 0.001 * np.einsum('nxot,tn->xt',     RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_Remelting)
             SysExt_IndirectImpacts_EnergySupply_Remelting_m            = 0.001 * np.einsum('nxot,tnm->xtm',   RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_Remelting_m)
-            SysExt_IndirectImpacts_EnergySupply_WasteToEnergy          = -1e-3 * np.einsum('nxot,tn->xt',     RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergySavings_WasteToEnerg)
+            SysExt_IndirectImpacts_EnergySupply_WasteToEnergy          = -1e-3 * np.einsum('nxot,tn->xt',     RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergySavings_WasteToEnergy)
+            SysExt_IndirectImpacts_EnergySupply_All                    = 0.001 * np.einsum('nxot,tn->xt',     RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_TotalEnergyDemand)
         else:
             SysExt_IndirectImpacts_EnergySupply_PrimaryProd            = 0.001 * np.einsum('mnxt,tmPn->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values[:,:,:,0,:,mR],SysVar_EnergyDemand_PrimaryProd)
             SysExt_IndirectImpacts_EnergySupply_PrimaryProd_m          = 0.001 * np.einsum('mnxt,tmPn->xtm', RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_Materials'].Values[:,:,:,0,:,mR],SysVar_EnergyDemand_PrimaryProd)
@@ -2581,7 +2587,8 @@ for mS in range(0,NS):
             SysExt_IndirectImpacts_EnergySupply_WasteMgt               = 0.001 * np.einsum('nxt,tn->xt',     RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergyDemand_WasteMgt)
             SysExt_IndirectImpacts_EnergySupply_Remelting              = 0.001 * np.einsum('nxt,tn->xt',     RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergyDemand_Remelting)
             SysExt_IndirectImpacts_EnergySupply_Remelting_m            = 0.001 * np.einsum('nxt,tnm->xtm',   RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergyDemand_Remelting_m)
-            SysExt_IndirectImpacts_EnergySupply_WasteToEnergy          = -1e-3 * np.einsum('nxt,tn->xt',     RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergySavings_WasteToEnerg)
+            SysExt_IndirectImpacts_EnergySupply_WasteToEnergy          = -1e-3 * np.einsum('nxt,tn->xt',     RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_EnergySavings_WasteToEnergy)
+            SysExt_IndirectImpacts_EnergySupply_All                    = 0.001 * np.einsum('nxt,tn->xt',     RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,0,:,mR],SysVar_TotalEnergyDemand)
         
         # Calculate emissions by energy carrier:
         SysExt_DirectImpacts_UsePhase_Vehicles_n                       = 0.001 * np.einsum('Xn,xX,trpn->xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
@@ -2682,6 +2689,7 @@ for mS in range(0,NS):
         Impacts_PrimaryMaterial_3di_m[:,:,:,mS,mR]        = SysExt_Impacts_PrimaryMaterial_3di_m[:,:,:].copy()
         Impacts_Manufact_5di_all[:,:,mS,mR]               = SysExt_Impacts_Manufacturing_5di[:,:].copy()
         Impacts_WasteMgt_9di_all[:,:,mS,mR]               = SysExt_Impacts_WasteMgtRemelting_9di[:,:].copy()
+        Impacts_Energy_Supply_All[:,:,mS,mR]              = SysExt_IndirectImpacts_EnergySupply_All[:,:].copy() # For checking the material footprint, energy impacts on GWP are accounted for elsewhere. Emissions from energy use are NOT included here (combustion emissions).
         # other emissions breakdown
         Impacts_SecondaryMetal_di_m[:,:,:,mS,mR]          = (SysExt_DirectImpacts_Remelting_m + SysExt_IndirectImpacts_EnergySupply_Remelting_m)[:,:,:].copy()
         Impacts_Vehicles_indir[:,:,mS,mR]                 = SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles[:,:].copy()
@@ -2715,6 +2723,8 @@ for mS in range(0,NS):
         EnergyCons_UP_Bd[:,mS,mR]                   = np.einsum('trBn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb).copy() + np.einsum('trNn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb).copy() + np.einsum('toNn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg).copy()
         EnergyCons_Mn[:,mS,mR]                      = SysVar_EnergyDemand_Manufacturing.sum(axis =1).copy()
         EnergyCons_Wm[:,mS,mR]                      = SysVar_EnergyDemand_WasteMgt.sum(axis =1).copy() +  SysVar_EnergyDemand_Remelting.sum(axis =1).copy()
+        EnergyCons_PP[:,mS,mR]                      = np.einsum('tmPn->t',SysVar_EnergyDemand_PrimaryProd)
+        EnergyCons_PP_m[:,:,mS,mR]                  = np.einsum('tmPn->tm',SysVar_EnergyDemand_PrimaryProd)
         EnergyCons_UP_Service[:,:,Service_Drivg,mS,mR] = SysVar_EnergyDemand_UsePhase_ByService_pav[:,:,Service_Drivg].copy()
         EnergyCons_UP_Service[:,:,Heating_loc,mS,mR]= SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,Heating_loc].copy()
         EnergyCons_UP_Service[:,:,Cooling_loc,mS,mR]= SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,Cooling_loc].copy()
@@ -2830,8 +2840,14 @@ for n in range(m+1,m+1+Nt):
     ws2.cell(row=1, column=n+1).value = int(IndexTable.Classification[IndexTable.index.get_loc('Time')].Items[n-m-1])
     ws2.cell(row=1, column=m+1).font  = openpyxl.styles.Font(bold=True)
 
-# GHG overview, bulk materials
+# GHG overview, bulk materials, material footprint
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[GWP100_loc,:,:,:],2,len(ColLabels),'GHG emissions, system-wide _3579di','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[AllMat_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, all materials, system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[FosFuel_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, fossil fuels, system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[MetOres_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, metal ores, system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[nMetOres_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, non-metallic minerals, system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[Biomass_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, biomass (dry weight), system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[PrimEn_loc,:,:,:],newrowoffset,len(ColLabels),'Total primary energy, system-wide _3579di','TJ/yr of all energy carriers',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, primary material production _3di','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'Process and direct emissions in process 3 and related energy supply','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,8,:,:],newrowoffset,len(ColLabels),'Cement production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,0:4,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary steel production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -2840,12 +2856,20 @@ for m in range(0,Nm):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow[:,:,m,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials: ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[m],'Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,0:4,:,:]),newrowoffset,len(ColLabels),'Final consumption of materials: iron&steel (4 groups)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,4:6,:,:]),newrowoffset,len(ColLabels),'Final consumption of materials: aluminium (2 groups)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,[0,1,2,3,4,5,6,10],:,:]),newrowoffset,len(ColLabels),'Final consumption of metals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,[8,11,12,13],:,:]),newrowoffset,len(ColLabels),'Final consumption of non-metallic minerals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,[9],:,:]),newrowoffset,len(ColLabels),'Final consumption of biomaterials/wood (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,[7],:,:]),newrowoffset,len(ColLabels),'Final consumption of plastics (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
 for m in range(0,Nw):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,FabricationScrap[:,m,:,:],newrowoffset,len(ColLabels),'Fabrication scrap: ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[m],'Mt / yr',ScriptConfig['RegionalScope'],'F_5_10','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 # secondary materials
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,0:4,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Secondary steel','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,4:6,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Secondary Al','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,6,:,:],newrowoffset,len(ColLabels),'Secondary copper','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,[0,1,2,3,4,5,6,10],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Secondary production of metals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,[8,11,12,13],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Secondary production of non-metallic mineralic materials (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,9,:,:],newrowoffset,len(ColLabels),'Secondary production of biomaterials/wood (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,7,:,:],newrowoffset,len(ColLabels),'Secondary production of plastics (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_UsePhase_7d[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, use phase _7d','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_OtherThanUsePhaseDirect[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, other than use phase direct: all industries and energy supply','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 # GHG emissions, detail
@@ -2868,6 +2892,23 @@ newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Vh,newrowoffset,len(ColLa
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Bd,newrowoffset,len(ColLabels),'Energy cons., use phase, res+non-res buildings','TJ/yr',ScriptConfig['RegionalScope'],'E_16_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_Mn,newrowoffset,len(ColLabels),'Energy cons., manufacturing','TJ/yr',ScriptConfig['RegionalScope'],'E_16_5','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_Wm,newrowoffset,len(ColLabels),'Energy cons., waste mgt. and remelting','TJ/yr',ScriptConfig['RegionalScope'],'E_16_9','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_PP,newrowoffset,len(ColLabels),'Energy cons., primary material production (all materials and energy carriers)','TJ/yr',ScriptConfig['RegionalScope'],'E_16_3','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+for nn in range(0,Nm):
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_PP_m[:,nn,:,:],newrowoffset,len(ColLabels),'Energy cons., primary production of '+ IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[nn]+', (all energy carriers)','TJ/yr',ScriptConfig['RegionalScope'],'E_16_3','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+# material footprints
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_UsePhase_7d[FosFuel_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, fossil fuels, for use phase energy demand','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'for use phase energy demand','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di[MetOres_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, metal ores, for primary material production','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'for primary material production','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di[nMetOres_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, non-metallic minerals, for primary material production','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'for primary material production','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di[Biomass_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, biomass, for primary material production (both energy supply and feedstock)','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'for primary material production','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di[FosFuel_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, fossil fuels, for primary material production (both energy supply and feedstock)','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'for primary material production','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+for nn in range(0, Nm):
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di_m[MetOres_loc,:,nn,:,:],newrowoffset,len(ColLabels),'Material footprint, metal ores only, production of primary _3di_' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[nn],'Mt/yr',ScriptConfig['RegionalScope'],'Env. extension of F_3_4','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_Energy_Supply_All[FosFuel_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, fossil fuels, for the entire (system-wide) energy supply','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'Env. extension to F_16_all','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_Energy_Supply_All[Biomass_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, biomass/biofuel, for the entire (system-wide) energy supply','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'Env. extension to F_16_all','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+# primary energy input
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_Energy_Supply_All[PrimEn_loc,:,:,:],newrowoffset,len(ColLabels),'Primary energy input, all energy carriers, for the entire (system-wide) energy supply','TJ/yr of primary energy',ScriptConfig['RegionalScope'],'Env. extension to F_16_all','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_UsePhase_7d[PrimEn_loc,:,:,:],newrowoffset,len(ColLabels),'Primary energy input, all energy carriers, for use phase energy demand','TJ/yr of primary energy',ScriptConfig['RegionalScope'],'Env. extension to F_16_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di[PrimEn_loc,:,:,:],newrowoffset,len(ColLabels),'MPrimary energy input, all energy carriers, for primary material production','TJ/yr of primary energy',ScriptConfig['RegionalScope'],'fEnv. extension to F_16_3','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 # stocks
 if 'pav' in SectorList:
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Totl[:,Sector_pav_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, pass. vehicles','million units',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -2887,7 +2928,7 @@ for mr in range(0,Nr):
 #population
 for mr in range(0,Nr):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Population[:,mr,:,:],newrowoffset,len(ColLabels),'Population','million',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'P (population)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-#UsingLessMaterialByDesign and Mat subst. shares
+#Using less material by design and material substitution shares
 # a) pass. vehicles:
 if 'pav' in SectorList:
     for mr in range(0,Nr):
@@ -2915,7 +2956,6 @@ if 'nrb' in SectorList:
 # Use phase indirect GHG, primary prodution GHG, material cycle and recycling credit
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_UsePhase_7i_Scope2_El[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, use phase scope 2 (electricity) _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (electricity, for use phase energy)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_UsePhase_7i_OtherIndir[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, use phase other indirect (non-el.) _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (other than el., for use phase energy)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, primary material production (redundant) _3di','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_3_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_MaterialCycle_5di_9di[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, manufact, wast mgt., remelting and indirect _5di_9di','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_9_0 + E_15_0 (part, for energy supply waste mgt.)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_RecyclingCredit[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, recycling credits','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'outside system','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_ForestCO2Uptake[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG sequestration by forests (w. neg. sign)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'Process 1','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -2930,6 +2970,10 @@ newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,5,:,:], newrowoffse
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,7,:,:], newrowoffset,len(ColLabels),'Primary plastics production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,9,:,:], newrowoffset,len(ColLabels),'Wood, from forests','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,10,:,:],newrowoffset,len(ColLabels),'Primary zinc production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,[0,1,2,3,4,5,6,10],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary production of metals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,[8,11,12,13],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary production of non-metallic mineral materials (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,9,:,:],newrowoffset,len(ColLabels),'Primary production of biomaterials/wood (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,7,:,:],newrowoffset,len(ColLabels),'Primary production of plastics (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,0,:,:],  newrowoffset,len(ColLabels),'Secondary construction steel','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,1,:,:],  newrowoffset,len(ColLabels),'Secondary automotive steel','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,2,:,:],  newrowoffset,len(ColLabels),'Secondary stainless steel','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -2942,9 +2986,9 @@ newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,10,:,:], newrowoffse
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,11,:,:], newrowoffset,len(ColLabels),'Recycled concrete','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 # GHG of primary and secondary material production
 for mm in range(0,Nm):
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di_m[0,:,mm,:,:],newrowoffset,len(ColLabels),'GHG emissions, production of primary _3di_' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'E_3_0 (part) and associated em. in E_15_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di_m[GWP100_loc,:,mm,:,:],newrowoffset,len(ColLabels),'GHG emissions, production of primary _3di_' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'Env. extension of F_3_4','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 for mm in range(0,Nm):
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_SecondaryMetal_di_m[0,:,mm,:,:],newrowoffset,len(ColLabels),'GHG emissions, production of secondary _di_' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'E_9_0 (part) and associated em. in E_15_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_SecondaryMetal_di_m[GWP100_loc,:,mm,:,:],newrowoffset,len(ColLabels),'GHG emissions, production of secondary _di_' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'E_9_0 (part) and associated em. in E_15_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 # inflow and outflow of commodities
 for mg in range(0,Ng):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'final consumption (use phase inflow), ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -3539,7 +3583,7 @@ for mS in range(0,NS): # SSP
         Figurecounter += 1
  
     
-# Area plot for MATERIAL FOOTPRINT
+# Area plot for MATERIAL FOOTPRINT of the entire system.
 Area3   = ['Biomass','Non-metallic minerals','Metal ores','Fossil fuels','All materials']
 
 for mS in range(0,NS): # SSP
@@ -3563,7 +3607,7 @@ for mS in range(0,NS): # SSP
         plta = Line2D(np.arange(2016,2061), Impacts_System_3579di[AllMat_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
         ProxyHandlesList.append(plta) # create proxy artist for legend    
         
-        plt.title('Raw material input for engineering materials, by category, \n' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.', fontsize = 18)
+        plt.title('Raw material input for engineering materials and energy supply, by category, \n' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.', fontsize = 18)
         plt.ylabel('Mt of raw materials', fontsize = 18)
         plt.xlabel('Year', fontsize = 18)
         plt.xticks(fontsize=18)
