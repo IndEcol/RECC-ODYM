@@ -2401,7 +2401,7 @@ for mS in range(0,NS):
               
             # 13) Calculate wood cascading
             # Add cascading material to cascading stock:
-            RECC_System.StockDict['S_9'].Values[t,t,:,:,:] = Par_RECC_WoodWaste_Casccading[t,Woodwaste_loc,Wood_loc,Woodwaste_loc,:] * RECC_System.FlowDict['F_10_9w'].Values[t,:,:,:]
+            RECC_System.StockDict['S_9'].Values[t,t,:,:,:] = np.einsum('r,rwe->rwe',Par_RECC_WoodWaste_Casccading[t,Woodwaste_loc,Wood_loc,Woodwaste_loc,:],RECC_System.FlowDict['F_10_9w'].Values[t,:,:,:])
             # Carry forward cascading stock:
             RECC_System.StockDict['S_9'].Values[t,0:t,:,:,:] = RECC_System.StockDict['S_9'].Values[t-1,0:t,:,:,:]
             clt = int(ParameterDict['3_LT_Wood_Cascade'].Values) # cascading lifetime (fixed)
@@ -2410,7 +2410,7 @@ for mS in range(0,NS):
                 RECC_System.StockDict['S_9'].Values[t,t-clt,:,:,:] = 0
                 SysVar_WoodWasteIncineration[t,:,:,:] += casc_release
             # Send wood material to final combustion, both from the current year (no cascading) and after cascading
-            SysVar_WoodWasteIncineration[t,:,:,:] += (1 - Par_RECC_WoodWaste_Casccading[t,Woodwaste_loc,Wood_loc,Woodwaste_loc,:]) * RECC_System.FlowDict['F_10_9w'].Values[t,:,:,:]
+            SysVar_WoodWasteIncineration[t,:,:,:] += np.einsum('r,rwe->rwe',1 - Par_RECC_WoodWaste_Casccading[t,Woodwaste_loc,Wood_loc,Woodwaste_loc,:],RECC_System.FlowDict['F_10_9w'].Values[t,:,:,:])
             
             # 14) Calculate waste mgt. losses.
             RECC_System.FlowDict['F_9_0'].Values[t,:]          = np.einsum('rgme->e',RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:])    - np.einsum('rwe->e',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]) \
