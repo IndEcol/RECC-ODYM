@@ -1097,6 +1097,7 @@ Service_IO_ResBuildings          = np.zeros((Nt,NV,NS,NR))
 Service_IO_NonResBuildings       = np.zeros((Nt,NV,NS,NR))
 ReUse_Materials                  = np.zeros((Nt,Nm,NS,NR))
 Carbon_IndustrialRoundwood_bld   = np.zeros((Nt,Nr,NS,NR)) # Industrial roundwood, hard and softwood, for processing into structural wood elements for residential and non-residential buildings. Unit: Mt/yr of C.
+Carbon_Fuelwood_bld              = np.zeros((Nt,Nr,NS,NR)) # Fuelwood, hard and softwood, for use in building heating and hot water only (no cooking fuel).
 Carbon_Wood_Inflow               = np.zeros((Nt,Nr,NS,NR))
 Carbon_Wood_Outflow              = np.zeros((Nt,Nr,NS,NR))
 Carbon_Wood_Stock                = np.zeros((Nt,Nr,NS,NR))
@@ -2417,14 +2418,6 @@ for mS in range(0,NS):
                                                                + np.einsum('oOme->e',RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:]) - np.einsum('owe->e',RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:]) \
                                                                + np.einsum('rwe->e',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:])      - np.einsum('ome->e',RECC_System.FlowDict['F_9_12'].Values[t,:,:,:]) \
                                                                + np.einsum('rwe->e',SysVar_WoodWasteIncineration[t,:,:,:])
-            # Wood material lost in waste mgt.
-            WoodMaterialLoss_t                                 = RECC_System.FlowDict['F_9_0'].Values[t,Carbon_loc] / (RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44)
-            
-            # Energy Recovery: in TJ/yr
-            EnergyRecovery_WoodCombustion_EL[t,mS,mR]  =  1000 * RECC_System.ParameterDict['4_PE_ElectricityFromWoodCombustion'].Values[Woodwaste_loc,0,0] * WoodMaterialLoss_t
-                                                               
-            # Biogenic CO2 emissions from waste, Mt:
-            BiogenicCO2WasteCombustion[t,mS,mR]        =     RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * WoodMaterialLoss_t
             
             # 15) Calculate stock changes
             RECC_System.StockDict['dS_7'].Values[t,:,:,:,:,:]     = RECC_System.StockDict['S_7'].Values[t,:,:,:,:,:]    - RECC_System.StockDict['S_7'].Values[t-1,:,:,:,:,:]
@@ -2522,23 +2515,35 @@ for mS in range(0,NS):
         SysVar_TotalEnergyDemand = np.einsum('trpn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav) + np.einsum('trBn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) \
         + np.einsum('trNn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb) + np.einsum('toNn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg) \
         + np.einsum('tmPn->tn',SysVar_EnergyDemand_PrimaryProd) + SysVar_EnergyDemand_Manufacturing + SysVar_EnergyDemand_WasteMgt + SysVar_EnergyDemand_Remelting
+ 
+        # E) Calculate biomass-related carbon flows and stocks in waste management and forestry.
+        # Wood material lost in waste mgt.
+        Wood_dry_perCarbon                                     = 1 / (RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44)
+        WoodMaterialBurned                                     = Wood_dry_perCarbon * RECC_System.FlowDict['F_9_0'].Values[:,Carbon_loc] 
+        SysVar_Energy_FuelWood_2_7_tr                          = np.einsum('trp->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,WoodFuel_loc]) + np.einsum('trB->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,WoodFuel_loc]) + np.einsum('trN->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,WoodFuel_loc])
+        SysVar_Carbon_FuelWood_2_7_tr                          = SysVar_Energy_FuelWood_2_7_tr / RECC_System.ParameterDict['3_EI_HeatingValueWoodPerCarbon'].Values[Carbon_loc,WoodFuel_loc] / 1000 # carbon only! Mt/yr of C.
+        # Fuel wood demand from use phase that is met with available waste wood, and remaining wood waste. carbon only! Mt/yr of C.
+        SysVar_WoodWasteFuelWoodSubst_tr                       = np.minimum(SysVar_Carbon_FuelWood_2_7_tr,SysVar_WoodWasteIncineration[:,:,Woodwaste_loc,Carbon_loc])
+        SysVar_WoodWasteElectricitySubst_tr                    = SysVar_WoodWasteIncineration[:,:,Woodwaste_loc,Carbon_loc] - SysVar_WoodWasteFuelWoodSubst_tr
+        # Energy Recovery: in TJ/yr, electricity that substitutes demand and reduces energy flow from process 16.
+        EnergyRecovery_WoodCombustion_EL[:,mS,mR]              =  1000 * RECC_System.ParameterDict['4_PE_ElectricityFromWoodCombustion'].Values[Woodwaste_loc,0,0] * Wood_dry_perCarbon * SysVar_WoodWasteElectricitySubst_tr.sum(axis=1)
+        # Biogenic CO2 emissions from waste, Mt. Only the elecricity part is accounted for here, as the fuel wood part emissions are already part of the use phase emissions.
+        BiogenicCO2WasteCombustion[:,mS,mR]                    =     RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * Wood_dry_perCarbon * SysVar_WoodWasteElectricitySubst_tr.sum(axis=1)
+        # Reduce fuel wood and electricity demand from energy supply
+        SysVar_TotalEnergyDemand[:,WoodFuel_loc]               -= 1000 * Wood_dry_perCarbon * SysVar_WoodWasteFuelWoodSubst_tr.sum(axis=1) * RECC_System.ParameterDict['3_EI_HeatingValueWoodPerCarbon'].Values[Carbon_loc,WoodFuel_loc]
+        SysVar_TotalEnergyDemand[:,Electric_loc]              -= EnergyRecovery_WoodCombustion_EL[:,mS,mR] 
+       
         # Calculate total energy demand for all energy carriers together. ONLY CORRECT if 'all' energy carriers are at last location -1!
         SysVar_TotalEnergyDemand[:,-1]                         = SysVar_TotalEnergyDemand[:,0:-1].sum(axis=1)
         SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all[:,-1] = SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all[:,0:-1].sum(axis=1)
-        # Unit: TJ/yr.
-        
-        # E) Calculate carbon flows and stocks in forestry.
-        # Happenning above!!!
-        
+        # Unit: TJ/yr.        
+       
         # b) energy and carbon in fuel wood in TJ/yr (energy) and Mt/yr (carbon)
-        SysVar_Energy_FuelWood_2_7_tr               = np.einsum('trp->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,WoodFuel_loc]) + np.einsum('trB->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,WoodFuel_loc]) + np.einsum('trN->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,WoodFuel_loc])
-        SysVar_Carbon_FuelWood_2_7_tr               = SysVar_Energy_FuelWood_2_7_tr / RECC_System.ParameterDict['3_EI_HeatingValueWoodPerCarbon'].Values[Carbon_loc,WoodFuel_loc] / 1000 # carbon only!
-        
-        SysVar_Carbon_FuelWood_1_2_tr               = SysVar_Carbon_FuelWood_2_7_tr
-        SysVar_Carbon_FuelWood_1_2_tr[SysVar_Carbon_FuelWood_1_2_tr < 0] = 0 # extra fuel wood needed only where demand flow > loss flow
+        SysVar_Carbon_FuelWood_2_7_net_tr                      = SysVar_Carbon_FuelWood_2_7_tr - SysVar_WoodWasteFuelWoodSubst_tr 
+        SysVar_Carbon_FuelWood_1_2_tr                          = SysVar_Carbon_FuelWood_2_7_net_tr
         
         # c) carbon for energy use (Mt/yr)
-        RECC_System.FlowDict['F_2_7'].Values[:,Carbon_loc]   = SysVar_Carbon_FuelWood_2_7_tr.sum(axis = 1) # take the year-wise maximum from the residual and energy use flows.
+        RECC_System.FlowDict['F_2_7'].Values[:,Carbon_loc]   = SysVar_Carbon_FuelWood_2_7_net_tr.sum(axis = 1) 
         RECC_System.FlowDict['F_7_0'].Values                 = RECC_System.FlowDict['F_2_7'].Values.copy() # This is for mass balance only. The emissions from burning fuel wood in the use phase are accounted for by the direct emissions already.
         RECC_System.FlowDict['F_1_2'].Values[:,:,Carbon_loc] += SysVar_Carbon_FuelWood_1_2_tr # aspects: tr, in Mt C/yr
         
@@ -2773,6 +2778,7 @@ for mS in range(0,NS):
         FabricationScrap[:,:,mS,mR]                 = RECC_System.FlowDict['F_5_10'].Values[:,0,:,0].copy()
         ReUse_Materials[:,:,mS,mR]                  = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_17_6'].Values[:,:,:,:,:,0]) + np.einsum('tclLm->tm',RECC_System.FlowDict['F_17_6_Nl'].Values[:,:,:,:,:,0]) + np.einsum('tcoOm->tm',RECC_System.FlowDict['F_17_6_No'].Values[:,:,:,:,:,0])
         Carbon_IndustrialRoundwood_bld[:,:,mS,mR]   = SysVar_RoundwoodConstruc_c_1_2_r.copy()
+        Carbon_Fuelwood_bld[:,:,mS,mR]              = RECC_System.FlowDict['F_1_2'].Values[:,:,Carbon_loc].copy()
         Carbon_Wood_Inflow[:,:,mS,mR]               = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44 * (np.einsum('trg->tr', RECC_System.FlowDict['F_6_7'].Values[:,:,:,Wood_loc,0]).copy())
         Carbon_Wood_Outflow[:,:,mS,mR]              = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44 * (np.einsum('tcrg->tr',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,Wood_loc,0]).copy())
         Carbon_Wood_Stock[:,:,mS,mR]                = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44 * (np.einsum('tcrg->tr',RECC_System.StockDict['S_7'].Values[:,:,:,:,Wood_loc,0]).copy())
@@ -3018,7 +3024,7 @@ newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_UsePhase_7i_OtherIndir[GWP100_l
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_MaterialCycle_5di_9di[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, manufact, wast mgt., remelting and indirect _5di_9di','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_9_0 + E_15_0 (part, for energy supply waste mgt.)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_RecyclingCredit[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, recycling credits','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'outside system','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_ForestCO2Uptake[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG sequestration by forests (w. neg. sign)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'Process 1','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_EnergyRecoveryWasteWood[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, energy recovery from waste wood (biogenic C plus energy substitution within System)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'waste mgt. and energy supply','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_EnergyRecoveryWasteWood[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, energy recovery from waste wood (from electricity generation only, fuel wood subst. emissions are accounted for in use phase already)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'waste mgt. and energy supply','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 # Primary and secondary material production, if not included above already
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,0,:,:], newrowoffset,len(ColLabels),'Primary construction grade steel production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,1,:,:], newrowoffset,len(ColLabels),'Primary automotive steel production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -3027,12 +3033,10 @@ newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,3,:,:], newrowoffse
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,4,:,:], newrowoffset,len(ColLabels),'Primary wrought Al production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,5,:,:], newrowoffset,len(ColLabels),'Primary cast Al production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,7,:,:], newrowoffset,len(ColLabels),'Primary plastics production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,9,:,:], newrowoffset,len(ColLabels),'Wood, from forests','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,9,:,:], newrowoffset,len(ColLabels),'Construction wood, structural, from industrial roundwood','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,10,:,:],newrowoffset,len(ColLabels),'Primary zinc production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,[0,1,2,3,4,5,6,10],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary production of metals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,[8,11,12,13],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary production of non-metallic mineral materials (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,9,:,:],newrowoffset,len(ColLabels),'Primary production of biomaterials/wood (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,7,:,:],newrowoffset,len(ColLabels),'Primary production of plastics (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,0,:,:],  newrowoffset,len(ColLabels),'Secondary construction steel','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,1,:,:],  newrowoffset,len(ColLabels),'Secondary automotive steel','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,2,:,:],  newrowoffset,len(ColLabels),'Secondary stainless steel','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -3046,6 +3050,7 @@ newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,11,:,:], newrowoffse
 # Demand for forest products, detail
 for mr in range(0,Nr):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_IndustrialRoundwood_bld[:,mr,:,:],newrowoffset,len(ColLabels),'Industrial roundwood, hard and softwood, for processing into structural wood elements for residential and non-residential buildings','Mt/yr of C (carbon)',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_1_2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Fuelwood_bld[:,mr,:,:],newrowoffset,len(ColLabels),'Fuelwood, hard and softwood, for use in building heating and hot water only (no cooking fuel).','Mt/yr of C (carbon)',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_1_2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
 # GHG of primary and secondary material production
 for mm in range(0,Nm):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di_m[GWP100_loc,:,mm,:,:],newrowoffset,len(ColLabels),'GHG emissions, production of primary _3di_' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'Env. extension of F_3_4','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
