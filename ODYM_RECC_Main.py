@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 Created on February 21, 2020, as copy of ODYM_RECC_V2_3.py
 
@@ -131,7 +131,7 @@ Classsheet           = Classfile['MAIN_Table']
 MasterClassification = msf.ParseClassificationFile_Main(Classsheet,Mylog)
     
 Mylog.info('Read and parse config table, including the model index table, from model config sheet.')
-IT_Aspects,IT_Description,IT_Dimension,IT_Classification,IT_Selector,IT_IndexLetter,PL_Names,PL_Description,PL_Version,PL_IndexStructure,PL_IndexMatch,PL_IndexLayer,PL_SubFolder,PL_ProxyCode,PrL_Number,PrL_Name,PrL_Comment,PrL_Type,ScriptConfig = msf.ParseConfigFile(Model_Configsheet,ScriptConfig,Mylog)    
+IT_Aspects,IT_Description,IT_Dimension,IT_Classification,IT_Selector,IT_IndexLetter,PL_Names,PL_Description,PL_Version,PL_IndexStructure,PL_IndexMatch,PL_IndexLayer,PL_SubFolder,PL_ProxyCode,PL_ProcMethod,PrL_Number,PrL_Name,PrL_Comment,PrL_Type,ScriptConfig = msf.ParseConfigFile(Model_Configsheet,ScriptConfig,Mylog)    
 
 Mylog.info('Define model classifications and select items for model classifications according to information provided by config file.')
 ModelClassification  = {} # Dict of model classifications
@@ -214,6 +214,7 @@ try: # Load Pickle parameter dict to save processing time
     ParFileObject.close()  
     Mylog.info('Model data and parameters were read from pickled file with pickle file /parameter reading sequence UUID ' + ParameterDict['Checkkey'])
 except:
+    msf.check_dataset(RECC_Paths.data_path,PL_Names,PL_Version,Mylog)
     ParameterDict = {}
     mo_start = 0 # set mo for re-reading a certain parameter
     for mo in range(mo_start,len(PL_Names)):
@@ -227,7 +228,7 @@ except:
         #MetaData, Values = msf.ReadParameter(ParPath = ParPath,ThisPar = PL_Names[mo], ThisParIx = PL_IndexStructure[mo], IndexMatch = PL_IndexMatch[mo], ThisParLayerSel = PL_IndexLayer[mo], MasterClassification,IndexTable,IndexTable_ClassificationNames,ScriptConfig,Mylog) # Do not change order of parameters handed over to function!
         # Do not change order of parameters handed over to function!
         MetaData, Values = msf.ReadParameterXLSX(ParPath, PL_Names[mo], PL_IndexStructure[mo], PL_IndexMatch[mo],
-                                             PL_IndexLayer[mo], MasterClassification, IndexTable,
+                                             PL_IndexLayer[mo], PL_ProcMethod[mo], MasterClassification, IndexTable,
                                              IndexTable_ClassificationNames, ScriptConfig, Mylog, False)
         ParameterDict[PL_Names[mo]] = msc.Parameter(Name=MetaData['Dataset_Name'], ID=MetaData['Dataset_ID'],
                                                     UUID=MetaData['Dataset_UUID'], P_Res=None, MetaData=MetaData,
@@ -256,9 +257,7 @@ LEDindex        = IndexTable.Classification[IndexTable.index.get_loc('Scenario')
 SSP1index       = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP1')
 SSP2index       = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP2')
 
-# a) LED scenario data from proxy scenarios:
-# 2_P_RECC_Population_SSP_32R
-ParameterDict['2_P_RECC_Population_SSP_32R'].Values[:,:,:,LEDindex]                    = ParameterDict['2_P_RECC_Population_SSP_32R'].Values[:,:,:,SSP2index].copy()
+# a) Currently not used 
 # b) Set reference population dataset.
 ParameterDict['2_P_Population_Reference'] = msc.Parameter(Name='2_P_Population_Reference', ID='2_P_Population_Reference',
                                             UUID=ParameterDict[ScriptConfig['Population_Reference']].UUID, P_Res=None, MetaData=ParameterDict[ScriptConfig['Population_Reference']].MetaData,
@@ -447,66 +446,12 @@ Sector_nrbg_rge_reg = np.arange(12,16,1)
 
 OutputDict      = {}  # Dictionary with output variables for entire model run, to export checks and analyses.
 
-# 1a) Material composition of vehicles, will only use historic age-cohorts.
-# Values are given every 5 years, we need all values in between.
-if 'pav' in SectorList:
-    index = PL_Names.index('3_MC_RECC_Vehicles')
-    MC_Veh_New = np.zeros(ParameterDict[PL_Names[index]].Values.shape)
-    Idx_Time = [1980,1985,1990,1995,2000,2005,2010,2015,2020,2025,2030,2035,2040,2045,2050,2055,2060]
-    Idx_Time_Rel = [i -1900 for i in Idx_Time]
-    tnew = np.linspace(80, 160, num=81, endpoint=True)
-    for n in range(0,Nm):
-        for o in range(0,Np):
-            for p in range(0,Nr):
-                f2 = interp1d(Idx_Time_Rel, ParameterDict[PL_Names[index]].Values[Idx_Time_Rel,n,o,p], kind='linear')
-                MC_Veh_New[80::,n,o,p] = f2(tnew)
-    ParameterDict[PL_Names[index]].Values = MC_Veh_New.copy()
+# 1a) Currently not used
 
-# 1b) Material composition of res buildings, will only use historic age-cohorts.
-# Values are given every 5 years, we need all values in between.
-if 'reb' in SectorList:
-    index       = PL_Names.index('3_MC_RECC_Buildings')
-    index_Ren_A = PL_Names.index('3_MC_RECC_Buildings_Renovation_Absolute')
-    index_Ren_R = PL_Names.index('3_MC_RECC_Buildings_Renovation_Relative')
-    MC_Bld_New       = np.zeros(ParameterDict[PL_Names[index]].Values.shape)
-    MC_Bld_New_Ren_A = np.zeros(ParameterDict[PL_Names[index_Ren_A]].Values.shape)
-    MC_Bld_New_Ren_R = np.zeros(ParameterDict[PL_Names[index_Ren_R]].Values.shape)
-    Idx_Time = [1900,1910,1920,1930,1940,1950,1960,1970,1980,1985,1990,1995,2000,2005,2010,2015,2020,2025,2030,2035,2040,2045,2050,2055,2060]
-    Idx_Time_Rel = [i -1900 for i in Idx_Time]
-    tnew = np.linspace(0, 160, num=161, endpoint=True)
-    for n in range(0,Nm):
-        for o in range(0,NB):
-            for p in range(0,Nr):
-                f2 = interp1d(Idx_Time_Rel, ParameterDict[PL_Names[index]].Values[Idx_Time_Rel,n,o,p], kind='linear')
-                MC_Bld_New[:,n,o,p]       = f2(tnew).copy()
-                fA = interp1d(Idx_Time_Rel, ParameterDict[PL_Names[index_Ren_A]].Values[Idx_Time_Rel,n,o,p], kind='linear')
-                MC_Bld_New_Ren_A[:,n,o,p] = fA(tnew).copy()
-                fR = interp1d(Idx_Time_Rel, ParameterDict[PL_Names[index_Ren_R]].Values[Idx_Time_Rel,n,o,p], kind='linear')
-                MC_Bld_New_Ren_R[:,n,o,p] = fR(tnew).copy()
-    ParameterDict[PL_Names[index]].Values       = MC_Bld_New.copy()
-    ParameterDict[PL_Names[index_Ren_A]].Values = MC_Bld_New_Ren_A.copy()
-    ParameterDict[PL_Names[index_Ren_R]].Values = MC_Bld_New_Ren_R.copy()
-
-# 1c) Material composition of nonres buildings, will only use historic age-cohorts.
-# Values are given every 5 years, we need all values in between.
-if 'nrb' in SectorList:
-    index       = PL_Names.index('3_MC_RECC_NonResBuildings')
-    index_Ren_A = PL_Names.index('3_MC_RECC_NonResBuildings_Renovation_Absolute')
-    MC_nrb_New       = np.zeros(ParameterDict[PL_Names[index]].Values.shape)
-    MC_nrb_New_Ren_A = np.zeros(ParameterDict[PL_Names[index_Ren_A]].Values.shape)
-    Idx_Time = [1900,1910,1920,1930,1940,1950,1960,1970,1980,1985,1990,1995,2000,2005,2010,2015,2020,2025,2030,2035,2040,2045,2050,2055,2060]
-    Idx_Time_Rel = [i -1900 for i in Idx_Time]
-    tnew = np.linspace(0, 160, num=161, endpoint=True)
-    for n in range(0,Nm):
-        for o in range(0,NN):
-            for p in range(0,Nr):
-                f2 = interp1d(Idx_Time_Rel, ParameterDict[PL_Names[index]].Values[Idx_Time_Rel,n,o,p], kind='linear')
-                MC_nrb_New[:,n,o,p] = f2(tnew).copy()
-                fA = interp1d(Idx_Time_Rel, ParameterDict[PL_Names[index_Ren_A]].Values[Idx_Time_Rel,n,o,p], kind='linear')
-                MC_nrb_New_Ren_A[:,n,o,p] = fA(tnew).copy()
-    ParameterDict[PL_Names[index]].Values = MC_nrb_New.copy()
-    ParameterDict[PL_Names[index_Ren_A]].Values = MC_nrb_New_Ren_A.copy()
+# 1b) Currently not used
     
+# 1c) Currently not used
+
 # 1d) Split concrete in building archetypes into cement and aggregates but keep concrete separately
 ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,Cement_loc]   = ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,Cement_loc] + ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc] * ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,Concrete_loc].copy()
 ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,ConcrAgg_loc] = (1 - ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]) * ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,Concrete_loc].copy()
@@ -732,15 +677,7 @@ ParameterDict['3_SHA_BuildingRenovationScaleUp_r'] = msc.Parameter(Name='3_SHA_B
                                                   Unit='1')
 ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values        = np.einsum('RtS,r->trSR',ParameterDict['3_SHA_BuildingRenovationScaleUp'].Values[:,0,:,:],np.ones(Nr)).copy()
 
-# 9) LED scenario data from proxy scenarios:
-### Moved up to section 2 because it's needed there already! Check in section to for LED proxy generation if changes are needed.
-
-# 3_EI_Products_UsePhase, historic
-ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,:,:,:,LEDindex]    = ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,:,:,:,SSP2index].copy()
-ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,:,:,:,LEDindex]    = ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,:,:,:,SSP2index].copy()
-ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,:,:,:,LEDindex] = ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,:,:,:,SSP2index].copy()
-# 3_IO_Buildings_UsePhase
-ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[:,:,:,:,LEDindex]             = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[:,:,:,:,SSP2index].copy()
+# 9) Currently not used    
 
 # 10) Set future vehicle reuse to 2015 levels if strategy is not included:
 # (To reflect that reuse is already happening to some extent.)
@@ -764,7 +701,7 @@ if ScriptConfig['IncludeRecycling'] == 'False': # no recycling and remelting
     ParameterDict['4_PY_EoL_RecoveryRate'].Values            = np.zeros(ParameterDict['4_PY_EoL_RecoveryRate'].Values.shape)
     ParameterDict['4_PY_MaterialProductionRemelting'].Values = np.zeros(ParameterDict['4_PY_MaterialProductionRemelting'].Values.shape)
     
-# 13) currently not used.
+# 13) Currently not used.
   
 # 14) Define parameter for future vehicle stock:
 # a) calculated passenger vehicle stock
@@ -861,14 +798,7 @@ for noS in range(0,NS):
             for noT in range(151,161):
                 ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,noT,noS,noR,noa] = ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,150,noS,noR,noa] * np.power(1+growthrate,noT-150)
     
-# 21) GWP_bio factor interpolation
-Idx_Time = [1900,1910,1920,1930,1940,1950,1960,1970,1980,1990,2000]
-Idx_Time_Rel = [i -1900 for i in Idx_Time]
-tnew = np.linspace(0, 100, num=101, endpoint=True)
-f2 = interp1d(Idx_Time_Rel, ParameterDict['6_MIP_GWP_Bio'].Values[Idx_Time_Rel].copy(), kind='linear')
-ParameterDict['6_MIP_GWP_Bio'].Values = np.zeros((300))
-ParameterDict['6_MIP_GWP_Bio'].Values[0:101] = f2(tnew).copy()    
-ParameterDict['6_MIP_GWP_Bio'].Values[101::] = -1
+# 21) Currently not used
     
 # 22) calculate Stocks on 1. Jan 2016:    
 pC_AgeCohortHist           = np.zeros((NG,Nr))
