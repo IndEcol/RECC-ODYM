@@ -214,7 +214,7 @@ try: # Load Pickle parameter dict to save processing time
     ParFileObject.close()  
     Mylog.info('Model data and parameters were read from pickled file with pickle file /parameter reading sequence UUID ' + ParameterDict['Checkkey'])
 except:
-    msf.check_dataset(RECC_Paths.data_path,PL_Names,PL_Version,Mylog)
+    msf.check_dataset(RECC_Paths.data_path,PL_Names,PL_Version,PL_SubFolder,Mylog)
     ParameterDict = {}
     mo_start = 0 # set mo for re-reading a certain parameter
     for mo in range(mo_start,len(PL_Names)):
