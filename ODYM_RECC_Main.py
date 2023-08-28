@@ -131,7 +131,7 @@ Classsheet           = Classfile['MAIN_Table']
 MasterClassification = msf.ParseClassificationFile_Main(Classsheet,Mylog)
     
 Mylog.info('Read and parse config table, including the model index table, from model config sheet.')
-IT_Aspects,IT_Description,IT_Dimension,IT_Classification,IT_Selector,IT_IndexLetter,PL_Names,PL_Description,PL_Version,PL_IndexStructure,PL_IndexMatch,PL_IndexLayer,PL_SubFolder,PL_ProxyCode,PL_ProcMethod,PrL_Number,PrL_Name,PrL_Comment,PrL_Type,ScriptConfig = msf.ParseConfigFile(Model_Configsheet,ScriptConfig,Mylog)    
+IT_Aspects,IT_Description,IT_Dimension,IT_Classification,IT_Selector,IT_IndexLetter,PL_Names,PL_Description,PL_Version,PL_IndexStructure,PL_IndexMatch,PL_IndexLayer,PL_SubFolder,PL_ProxyCode,PL_ProcMethod,PL_UpdateOverwrite,PrL_Number,PrL_Name,PrL_Comment,PrL_Type,ScriptConfig = msf.ParseConfigFile(Model_Configsheet,ScriptConfig,Mylog)    
 
 Mylog.info('Define model classifications and select items for model classifications according to information provided by config file.')
 ModelClassification  = {} # Dict of model classifications
@@ -210,9 +210,47 @@ Mylog.info('Read model data and parameters.')
 ParFileName = os.path.join(RECC_Paths.data_path,'RECC_ParameterDict_' + ScriptConfig['RegionalScope'] + '.dat')
 try: # Load Pickle parameter dict to save processing time
     ParFileObject = open(ParFileName,'rb')  
-    ParameterDict = pickle.load(ParFileObject)  
-    ParFileObject.close()  
-    Mylog.info('Model data and parameters were read from pickled file with pickle file /parameter reading sequence UUID ' + ParameterDict['Checkkey'])
+    ParameterDict = pickle.load(ParFileObject)
+    Mylog.info('Read model data and parameters from pickled file with pickle file /parameter reading sequence UUID ' + ParameterDict['Checkkey'])
+    #for individual parameters load new data if specified accordingly in config file
+    mo_start = 0 # set mo for re-reading a certain parameter
+    mo_reading_true = 0 
+    for mo in range(mo_start,len(PL_Names)):
+        #mo = 76 # set mo for re-reading a certain parameter
+        #ParPath = os.path.join(os.path.abspath(os.path.join(ProjectSpecs_Path_Main, '.')), 'ODYM_RECC_Database', PL_Version[mo])             
+        if PL_UpdateOverwrite[mo] == 'True': # new data is supposed to be used to replace data loaded from parameter dict
+            mo_reading_true += 1
+            if mo_reading_true == 1:
+                Mylog.info('Updating and overwriting parameter data in pickled parameter dict for selected parameters as specified in config file:')
+            if PL_SubFolder[mo] == 'default': # path is not in subfolder
+                ParPath = os.path.join(RECC_Paths.data_path, PL_Names[mo] + '_' + PL_Version[mo])
+            else: # parameter file is in subfolder, add this to path
+                ParPath = os.path.join(RECC_Paths.data_path, PL_SubFolder[mo], PL_Names[mo] + '_' + PL_Version[mo])
+            Mylog.info('Reading parameter ' + PL_Names[mo] + ' and overwriting values in pickled parameter dict')
+            #MetaData, Values = msf.ReadParameter(ParPath = ParPath,ThisPar = PL_Names[mo], ThisParIx = PL_IndexStructure[mo], IndexMatch = PL_IndexMatch[mo], ThisParLayerSel = PL_IndexLayer[mo], MasterClassification,IndexTable,IndexTable_ClassificationNames,ScriptConfig,Mylog) # Do not change order of parameters handed over to function!
+            # Do not change order of parameters handed over to function!
+            MetaData, Values = msf.ReadParameterXLSX(ParPath, PL_Names[mo], PL_IndexStructure[mo], PL_IndexMatch[mo],
+                                                 PL_IndexLayer[mo], PL_ProcMethod[mo], MasterClassification, IndexTable,
+                                                 IndexTable_ClassificationNames, ScriptConfig, Mylog, False)
+            ParameterDict[PL_Names[mo]] = msc.Parameter(Name=MetaData['Dataset_Name'], ID=MetaData['Dataset_ID'],
+                                                        UUID=MetaData['Dataset_UUID'], P_Res=None, MetaData=MetaData,
+                                                        Indices=PL_IndexStructure[mo], Values=Values, Uncert=None,
+                                                        Unit=MetaData['Dataset_Unit'])
+            Mylog.info('Current parameter file UUID: ' + MetaData['Dataset_UUID'])
+            Mylog.info('_')        
+    Mylog.info('Reading of parameters finished.')
+    Mylog.info(str(mo_reading_true) + ' parameter file(s) read additionally and overwritten in pickled parameter dict.')
+    if mo_reading_true > 0: #if new parameter values were added to parameter dict from previous run
+        CheckKey = str(uuid.uuid4()) # generate UUID for this parameter reading sequence.
+        Mylog.info('New parameter reading sequence UUID: ' + CheckKey)
+        Mylog.info('Entire parameter set stored under this UUID, will be reloaded for future calculations.')
+        ParameterDict['Checkkey'] = CheckKey
+        # Save to pickle file for next model run
+        ParFileObject = open(ParFileName,'wb') 
+        pickle.dump(ParameterDict,ParFileObject)
+    else: #if no new parameter data was read
+        Mylog.info('Model data and parameters were read from pickled file with pickle file /parameter reading sequence UUID ' + ParameterDict['Checkkey'])
+    ParFileObject.close()      
 except:
     msf.check_dataset(RECC_Paths.data_path,PL_Names,PL_Version,PL_SubFolder,Mylog)
     ParameterDict = {}
