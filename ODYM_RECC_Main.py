@@ -222,7 +222,7 @@ try: # Load Pickle parameter dict to save processing time
             mo_reading_true += 1
             if mo_reading_true == 1:
                 Mylog.info('Updating and overwriting parameter data in pickled parameter dict for selected parameters as specified in config file:')
-            if PL_SubFolder[mo] == 'default': # path is not in subfolder
+            if PL_SubFolder[mo] == 'default': # path is not in subfolder but in main data directory
                 ParPath = os.path.join(RECC_Paths.data_path, PL_Names[mo] + '_' + PL_Version[mo])
             else: # parameter file is in subfolder, add this to path
                 ParPath = os.path.join(RECC_Paths.data_path, PL_SubFolder[mo], PL_Names[mo] + '_' + PL_Version[mo])
@@ -2475,14 +2475,10 @@ for mS in range(0,NS):
         if 'app' in SectorList:
             SysVar_EnergyDemand_Manufacturing += np.einsum('an,tar->tn',RECC_System.ParameterDict['4_EI_ManufacturingEnergyIntensity'].Values[Sector_app_rge,:,110,-1],Inflow_Detail_UsePhase_a) * 1e-6 # conversion factor: 1e-6, as TJ/item  = 10e-6 MJ/items. 
         SysVar_EnergyDemand_WasteMgt       = 1000 * (np.einsum('wn,trw->tn',RECC_System.ParameterDict['4_EI_WasteMgtEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_10'].Values[:,:,:,0]) +\
-                                                    np.einsum('wn,trw->tn',RECC_System.ParameterDict['4_EI_WasteMgtEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_10_Nl'].Values[:,:,:,0]) +\
-                                                    np.einsum('wn,trw->tn',RECC_System.ParameterDict['4_EI_WasteMgtEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_10_No'].Values[:,:,:,0]))
-        SysVar_EnergyDemand_Remelting      = 1000 * np.einsum('mn,trm->tn',RECC_System.ParameterDict['4_EI_RemeltingEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_12'].Values[:,:,:,0])
+                                                    np.einsum('wn,trw->tn', RECC_System.ParameterDict['4_EI_WasteMgtEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_10_Nl'].Values[:,:,:,0]) +\
+                                                    np.einsum('wn,trw->tn', RECC_System.ParameterDict['4_EI_WasteMgtEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_10_No'].Values[:,:,:,0]))
+        SysVar_EnergyDemand_Remelting      = 1000 * np.einsum('mn,trm->tn', RECC_System.ParameterDict['4_EI_RemeltingEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_12'].Values[:,:,:,0])
         SysVar_EnergyDemand_Remelting_m    = 1000 * np.einsum('mn,trm->tnm',RECC_System.ParameterDict['4_EI_RemeltingEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_12'].Values[:,:,:,0])
-        SysVar_EnergySavings_WasteToEnergy  = np.zeros((Nt,Nn))
-        if  mR == ClimPolScen: # in the climate policy scenario:
-            SysVar_EnergySavings_WasteToEnergy[:,Electric_loc] = EnergyRecovery_WoodCombustion_EL[:,mS,mR].copy()
-        # Unit: TJ/yr.
         
         # Calculate total energy demand by individual energy carrier
         SysVar_TotalEnergyDemand = np.einsum('trpn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav) + np.einsum('trBn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) \
@@ -2499,26 +2495,29 @@ for mS in range(0,NS):
         SysVar_WoodWasteFuelWoodSubst_tr                       = np.minimum(SysVar_Carbon_FuelWood_2_7_tr,SysVar_WoodWasteIncineration[:,:,Woodwaste_loc,Carbon_loc,mS,mR])
         SysVar_WoodWasteElectricitySubst_tr                    = SysVar_WoodWasteIncineration[:,:,Woodwaste_loc,Carbon_loc,mS,mR] - SysVar_WoodWasteFuelWoodSubst_tr
         # Energy Recovery: in TJ/yr, electricity that substitutes demand and reduces energy flow from process 16.
-        EnergyRecovery_WoodCombustion_EL[:,mS,mR]              =  1000 * RECC_System.ParameterDict['4_PE_ElectricityFromWoodCombustion'].Values[Woodwaste_loc,0,0] * Wood_dry_perCarbon * SysVar_WoodWasteElectricitySubst_tr.sum(axis=1)
+        EnergyRecovery_WoodCombustion_EL[:,mS,mR]              = 1000 * RECC_System.ParameterDict['4_PE_ElectricityFromWoodCombustion'].Values[Woodwaste_loc,0,0] * Wood_dry_perCarbon * SysVar_WoodWasteElectricitySubst_tr.sum(axis=1)
         # Biogenic CO2 emissions from waste, Mt of CO2-eq. Only the elecricity part is accounted for here, as the fuel wood part emissions are already part of the use phase emissions.
-        BiogenicCO2WasteCombustion[:,mS,mR]                    =     RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * Wood_dry_perCarbon * SysVar_WoodWasteElectricitySubst_tr.sum(axis=1)
+        BiogenicCO2WasteCombustion[:,mS,mR]                    = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * Wood_dry_perCarbon * SysVar_WoodWasteElectricitySubst_tr.sum(axis=1)
         # Reduce fuel wood and electricity demand from energy supply
-        SysVar_TotalEnergyDemand[:,WoodFuel_loc]               -= 1000 * Wood_dry_perCarbon * SysVar_WoodWasteFuelWoodSubst_tr.sum(axis=1) * RECC_System.ParameterDict['3_EI_HeatingValueWoodPerCarbon'].Values[Carbon_loc,WoodFuel_loc]
-        SysVar_TotalEnergyDemand[:,Electric_loc]              -= EnergyRecovery_WoodCombustion_EL[:,mS,mR] 
+        SysVar_TotalEnergyDemand[:,WoodFuel_loc]               -= 1000 * SysVar_WoodWasteFuelWoodSubst_tr.sum(axis=1) * RECC_System.ParameterDict['3_EI_HeatingValueWoodPerCarbon'].Values[Carbon_loc,WoodFuel_loc]
+        SysVar_TotalEnergyDemand[:,Electric_loc]               -= EnergyRecovery_WoodCombustion_EL[:,mS,mR] 
        
         # Calculate total energy demand for all energy carriers together. ONLY CORRECT if 'all' energy carriers are at last location -1!
         SysVar_TotalEnergyDemand[:,-1]                         = SysVar_TotalEnergyDemand[:,0:-1].sum(axis=1)
         SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all[:,-1] = SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all[:,0:-1].sum(axis=1)
         # Unit: TJ/yr.        
+        SysVar_EnergySavings_WasteToEnergy = np.zeros((Nt,Nn))
+        SysVar_EnergySavings_WasteToEnergy[:,Electric_loc] = EnergyRecovery_WoodCombustion_EL[:,mS,mR].copy()
+        # Unit: TJ/yr.
        
         # b) energy and carbon in fuel wood in TJ/yr (energy) and Mt/yr (carbon)
         SysVar_Carbon_FuelWood_2_7_net_tr                      = SysVar_Carbon_FuelWood_2_7_tr - SysVar_WoodWasteFuelWoodSubst_tr 
         SysVar_Carbon_FuelWood_1_2_tr                          = SysVar_Carbon_FuelWood_2_7_net_tr
         
         # c) carbon for energy use (Mt/yr)
-        RECC_System.FlowDict['F_2_7'].Values[:,Carbon_loc]   = SysVar_Carbon_FuelWood_2_7_net_tr.sum(axis = 1) 
-        RECC_System.FlowDict['F_7_0'].Values                 = RECC_System.FlowDict['F_2_7'].Values.copy() # This is for mass balance only. The emissions from burning fuel wood in the use phase are accounted for by the direct emissions already.
-        RECC_System.FlowDict['F_1_2'].Values[:,:,Carbon_loc] += SysVar_Carbon_FuelWood_1_2_tr # aspects: tr, in Mt C/yr
+        RECC_System.FlowDict['F_2_7'].Values[:,Carbon_loc]     = SysVar_Carbon_FuelWood_2_7_net_tr.sum(axis = 1) 
+        RECC_System.FlowDict['F_7_0'].Values                   = RECC_System.FlowDict['F_2_7'].Values.copy() # This is for mass balance only. The emissions from burning fuel wood in the use phase are accounted for by the direct emissions already.
+        RECC_System.FlowDict['F_1_2'].Values[:,:,Carbon_loc]   += SysVar_Carbon_FuelWood_1_2_tr # aspects: tr, in Mt C/yr
         
         # d) Quantify wood carbon stock change (through harvested wood and its regrowth only, no soil carbon balance, albedo, etc.)
         if ScriptConfig['ForestryModel'] == 'GrowthCurve':
