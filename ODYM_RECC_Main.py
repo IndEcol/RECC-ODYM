@@ -471,7 +471,7 @@ Ind_2015      = 115 #index of year 2015
 #Ind_2020      = 120 #index of year 2020
 IsClose_Remainder_Small = 1e-15 
 IsClose_Remainder_Large = 1e-7 
-DPI_RES        = ScriptConfig['Plot1Max'] # 50 for overview or 500 for paper plots, defined in ModelConfig_List
+DPI_RES        = ScriptConfig['Plot4Max'] # 100 for overview or 500 for paper plots, defined in ModelConfig_List
 
 # Determine location of the indices of individual sectors in the region-specific list and in the list of all goods
 # indices of sectors with same regional scope in complete goods list
@@ -2509,6 +2509,11 @@ for mS in range(0,NS):
         SysVar_EnergySavings_WasteToEnergy = np.zeros((Nt,Nn))
         SysVar_EnergySavings_WasteToEnergy[:,Electric_loc] = EnergyRecovery_WoodCombustion_EL[:,mS,mR].copy()
         # Unit: TJ/yr.
+        
+        # Calculate the energy equivalent of the wood waste - fuel wood substitution in TJ/yr
+        SysVar_EnergyEquiv_WoodWasteSubst = np.zeros((46,8))
+        SysVar_EnergyEquiv_WoodWasteSubst[:,WoodFuel_loc]      = -1000 * SysVar_WoodWasteFuelWoodSubst_tr.sum(axis=1) * RECC_System.ParameterDict['3_EI_HeatingValueWoodPerCarbon'].Values[Carbon_loc,WoodFuel_loc]
+        SysVar_EnergyEquiv_WoodWasteSubst_impacts              = 0.001 * np.einsum('nxot,tn->xt',     RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyEquiv_WoodWasteSubst)
        
         # b) energy and carbon in fuel wood in TJ/yr (energy) and Mt/yr (carbon)
         SysVar_Carbon_FuelWood_2_7_net_tr                      = SysVar_Carbon_FuelWood_2_7_tr - SysVar_WoodWasteFuelWoodSubst_tr 
@@ -2696,10 +2701,10 @@ for mS in range(0,NS):
         SysExt_Impacts_RecyclingCredit         = SysExt_DirectImpacts_RecyclingCredit + SysExt_ProcessImpacts_RecyclingCredit + SysExt_IndirectImpacts_EnergySupply_RecyclingCredit
         SysExt_Impacts_EnergyRecoveryWaste_9di = np.zeros((Nx,Nt))
         SysExt_Impacts_EnergyRecoveryWaste_9di[GWP100_loc,:] = BiogenicCO2WasteCombustion[t,mS,mR].copy()
-        SysExt_Impacts_EnergyRecoveryWaste_9di += SysExt_IndirectImpacts_EnergySupply_WasteToEnergy
+        SysExt_Impacts_EnergyRecoveryWaste_9di += SysExt_IndirectImpacts_EnergySupply_WasteToEnergy        
         # Calculate total env. pressure of system
         SysExt_Impacts_OtherThanUsePhaseDirect = SysExt_Impacts_UsePhase_7i_Scope2_El + SysExt_Impacts_UsePhase_7i_OtherIndir + SysExt_Impacts_PrimaryMaterial_3di + SysExt_Impacts_MaterialCycle_5di_9di
-        SysExt_TotalImpacts_3579di             = SysExt_Impacts_UsePhase_7d + SysExt_Impacts_OtherThanUsePhaseDirect + SysExt_Impacts_EnergyRecoveryWaste_9di + np.einsum('xtrm->xt',SysExt_CO2UptakeImpacts_Forests)
+        SysExt_TotalImpacts_3579di             = SysExt_Impacts_UsePhase_7d + SysExt_Impacts_OtherThanUsePhaseDirect + SysExt_Impacts_EnergyRecoveryWaste_9di + np.einsum('xtrm->xt',SysExt_CO2UptakeImpacts_Forests) + SysVar_EnergyEquiv_WoodWasteSubst_impacts
         SysExt_Impacts_Materials_3di_9di       = SysExt_Impacts_PrimaryMaterial_3di + SysExt_Impacts_WasteMgtRemelting_9di
         
         # N) Calculate other indicators
