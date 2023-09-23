@@ -3046,7 +3046,7 @@ for mr in range(0,Nr):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_IndustrialRoundwood_bld[:,mr,:,:],newrowoffset,len(ColLabels),'Industrial roundwood, hard and softwood, for processing into structural wood elements for residential and non-residential buildings','Mt/yr of C (carbon)',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_1_2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Fuelwood_bld[:,mr,:,:],newrowoffset,len(ColLabels),'Fuelwood, hard and softwood, for use in building heating and hot water only (no cooking fuel).','Mt/yr of C (carbon)',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_1_2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Fuelwood_el_r[:,mr,:,:],newrowoffset,len(ColLabels),'Fuelwood, hard and softwood, for use in electricity generation, for use phase. (regional).','Mt/yr of C (carbon)',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_1_2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Fuelwood_el_o,newrowoffset,len(ColLabels),'Fuelwood, hard and softwood, for use in electricity generation, for material prod., manufacturing, and waste mgt. (global).','Mt/yr of C (carbon)','Global supply chains','F_1_2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
+newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Fuelwood_el_o,newrowoffset,len(ColLabels),'Fuelwood, hard and softwood, for use in electricity generation, for material prod., manufacturing, and waste mgt. (global).','Mt/yr of C (carbon)',ScriptConfig['RegionalScope'],'F_1_2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
 # GHG of primary and secondary material production
 for mm in range(0,Nm):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di_m[GWP100_loc,:,mm,:,:],newrowoffset,len(ColLabels),'GHG emissions, production of primary _3di_' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'Env. extension of F_3_4','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -3799,7 +3799,7 @@ print('done.')
 OutputDict['Name_Scenario'] = Name_Scenario + '__' + TimeString + DescrString # return new scenario folder name to ScenarioControl script
     
 #return OutputDict
-                        
+                    
 # code for script to be run as standalone function
 #if __name__ == "__main__":
 #    main()

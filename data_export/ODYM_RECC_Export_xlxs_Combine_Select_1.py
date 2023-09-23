@@ -6,9 +6,13 @@ Created on Mon Jun 14 15:42:03 2021
 
 This script takes a number of RECC scenarios (as defined in list), 
 loads a number of results and then compiles them into an excel workbook/csv 
-file for parsing and checking with the CRAFT team at BoKu.
+file for checking and plotting.
 
-See https://github.com/iiasa/irp-internal-workflow for naming conventions.
+Works together with control workbook
+RECCv2.5_EXPORT_Combine_Select_1.xlxs
+
+This script takes results from global (or other multi-regional) model runs to 
+extract single-region results or aggregate into smaller world regions (like Europe or Asia).
 
 """
 # Import required libraries:
@@ -42,7 +46,6 @@ Model_id      = CF[CS].cell(1,2).value
 Model_date    = CF[CS].cell(1,4).value
 outpath       = CF[CS].cell(1,6).value
 
-
 # Prepare result workbook
 RB = openpyxl.Workbook() # Export other model results, calibration values, flags, etc.
 cs = RB.active
@@ -71,7 +74,7 @@ while True:
         scen.append(CF[CS].cell(r,2).value)
         offs.append(CF[CS].cell(r,5).value)
         for sl in range(0,10):
-            secs[0].append(CF[CS].cell(r,6+sl).value)
+            secs[sl].append(CF[CS].cell(r,6+sl).value)
     r += 1
     
 # Move to parameter list:
@@ -117,7 +120,7 @@ noi = len(ti)   # number of indicators
 
 # Create sector list with actual labels, not placeholders
 sL = sl.copy()
-for i in range(0,7): # Find all sectorX instances and replace them with their actual sector labels
+for i in range(0,noi): # Find all sectorX instances and replace them with their actual sector labels
     for j in range(0,10):
         if secS[j] in sL[i]:
             sL[i] = sL[i].replace(secS[j],secL[j])
@@ -126,7 +129,7 @@ for i in range(0,7): # Find all sectorX instances and replace them with their ac
 Res = np.zeros((nos*noi,46+7)) # main result array 46 years, one blank column, and 6 columns for cumulative results
 
 for S in range(0,nos): # iterate over all selected scenarios
-    for s in range(0,3): # iterate over all sectors 
+    for s in range(0,10): # iterate over all sectors 
         rf = secs[s][S]# result folder
         if rf is not None: # if a folder is given, extract all indicators and write to corresponding position in result array:
             print('Reading data from ' + rf)
@@ -145,10 +148,10 @@ for S in range(0,nos): # iterate over all selected scenarios
 # Determine cumulative quantities:
 Res[:,47] = Res[:,5:36].sum(axis=1) # Cum. 2020-2050
 Res[:,48] = Res[:,5:46].sum(axis=1) # Cum. 2020-2060
-Res[:,49] = Res[:,5:16].sum(axis=1) # Cum. 2020-2030
-Res[:,50] = Res[:,15:26].sum(axis=1) # Cum. 2030-2040
-Res[:,51] = Res[:,25:36].sum(axis=1) # Cum. 2040-2050
-Res[:,52] = Res[:,35:46].sum(axis=1) # Cum. 2050-2060
+Res[:,49] = Res[:,5:15].sum(axis=1) # Cum. 2020-2029
+Res[:,50] = Res[:,15:25].sum(axis=1) # Cum. 2030-2039
+Res[:,51] = Res[:,25:35].sum(axis=1) # Cum. 2040-2049
+Res[:,52] = Res[:,35:45].sum(axis=1) # Cum. 2050-2059
 
 # Export results to xlsx
 # Define column labels
@@ -160,12 +163,13 @@ rs.cell(row=1, column=5).value = 'Sectors'
 rs.cell(row=1, column=6).value = 'Unit'
 for t in range(0,46):
     rs.cell(row=1, column=7+t).value = 2015 + t
-rs.cell(row=1, column=47+7).value = 'Cum. 2020-2050'
-rs.cell(row=1, column=48+7).value = 'Cum. 2020-2060'
-rs.cell(row=1, column=49+7).value = 'Cum. 2020-2030'
-rs.cell(row=1, column=50+7).value = 'Cum. 2030-2040'
-rs.cell(row=1, column=51+7).value = 'Cum. 2040-2050'
-rs.cell(row=1, column=52+7).value = 'Cum. 2050-2060'
+rs.cell(row=1, column=46+7).value = 'No data'
+rs.cell(row=1, column=47+7).value = 'Cum. 2020-2050 (incl.)'
+rs.cell(row=1, column=48+7).value = 'Cum. 2020-2060 (incl.)'
+rs.cell(row=1, column=49+7).value = 'Cum. 2020-2029'
+rs.cell(row=1, column=50+7).value = 'Cum. 2030-2039'
+rs.cell(row=1, column=51+7).value = 'Cum. 2040-2040'
+rs.cell(row=1, column=52+7).value = 'Cum. 2050-2059'
 for t in range(1,60):
     rs.cell(row=1, column=t).font = openpyxl.styles.Font(bold=True)
 # fill labels
@@ -182,7 +186,7 @@ for m in range(0,nos*noi):
         rs.cell(row=2+m, column=7+n).value = Res[m,n]
 
 # Save exported results
-RB.save(os.path.join(RECC_Paths.export_path,outpath,'Results_RECCv2.5_CRAFT_Coupling.xlsx')) 
+RB.save(os.path.join(RECC_Paths.export_path,outpath,'Results_Extracted_RECCv2.5.xlsx')) 
                  
 #
 #
