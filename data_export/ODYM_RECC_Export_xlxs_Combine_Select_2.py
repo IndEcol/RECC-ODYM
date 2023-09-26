@@ -21,6 +21,7 @@ import openpyxl
 import numpy as np
 import uuid
 import RECC_Paths # Import path file
+import copy
 
 def get_RECC_resfile_pos(Label,region,Resultsheet):
     # Find the index for the given Label
@@ -212,6 +213,26 @@ for m in range(0,nor*nos*noi):
 for m in range(0,nor*nos*noi):
     for n in range(0,46+7):
         rs.cell(row=2+m, column=7+n).value = Res[m,n]
+        
+# Special: All regions to global aggregate, if region is outer index and all regions add up
+region_no = nos*noi
+Res_r = Res.reshape((nor,nos*noi,46+7)) # reshape to region as separate dimension
+Res_r_agg = Res_r.sum(axis=0) # sum over regions
+start_ind = copy.deepcopy(m)
+# fill labels
+for m in range(start_ind,start_ind+nos*noi):
+     i = (m-start_ind) // nos
+     s = (m-start_ind) %  nos
+     rs.cell(row=m+2, column=1).value = Model_id 
+     rs.cell(row=m+2, column=2).value = 'Global'
+     rs.cell(row=m+2, column=3).value = ti[i]
+     rs.cell(row=m+2, column=4).value = scen[s]
+     rs.cell(row=m+2, column=5).value = sl[i]
+     rs.cell(row=m+2, column=6).value = tu[i]
+# fill data    
+for m in range(start_ind,start_ind+nos*noi):
+    for n in range(0,46+7):
+        rs.cell(row=2+m, column=7+n).value = Res_r_agg[m-start_ind,n]        
 
 # Save exported results
 RB.save(os.path.join(RECC_Paths.export_path,outpath,'Results_Extracted_RECCv2.5_' + fn_add + '.xlsx')) 
