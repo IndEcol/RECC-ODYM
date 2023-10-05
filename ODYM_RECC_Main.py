@@ -2303,7 +2303,7 @@ def main():
                 # Second, calculate carbon in industrial roundwood for structural timber in buildings by region, in Mt of C,
                 # as well as waste flows (trimmings, wood shavings) to be send to the waste management industries:
                 if Par_Carbon_Timber_ByRegion_Rel.sum() > 0:
-                    SysVar_RoundwoodConstruc_c_1_2_r[t,:,mS,mR]     = np.einsum('r,r,r->r', 1 / ParameterDict['3_SHA_TimberRoundWood'].Values[:,t,mS], Par_Carbon_Timber_ByRegion_Rel, np.einsum(',r->r',RECC_System.FlowDict['F_3_4'].Values[t,Wood_loc,Carbon_loc],np.ones(Nr)))
+                    SysVar_RoundwoodConstruc_c_1_2_r[t,:,mS,mR]     = np.einsum('r,r,r->r', 1 / ParameterDict['4_PY_TimberRoundWood'].Values[:,t,mS], Par_Carbon_Timber_ByRegion_Rel, np.einsum(',r->r',RECC_System.FlowDict['F_3_4'].Values[t,Wood_loc,Carbon_loc],np.ones(Nr)))
                 RECC_System.FlowDict['F_1_2'].Values[t,:,Carbon_loc] = SysVar_RoundwoodConstruc_c_1_2_r[t,:,mS,mR]
                 RECC_System.FlowDict['F_2_3'].Values[t,Wood_loc,Carbon_loc] = SysVar_RoundwoodConstruc_c_1_2_r[t,:,mS,mR].sum()
                 RECC_System.FlowDict['F_3_10'].Values[t,:,Woodwaste_loc,Carbon_loc] = Par_Carbon_Timber_ByRegion_Rel * (RECC_System.FlowDict['F_2_3'].Values[t,Wood_loc,Carbon_loc] - RECC_System.FlowDict['F_3_4'].Values[t,Wood_loc,Carbon_loc])
