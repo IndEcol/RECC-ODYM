@@ -9,17 +9,22 @@ loads a number of results and then compiles them into an excel workbook/csv
 file for checking and plotting.
 
 Works together with control workbook
-RECCv2.5_EXPORT_Combine_Select_2.xlxs
+RECCv2.5_EXPORT_Combine_Select_3.xlxs
 
 This script takes results from different single (or few region) model runs to 
 compile single-region results or aggregate into smaller world regions (like Europe or Asia).
 
 export time series and cumulative results to separate sheets, better for subsequent analysis with pandas/pyplot etc.
 
+Aggregate different indicators into a single one, like different building types
+
+Extract single-region indicators from aggregate region model runs
 """
+
 # Import required libraries:
 import os
 import openpyxl
+
 import numpy as np
 import uuid
 import RECC_Paths # Import path file
@@ -38,16 +43,16 @@ def get_RECC_resfile_pos(Label,region,Resultsheet):
 Current_UUID = str(uuid.uuid4())
 
 # Read from default location:
-CP            = os.path.join(RECC_Paths.results_path,'RECCv2.5_EXPORT_Combine_Select_2.xlsx')    
+CP            = os.path.join(RECC_Paths.results_path,'RECCv2.5_EXPORT_Combine_Select.xlsx')    
 CF            = openpyxl.load_workbook(CP)
 CS            = CF['Cover'].cell(4,4).value
     
 # Definitions/Specifications
-Model_id      = CF[CS].cell(1,2).value
-Model_date    = CF[CS].cell(1,4).value
-outpath       = CF[CS].cell(1,6).value
-fn_add        = CF[CS].cell(1,8).value
-glob_agg      = CF[CS].cell(1,10).value
+Model_id      = CF['Cover'].cell(6,4).value
+Model_date    = CF['Cover'].cell(7,4).value
+outpath       = CF[CS].cell(1,2).value
+fn_add        = CF[CS].cell(1,4).value
+glob_agg      = CF[CS].cell(1,6).value
 
 # Prepare result workbook
 RB = openpyxl.Workbook() # Export other model results, calibration values, flags, etc.
@@ -86,8 +91,8 @@ while True:
 r += 1    
 
 # Read indicator list:
-ti = []    # target indicator
-ri = []    # RECC indicator
+tif= []    # target indicator full list
+ri = []    # RECC indicator list
 tu = []    # target unit
 ru = []    # RECC unit
 cf = []    # Conv. factor
@@ -97,7 +102,7 @@ rr = []    # RECC regional resolution
 while True:
     if CF[CS].cell(r,2).value is None:
         break
-    ti.append(CF[CS].cell(r,2).value)
+    tif.append(CF[CS].cell(r,2).value)
     ri.append(CF[CS].cell(r,3).value)
     tu.append(CF[CS].cell(r,4).value)
     ru.append(CF[CS].cell(r,5).value)
@@ -107,7 +112,12 @@ while True:
     r += 1
 
 nos = len(scen) # number of scenarios
+ti  = list(set(tif)) # only unique indicators
 noi = len(ti)   # number of indicators
+noif= len(tif) # number of source indicators
+
+# sort target units into same order as target indicators
+tu = [tu[tif.index(z)] for z in ti]
 
 # split sector labels at '+' for different sectors
 sL = [i.split('+') for i in sl]
@@ -158,22 +168,36 @@ for rf in Folders:
         sector = parts[3]
         # look for where to put data from this result folder:
         for s in range(0,nos): # iterate over all selected scenarios
-            for i in range(0,noi): # for all indicators
+            for j in range(0,noif): # for all source indicators
+                i = ti.index(tif[j]) # target position of indicator
                 print('Reading data for ' + ti[i])
                 for r in range(0,nor): # for all regions
                     if region == Ar[r] or region in Dr[r]: # the current result file region is or is part of the current target region
                         targetpos = r*nos*noi + i * nos + s # position in Res array: outer index: region, middle index: indicator, inner index: scenario
                         if sector in sL[i]: # if current sector is part of target sector for indicator
                             if rf in secs[s]: # if current folder is in list for currect scenario --> extract results!
-                                if rr[i] == 'Aggregate': # use indicator for aggregate region label and add to results:
-                                    idx = get_RECC_resfile_pos(ri[i],region,RECC_RS) # position of that indicator for that region in the RECC result file
+                                if rr[j] == 'Aggregate': # use indicator for aggregate region label and add to results:
+                                    try:
+                                        idx = get_RECC_resfile_pos(ri[j],region,RECC_RS) # position of that indicator for that region in the RECC result file
+                                    except: # no such indicator for this region
+                                        break
                                     for t in range(0,46): # read and add values
-                                        Res[targetpos,t] += RECC_RS.cell(idx+offs[s],t+8).value * cf[i] # Value from Excel to array
-                                if rr[i] == 'Aggregate_from_Single': # use indicator for aggregate region label and add to results:
+                                        Res[targetpos,t] += RECC_RS.cell(idx+offs[s],t+8).value * cf[j] # Value from Excel to array
+                                if rr[j] == 'Aggregate_from_Single': # use indicator for aggregate region label and add to results:
                                     for sir in range(0,len(Dr[r])):
-                                        idx = get_RECC_resfile_pos(ri[i],Dr[r][sir],RECC_RS) # position of that indicator for that region in the RECC result file
+                                        try:
+                                            idx = get_RECC_resfile_pos(ri[j],Dr[r][sir],RECC_RS) # position of that indicator for that region in the RECC result file
+                                        except: # no such indicator for this region
+                                            break
                                         for t in range(0,46): # read and add values
-                                            Res[targetpos,t] += RECC_RS.cell(idx+offs[s],t+8).value * cf[i] # Value from Excel to array
+                                            Res[targetpos,t] += RECC_RS.cell(idx+offs[s],t+8).value * cf[j] # Value from Excel to array
+                                if rr[j] == 'Extract from aggregate':
+                                    try:
+                                        idx = get_RECC_resfile_pos(ri[j],Ar[r],RECC_RS) # position of that indicator for that region in the RECC result file
+                                    except: # no such indicator for this region
+                                        break
+                                    for t in range(0,46): # read and add values
+                                        Res[targetpos,t] += RECC_RS.cell(idx+offs[s],t+8).value * cf[j] # Value from Excel to array                                    
         
 # Determine cumulative quantities:
 ResC[:,0] = Res[:,5:36].sum(axis=1) # Cum. 2020-2050
