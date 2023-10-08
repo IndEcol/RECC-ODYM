@@ -79,7 +79,7 @@ while True:
         scen.append(CF[CS].cell(r,2).value)
         offs.append(CF[CS].cell(r,5).value)
         secs.append([])
-        for sl in range(0,20):
+        for sl in range(0,100):
             secs[-1].append(CF[CS].cell(r,6+sl).value)
     r += 1
     
@@ -259,7 +259,7 @@ if glob_agg    == 'True':
     Res_rC     = ResC.reshape((nor,nos*noi,6)) # reshape to region as separate dimension
     Res_rC_agg = Res_rC.sum(axis=0) # sum over regions
 
-    start_ind = copy.deepcopy(m)
+    start_ind = copy.deepcopy(m)+1
     # fill labels
     for m in range(start_ind,start_ind+nos*noi):
          i = (m-start_ind) // nos

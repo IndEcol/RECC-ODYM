@@ -31,7 +31,7 @@ ScenarioSetting = 'Buildings_Global_Config_list'
 # open scenario sheet
 ModelConfigListFile  = openpyxl.load_workbook(os.path.join(RECC_Paths.data_path,'RECC_ModelConfig_List.xlsx'))
 ModelConfigListSheet = ModelConfigListFile[ScenarioSetting]
-SheetName = 'Config_Auto'
+SheetName = 'Single_EU_Country'
 #Read control lines and execute main model script
 ResultFolders = []
 Row = 3
@@ -51,32 +51,32 @@ while ModelConfigListSheet.cell(Row+1, 3).value != None:
     sheet = mywb.get_sheet_by_name(SheetName)
     sheet['D7']   = RegionalScope
     sheet['G21']  = Config['RegionSelect']
-    sheet['G27']  = Config['Products'] # manufacturing sectors have the same indices as the products.
-    sheet['G28']  = Config['Sectors']
-    sheet['G29']  = Config['Products']
-    sheet['G33']  = Config['NonresidentialBuildings']
-    sheet['G48']  = Config['Regions32goods']
+    sheet['G28']  = Config['Products'] # manufacturing sectors have the same indices as the products.
+    sheet['G29']  = Config['Sectors']
+    sheet['G30']  = Config['Products']
+    sheet['G34']  = Config['NonresidentialBuildings']
+    sheet['G49']  = Config['Regions32goods']
     # The indices below need to be updated when new parameters are added to the parameter list
-    sheet['D201'] = Config['Logging_Verbosity']
-    sheet['D202'] = Config['Include_REStrategy_FabYieldImprovement']
-    sheet['D203'] = Config['Include_REStrategy_FabScrapDiversion']
-    sheet['D204'] = Config['Include_REStrategy_EoL_RR_Improvement']
-    sheet['D205'] = Config['ScrapExport']
-    sheet['D206'] = Config['ScrapExportRecyclingCredit']
-    sheet['D207'] = Config['IncludeRecycling']
-    sheet['D208'] = Config['Include_REStrategy_MaterialSubstitution']
-    sheet['D209'] = Config['Include_REStrategy_UsingLessMaterialByDesign']
-    sheet['D210'] = Config['Include_REStrategy_ReUse']
-    sheet['D211'] = Config['Include_REStrategy_LifeTimeExtension']
-    sheet['D212'] = Config['Include_REStrategy_MoreIntenseUse']
-    sheet['D213'] = Config['Include_REStrategy_CarSharing']
-    sheet['D214'] = Config['Include_REStrategy_RideSharing']
-    sheet['D215'] = Config['Include_REStrategy_ModalSplit']
-    sheet['D216'] = Config['SectorSelect']
-    sheet['D217'] = Config['Include_Renovation_reb']
-    sheet['D218'] = Config['Include_Renovation_nrb']
-    sheet['D219'] = Config['No_EE_Improvements']
-    sheet['D238'] = Config['PlotResolution']
+    sheet['D203'] = Config['Logging_Verbosity']
+    sheet['D204'] = Config['Include_REStrategy_FabYieldImprovement']
+    sheet['D205'] = Config['Include_REStrategy_FabScrapDiversion']
+    sheet['D206'] = Config['Include_REStrategy_EoL_RR_Improvement']
+    sheet['D207'] = Config['ScrapExport']
+    sheet['D208'] = Config['ScrapExportRecyclingCredit']
+    sheet['D209'] = Config['IncludeRecycling']
+    sheet['D210'] = Config['Include_REStrategy_MaterialSubstitution']
+    sheet['D211'] = Config['Include_REStrategy_UsingLessMaterialByDesign']
+    sheet['D212'] = Config['Include_REStrategy_ReUse']
+    sheet['D213'] = Config['Include_REStrategy_LifeTimeExtension']
+    sheet['D214'] = Config['Include_REStrategy_MoreIntenseUse']
+    sheet['D215'] = Config['Include_REStrategy_CarSharing']
+    sheet['D216'] = Config['Include_REStrategy_RideSharing']
+    sheet['D217'] = Config['Include_REStrategy_ModalSplit']
+    sheet['D218'] = Config['SectorSelect']
+    sheet['D219'] = Config['Include_Renovation_reb']
+    sheet['D220'] = Config['Include_Renovation_nrb']
+    sheet['D221'] = Config['No_EE_Improvements']
+    sheet['D240'] = Config['PlotResolution']
     
     mywb.save(os.path.join(RECC_Paths.data_path,'RECC_Config.xlsx'))
 

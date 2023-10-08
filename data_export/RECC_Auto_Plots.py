@@ -14,11 +14,11 @@ import numpy as np
 import RECC_Paths # Import path file
 
 
-CP            = os.path.join(RECC_Paths.results_path,'RECCv2.5_EXPORT_Combine_Select_2.xlsx')   
+CP            = os.path.join(RECC_Paths.results_path,'RECCv2.5_EXPORT_Combine_Select.xlsx')   
 CF            = openpyxl.load_workbook(CP)
 CS            = CF['Cover'].cell(4,4).value
-outpath       = CF[CS].cell(1,6).value
-fn_add        = CF[CS].cell(1,8).value
+outpath       = CF[CS].cell(1,2).value
+fn_add        = CF[CS].cell(1,4).value
 
 r = 1
 # Move to parameter list:

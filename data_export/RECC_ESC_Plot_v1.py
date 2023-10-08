@@ -24,19 +24,15 @@ def get_RECC_resfile_pos(Label,region,Resultsheet):
         idx += 1 
     return idx
 
-
-CP            = os.path.join(RECC_Paths.results_path,'RECCv2.5_EXPORT_Combine_Select_2.xlsx')   
+# Definitions/Specifications
+CP            = os.path.join(RECC_Paths.results_path,'RECCv2.5_EXPORT_Combine_Select.xlsx')   
 CF            = openpyxl.load_workbook(CP)
 CS            = CF['Cover'].cell(4,4).value
-outpath       = CF[CS].cell(1,6).value
-fn_add        = CF[CS].cell(1,8).value
-
-# Definitions/Specifications
-Model_id      = CF[CS].cell(1,2).value
-Model_date    = CF[CS].cell(1,4).value
-outpath       = CF[CS].cell(1,6).value
-fn_add        = CF[CS].cell(1,8).value
-glob_agg      = CF[CS].cell(1,10).value
+Model_id      = CF['Cover'].cell(6,4).value
+Model_date    = CF['Cover'].cell(7,4).value
+outpath       = CF[CS].cell(1,2).value
+fn_add        = CF[CS].cell(1,4).value
+glob_agg      = CF[CS].cell(1,6).value
 
 # Read specs and variable matchings
 scen = [] # list of target scenarios
@@ -64,7 +60,7 @@ while True:
 r += 1    
 
 # Read indicator list:
-ti = []    # target indicator
+tif= []    # target indicator
 ri = []    # RECC indicator
 tu = []    # target unit
 ru = []    # RECC unit
@@ -75,7 +71,7 @@ rr = []    # RECC regional resolution
 while True:
     if CF[CS].cell(r,2).value is None:
         break
-    ti.append(CF[CS].cell(r,2).value)
+    tif.append(CF[CS].cell(r,2).value)
     ri.append(CF[CS].cell(r,3).value)
     tu.append(CF[CS].cell(r,4).value)
     ru.append(CF[CS].cell(r,5).value)
@@ -85,7 +81,9 @@ while True:
     r += 1
 
 nos = len(scen) # number of scenarios
+ti  = list(set(tif)) # only unique indicators
 noi = len(ti)   # number of indicators
+noif= len(tif) # number of source indicators
 
 # split sector labels at '+' for different sectors
 sL = [i.split('+') for i in sl]
@@ -136,23 +134,37 @@ for rf in Folders:
         sector = parts[3]
         # look for where to put data from this result folder:
         for s in range(0,nos): # iterate over all selected scenarios
-            for i in range(0,noi): # for all indicators
+            for j in range(0,noif): # for all source indicators
+                i = ti.index(tif[j]) # target position of indicator
                 print('Reading data for ' + ti[i])
                 for r in range(0,nor): # for all regions
                     if region == Ar[r] or region in Dr[r]: # the current result file region is or is part of the current target region
                         targetpos = r*nos*noi + i * nos + s # position in Res array: outer index: region, middle index: indicator, inner index: scenario
                         if sector in sL[i]: # if current sector is part of target sector for indicator
                             if rf in secs[s]: # if current folder is in list for currect scenario --> extract results!
-                                if rr[i] == 'Aggregate': # use indicator for aggregate region label and add to results:
-                                    idx = get_RECC_resfile_pos(ri[i],region,RECC_RS) # position of that indicator for that region in the RECC result file
+                                if rr[j] == 'Aggregate': # use indicator for aggregate region label and add to results:
+                                    try:
+                                        idx = get_RECC_resfile_pos(ri[j],region,RECC_RS) # position of that indicator for that region in the RECC result file
+                                    except: # no such indicator for this region
+                                        break
                                     for t in range(0,46): # read and add values
-                                        Res[targetpos,t] += RECC_RS.cell(idx+offs[s],t+8).value * cf[i] # Value from Excel to array
-                                if rr[i] == 'Aggregate_from_Single': # use indicator for aggregate region label and add to results:
+                                        Res[targetpos,t] += RECC_RS.cell(idx+offs[s],t+8).value * cf[j] # Value from Excel to array
+                                if rr[j] == 'Aggregate_from_Single': # use indicator for aggregate region label and add to results:
                                     for sir in range(0,len(Dr[r])):
-                                        idx = get_RECC_resfile_pos(ri[i],Dr[r][sir],RECC_RS) # position of that indicator for that region in the RECC result file
+                                        try:
+                                            idx = get_RECC_resfile_pos(ri[j],Dr[r][sir],RECC_RS) # position of that indicator for that region in the RECC result file
+                                        except: # no such indicator for this region
+                                            break
                                         for t in range(0,46): # read and add values
-                                            Res[targetpos,t] += RECC_RS.cell(idx+offs[s],t+8).value * cf[i] # Value from Excel to array
-
+                                            Res[targetpos,t] += RECC_RS.cell(idx+offs[s],t+8).value * cf[j] # Value from Excel to array
+                                if rr[j] == 'Extract from aggregate':
+                                    try:
+                                        idx = get_RECC_resfile_pos(ri[j],Ar[r],RECC_RS) # position of that indicator for that region in the RECC result file
+                                    except: # no such indicator for this region
+                                        break
+                                    for t in range(0,46): # read and add values
+                                        Res[targetpos,t] += RECC_RS.cell(idx+offs[s],t+8).value * cf[j] # Value from Excel to array                                    
+        
 # Special: All regions to global aggregate, if region is outer index and all regions add up
 if glob_agg    == 'True':
     region_no  = nos*noi
@@ -199,31 +211,66 @@ for c in range(0,len(ctitles)):
         # Define data container
         esc_data = np.zeros((6,46,nocs)) # 6 decoupling indices, 46 years, nocs scenarios
         
+        # Decoupling 1: Lower stock levels
         # Decoupling 2: Operational energy per stock:
         edx  = ti.index('Energy cons., use phase, res+non-res buildings')
         rebx = ti.index('In-use stock, res. buildings')
         nrbx = ti.index('In-use stock, nonres. buildings')
-        for sc in range(0,nocs):
-            targetpos_edx  = rind*nos*noi + edx  * nos + scen.index(cscens[c].split(';')[sc]) # position in Res array: outer index: region, middle index: indicator, inner index: scenario
-            targetpos_rebx = rind*nos*noi + rebx * nos + scen.index(cscens[c].split(';')[sc])
-            targetpos_nrbx = rind*nos*noi + nrbx * nos + scen.index(cscens[c].split(';')[sc])
-            esc_data[1,:,sc] = Res[targetpos_edx,:] / (Res[targetpos_rebx,:] + Res[targetpos_nrbx,:])           
-
+        matm = ti.index('Final consumption of materials')
+        
+        if cscens[c] == 'All':
+            cscenss = scen
+        else:
+            cscenss = cscens[c].split(';')
+            
+        if rind == -1:
+            for sc in range(0,nocs):
+                targetpos_edx  = edx  * nos + scen.index(cscenss[sc]) # position in Res array: outer index: region, middle index: indicator, inner index: scenario
+                targetpos_rebx = rebx * nos + scen.index(cscenss[sc])
+                targetpos_nrbx = nrbx * nos + scen.index(cscenss[sc])
+                targetpos_matm = matm * nos + scen.index(cscenss[sc])
+                esc_data[0,:,sc] = Res_r_agg[targetpos_rebx,:] + Res_r_agg[targetpos_nrbx,:]
+                esc_data[1,:,sc] = Res_r_agg[targetpos_edx,:] / (Res_r_agg[targetpos_rebx,:] + Res_r_agg[targetpos_nrbx,:])   
+                esc_data[2,:,sc] = Res_r_agg[targetpos_matm,:] / (Res_r_agg[targetpos_rebx,:] + Res_r_agg[targetpos_nrbx,:])  
+        else:
+            for sc in range(0,nocs):
+                targetpos_edx  = rind*nos*noi + edx  * nos + scen.index(cscenss[sc]) # position in Res array: outer index: region, middle index: indicator, inner index: scenario
+                targetpos_rebx = rind*nos*noi + rebx * nos + scen.index(cscenss[sc])
+                targetpos_nrbx = rind*nos*noi + nrbx * nos + scen.index(cscenss[sc])
+                targetpos_matm = rind*nos*noi + matm * nos + scen.index(cscenss[sc])
+                esc_data[0,:,sc] = Res[targetpos_rebx,:] + Res[targetpos_nrbx,:]
+                esc_data[1,:,sc] = Res[targetpos_edx,:] / (Res[targetpos_rebx,:] + Res[targetpos_nrbx,:])    
+                esc_data[2,:,sc] = Res[targetpos_matm,:] / (Res[targetpos_rebx,:] + Res[targetpos_nrbx,:])    
+        # normalize esc data so that all time series are in relation to SSP2 (maximum):
+        for mm in range(0,46):
+            esc_data[0,mm,:] = esc_data[0,mm,:] / esc_data[0,mm,:].max()
 
         # normalize the esc_data
-        esc_data_Divisor = np.einsum('cs,t->cts',esc_data[:,0,:],np.ones(46))
+        esc_data[:,0,:] = 0 # start year is 2016, 2015 data are not considered.
+        esc_data_Divisor = np.einsum('cs,t->cts',esc_data[:,1,:],np.ones(46))
         esc_data_n = np.divide(esc_data, esc_data_Divisor, out=np.zeros_like(esc_data_Divisor), where=esc_data_Divisor!=0)
         
-        fig, axs = plt.subplots(nrows=1, ncols=6 , figsize=(21, 3))
-        fig.suptitle('Energy service cascade.',fontsize=18)
-        
+        # Plot results
+        fig, axs = plt.subplots(nrows=1, ncols=6 , figsize=(21, 3))        
+        fig.suptitle('Energy service cascade, ' + cregs[c],fontsize=18)
         ProxyHandlesList = []   # For legend 
         
-        axs[4].plot(np.arange(2016,2061), esc_data_n[1,1::,:], linewidth = 1.3)
+        axs[0].plot(np.arange(2016,2061), esc_data_n[0,1::,:], linewidth = 1.3)
+        plta = Line2D(np.arange(2016,2061), esc_data_n[0,1::,:], linewidth = 1.3)
+        ProxyHandlesList.append(plta) # create proxy artist for legend    
+        axs[0].set_title('Stock per service')
+        
+        axs[1].plot(np.arange(2016,2061), esc_data_n[1,1::,:], linewidth = 1.3)
         plta = Line2D(np.arange(2016,2061), esc_data_n[1,1::,:], linewidth = 1.3)
         ProxyHandlesList.append(plta) # create proxy artist for legend    
+        axs[1].set_title('Operational energy per stock')
         
-        Labels = cscens[c].split(';')
+        axs[2].plot(np.arange(2016,2061), esc_data_n[2,1::,:], linewidth = 1.3)
+        plta = Line2D(np.arange(2016,2061), esc_data_n[2,1::,:], linewidth = 1.3)
+        ProxyHandlesList.append(plta) # create proxy artist for legend    
+        axs[2].set_title('Build-up material per stock')
+        
+        Labels = cscenss
         
         fig.legend(Labels, shadow = False, prop={'size':14},ncol=1, loc = 'upper center',bbox_to_anchor=(0.5, -0.02)) 
         plt.tight_layout()
@@ -231,25 +278,12 @@ for c in range(0,len(ctitles)):
         title = ctitles[c]
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title + '.png'), dpi=150, bbox_inches='tight')
 
-# for m in range(0,len(ptitles)):
-#     if ptypes[m] == 'line_fixedIndicator_fixedRegion_varScenario':
-#     # Plot single indicator for one region and all scenarios
-#         selectI = [pinds[m]]
-#         selectR = [pregs[m]]
-#         if pscens[m] == 'All':
-#             pst       = ps[ps['Indicator'].isin(selectI) & ps['Region'].isin(selectR)].T # Select the specified data and transpose them for plotting
-#             title_add = '_all_scenarios'
-#         else:
-#             selectS = pscens[m].split(';')
-#             pst     = ps[ps['Indicator'].isin(selectI) & ps['Region'].isin(selectR) & ps['Scenario'].isin(selectS)].T # Select the specified data and transpose them for plotting
-#             title_add = '_select_scenarios_' + str(len(selectS))
-#         pst.columns = pst.iloc[2] # Set scenario column (with unique labels) as column names
-#         unit    = pst.iloc[4][1] 
-#         pst.drop(['Region','Indicator','Scenario','Sectors','Unit'], inplace=True) # Delete labels that are not needed
-#         pst.plot(kind = 'line', figsize=(10,5), ) # plot data, configure plot, and save results
-#         plt.xlabel('Year')
-#         plt.ylabel(unit)
-#         title = ptitles[m] + '_' + selectR[0] + title_add
-#         plt.title(title)
-#         plt.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title + '.png'), dpi=150, bbox_inches='tight')
 
+
+#
+#
+#
+# The end.
+#
+#
+#
