@@ -3,11 +3,19 @@
 Created on Thu Sep 28 13:54:19 2023
 
 @author: spauliuk
+
+This script takes a number of RECC scenarios (as defined in list), 
+loads a number of results and then compiles selected results 
+into different visualisations of the energy service cascade.
+
+Works together with control workbook
+RECCv2.5_EXPORT_Combine_Select.xlxs
+
+Documentation and how to in RECCv2.5_EXPORT_Combine_Select.xlxs
 """
+
 import os
-import plotnine
 import openpyxl
-from plotnine import *
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
@@ -118,7 +126,6 @@ nor = len(Ar)
 
 # iterate over scenarios, parse results:
 Res  = np.zeros((nor*nos*noi,46)) # main result array 46 years
-ResC = np.zeros((nor*nos*noi,6))  # main results, 6 columns for cumulative results
 
 Folders = list(set([item for sublist in secs for item in sublist]))
 
@@ -170,8 +177,6 @@ if glob_agg    == 'True':
     region_no  = nos*noi
     Res_r      = Res.reshape((nor,nos*noi,46)) # reshape to region as separate dimension
     Res_r_agg  = Res_r.sum(axis=0) # sum over regions
-    Res_rC     = ResC.reshape((nor,nos*noi,6)) # reshape to region as separate dimension
-    Res_rC_agg = Res_rC.sum(axis=0) # sum over regions
 
 r = 1
 # Move to parameter list:

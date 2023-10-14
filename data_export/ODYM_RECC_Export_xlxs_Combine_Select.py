@@ -9,16 +9,18 @@ loads a number of results and then compiles them into an excel workbook/csv
 file for checking and plotting.
 
 Works together with control workbook
-RECCv2.5_EXPORT_Combine_Select_3.xlxs
+RECCv2.5_EXPORT_Combine_Select.xlxs
 
 This script takes results from different single (or few region) model runs to 
 compile single-region results or aggregate into smaller world regions (like Europe or Asia).
 
-export time series and cumulative results to separate sheets, better for subsequent analysis with pandas/pyplot etc.
+Export time series and cumulative results to separate sheets, better for subsequent analysis with pandas/pyplot etc.
 
 Aggregate different indicators into a single one, like different building types
 
 Extract single-region indicators from aggregate region model runs
+
+Documentation and how to in RECCv2.5_EXPORT_Combine_Select.xlxs
 """
 
 # Import required libraries:
@@ -94,6 +96,7 @@ r += 1
 tif= []    # target indicator full list
 ri = []    # RECC indicator list
 tu = []    # target unit
+tuc= []    # target unit cumulative
 ru = []    # RECC unit
 cf = []    # Conv. factor
 sl = []    # sector list
@@ -105,6 +108,7 @@ while True:
     tif.append(CF[CS].cell(r,2).value)
     ri.append(CF[CS].cell(r,3).value)
     tu.append(CF[CS].cell(r,4).value)
+    tuc.append(CF[CS].cell(r,9).value)
     ru.append(CF[CS].cell(r,5).value)
     cf.append(CF[CS].cell(r,6).value)
     sl.append(CF[CS].cell(r,7).value)
@@ -117,7 +121,8 @@ noi = len(ti)   # number of indicators
 noif= len(tif) # number of source indicators
 
 # sort target units into same order as target indicators
-tu = [tu[tif.index(z)] for z in ti]
+tu  = [tu[tif.index(z)]  for z in ti]
+tuc = [tuc[tif.index(z)] for z in ti]
 
 # split sector labels at '+' for different sectors
 sL = [i.split('+') for i in sl]
@@ -242,7 +247,8 @@ for m in range(0,nor*nos*noi):
          rs.cell(row=m+2, column=3).value = ti[i]
          rs.cell(row=m+2, column=4).value = scen[s]
          rs.cell(row=m+2, column=5).value = sl[i]
-         rs.cell(row=m+2, column=6).value = tu[i]
+     resS.cell(row=m+2, column=6).value   = tu[i]
+     rsCS.cell(row=m+2, column=6).value   = tuc[i]
 # fill data    
 for m in range(0,nor*nos*noi):
     for n in range(0,46):
@@ -270,7 +276,8 @@ if glob_agg    == 'True':
              rs.cell(row=m+2, column=3).value = ti[i]
              rs.cell(row=m+2, column=4).value = scen[s]
              rs.cell(row=m+2, column=5).value = sl[i]
-             rs.cell(row=m+2, column=6).value = tu[i]
+         resS.cell(row=m+2, column=6).value   = tu[i]
+         rsCS.cell(row=m+2, column=6).value   = tuc[i]
     # fill data    
     for m in range(start_ind,start_ind+nos*noi):
         for n in range(0,46):
