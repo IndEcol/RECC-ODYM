@@ -212,12 +212,23 @@ for c in range(0,len(ctitles)):
         esc_data = np.zeros((6,46,nocs)) # 6 decoupling indices, 46 years, nocs scenarios
         
         # Decoupling 1: Lower stock levels
-        # Decoupling 2: Operational energy per stock:
+        # Decoupling 2: Operational energy per stock, etc.
         edx  = ti.index('Energy cons., use phase, res+non-res buildings')
         rebx = ti.index('In-use stock, res. buildings')
         nrbx = ti.index('In-use stock, nonres. buildings')
         matm = ti.index('Final consumption of materials')
-        
+        rec1 = ti.index('ReUse of materials in products, construction grade steel')
+        rec2 = ti.index('ReUse of materials in products, concrete')
+        rec3 = ti.index('ReUse of materials in products, wood and wood products')
+        rec4 = ti.index('Secondary construction steel')
+        ghg1 = ti.index('GHG emissions, res. buildings, use phase')
+        ghg2 = ti.index('GHG emissions, non-res. buildings, use phase')
+        ghg3 = ti.index('GHG emissions, res+non-res buildings, energy supply')
+        maf1 = ti.index('Material footprint, metal ores, system-wide')
+        maf2 = ti.index('Material footprint, non-metallic minerals, system-wide')
+        maf3 = ti.index('Material footprint, biomass (dry weight), system-wide')
+
+                
         if cscens[c] == 'All':
             cscenss = scen
         else:
@@ -229,18 +240,44 @@ for c in range(0,len(ctitles)):
                 targetpos_rebx = rebx * nos + scen.index(cscenss[sc])
                 targetpos_nrbx = nrbx * nos + scen.index(cscenss[sc])
                 targetpos_matm = matm * nos + scen.index(cscenss[sc])
+                targetpos_rec1 = rec1 * nos + scen.index(cscenss[sc])
+                targetpos_rec2 = rec2 * nos + scen.index(cscenss[sc])
+                targetpos_rec3 = rec3 * nos + scen.index(cscenss[sc])
+                targetpos_rec4 = rec4 * nos + scen.index(cscenss[sc])
+                targetpos_ghg1 = ghg1 * nos + scen.index(cscenss[sc])
+                targetpos_ghg2 = ghg1 * nos + scen.index(cscenss[sc])
+                targetpos_ghg3 = ghg1 * nos + scen.index(cscenss[sc])
+                targetpos_maf1 = maf1 * nos + scen.index(cscenss[sc])
+                targetpos_maf2 = maf2 * nos + scen.index(cscenss[sc])
+                targetpos_maf3 = maf3 * nos + scen.index(cscenss[sc])
                 esc_data[0,:,sc] = Res_r_agg[targetpos_rebx,:] + Res_r_agg[targetpos_nrbx,:]
                 esc_data[1,:,sc] = Res_r_agg[targetpos_edx,:] / (Res_r_agg[targetpos_rebx,:] + Res_r_agg[targetpos_nrbx,:])   
                 esc_data[2,:,sc] = Res_r_agg[targetpos_matm,:] / (Res_r_agg[targetpos_rebx,:] + Res_r_agg[targetpos_nrbx,:])  
+                esc_data[3,:,sc] = (Res_r_agg[targetpos_rec1,:] + Res_r_agg[targetpos_rec2,:] + Res_r_agg[targetpos_rec3,:] + Res_r_agg[targetpos_rec4,:]) / Res_r_agg[targetpos_matm,:]
+                esc_data[4,:,sc] = (Res_r_agg[targetpos_maf1,:] + Res_r_agg[targetpos_maf2,:] + Res_r_agg[targetpos_maf3,:]) / Res_r_agg[targetpos_matm,:]
+                esc_data[5,:,sc] = (Res_r_agg[targetpos_ghg1,:] + Res_r_agg[targetpos_ghg2,:] + Res_r_agg[targetpos_ghg3,:]) / Res_r_agg[targetpos_edx,:]
         else:
             for sc in range(0,nocs):
                 targetpos_edx  = rind*nos*noi + edx  * nos + scen.index(cscenss[sc]) # position in Res array: outer index: region, middle index: indicator, inner index: scenario
                 targetpos_rebx = rind*nos*noi + rebx * nos + scen.index(cscenss[sc])
                 targetpos_nrbx = rind*nos*noi + nrbx * nos + scen.index(cscenss[sc])
                 targetpos_matm = rind*nos*noi + matm * nos + scen.index(cscenss[sc])
+                targetpos_rec1 = rind*nos*noi + rec1 * nos + scen.index(cscenss[sc])
+                targetpos_rec2 = rind*nos*noi + rec2 * nos + scen.index(cscenss[sc])
+                targetpos_rec3 = rind*nos*noi + rec3 * nos + scen.index(cscenss[sc])
+                targetpos_rec4 = rind*nos*noi + rec4 * nos + scen.index(cscenss[sc])
+                targetpos_ghg1 = rind*nos*noi + ghg1 * nos + scen.index(cscenss[sc])
+                targetpos_ghg2 = rind*nos*noi + ghg2 * nos + scen.index(cscenss[sc])
+                targetpos_ghg3 = rind*nos*noi + ghg3 * nos + scen.index(cscenss[sc])
+                targetpos_maf1 = rind*nos*noi + maf1 * nos + scen.index(cscenss[sc])
+                targetpos_maf2 = rind*nos*noi + maf2 * nos + scen.index(cscenss[sc])
+                targetpos_maf3 = rind*nos*noi + maf3 * nos + scen.index(cscenss[sc])
                 esc_data[0,:,sc] = Res[targetpos_rebx,:] + Res[targetpos_nrbx,:]
                 esc_data[1,:,sc] = Res[targetpos_edx,:] / (Res[targetpos_rebx,:] + Res[targetpos_nrbx,:])    
                 esc_data[2,:,sc] = Res[targetpos_matm,:] / (Res[targetpos_rebx,:] + Res[targetpos_nrbx,:])    
+                esc_data[3,:,sc] = (Res[targetpos_rec1,:] + Res[targetpos_rec2,:] + Res[targetpos_rec3,:] + Res[targetpos_rec4,:]) / Res[targetpos_matm,:]
+                esc_data[4,:,sc] = (Res[targetpos_maf1,:] + Res[targetpos_maf2,:] + Res[targetpos_maf3,:]) / Res[targetpos_matm,:]
+                esc_data[5,:,sc] = (Res[targetpos_ghg1,:] + Res[targetpos_ghg2,:] + Res[targetpos_ghg3,:]) / Res[targetpos_edx,:]
         # normalize esc data so that all time series are in relation to SSP2 (maximum):
         for mm in range(0,46):
             esc_data[0,mm,:] = esc_data[0,mm,:] / esc_data[0,mm,:].max()
@@ -258,17 +295,32 @@ for c in range(0,len(ctitles)):
         axs[0].plot(np.arange(2016,2061), esc_data_n[0,1::,:], linewidth = 1.3)
         plta = Line2D(np.arange(2016,2061), esc_data_n[0,1::,:], linewidth = 1.3)
         ProxyHandlesList.append(plta) # create proxy artist for legend    
-        axs[0].set_title('Stock per service')
+        axs[0].set_title('(1) Stock per service')
         
         axs[1].plot(np.arange(2016,2061), esc_data_n[1,1::,:], linewidth = 1.3)
         plta = Line2D(np.arange(2016,2061), esc_data_n[1,1::,:], linewidth = 1.3)
         ProxyHandlesList.append(plta) # create proxy artist for legend    
-        axs[1].set_title('Operational energy per stock')
+        axs[1].set_title('(2) Operational energy per stock')
         
         axs[2].plot(np.arange(2016,2061), esc_data_n[2,1::,:], linewidth = 1.3)
         plta = Line2D(np.arange(2016,2061), esc_data_n[2,1::,:], linewidth = 1.3)
         ProxyHandlesList.append(plta) # create proxy artist for legend    
-        axs[2].set_title('Build-up material per stock')
+        axs[2].set_title('(3) Build-up material per stock')
+        
+        axs[3].plot(np.arange(2016,2061), esc_data_n[3,1::,:], linewidth = 1.3)
+        plta = Line2D(np.arange(2016,2061), esc_data_n[3,1::,:], linewidth = 1.3)
+        ProxyHandlesList.append(plta) # create proxy artist for legend    
+        axs[3].set_title('(4) Circlar material use rate')
+        
+        axs[4].plot(np.arange(2016,2061), esc_data_n[4,1::,:], linewidth = 1.3)
+        plta = Line2D(np.arange(2016,2061), esc_data_n[4,1::,:], linewidth = 1.3)
+        ProxyHandlesList.append(plta) # create proxy artist for legend    
+        axs[4].set_title('(5) material footprint per final consumption')        
+        
+        axs[5].plot(np.arange(2016,2061), esc_data_n[5,1::,:], linewidth = 1.3)
+        plta = Line2D(np.arange(2016,2061), esc_data_n[5,1::,:], linewidth = 1.3)
+        ProxyHandlesList.append(plta) # create proxy artist for legend    
+        axs[5].set_title('(6) GHG emissions per energy use')
         
         Labels = cscenss
         
