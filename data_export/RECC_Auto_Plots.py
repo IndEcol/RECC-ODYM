@@ -11,6 +11,8 @@ into different visualisations, like line plots and bar charts.
 Works together with control workbook
 RECCv2.5_EXPORT_Combine_Select.xlxs
 
+Need to run ODYM_RECC_Export_xlxs_Combine_Select.py first!
+
 Documentation and how to in RECCv2.5_EXPORT_Combine_Select.xlxs
 
 """
@@ -44,6 +46,10 @@ pinds   = []
 pregs   = []
 pscens  = []
 prange  = []
+pflags  = []
+indlab  = [] # indicator short labels for plots
+scelab  = [] # scenario  short labels for plots
+colors  = [] # List with color strings
 while True:
     if CF[CS].cell(r,2).value is None:
         break    
@@ -53,6 +59,10 @@ while True:
     pregs.append(CF[CS].cell(r,5).value)
     pscens.append(CF[CS].cell(r,6).value)
     prange.append(CF[CS].cell(r,7).value)
+    pflags.append(CF[CS].cell(r,8).value)
+    indlab.append(CF[CS].cell(r,9).value)
+    scelab.append(CF[CS].cell(r,10).value)
+    colors.append(CF[CS].cell(r,11).value)
     r += 1
 
 # open data file with results
@@ -113,7 +123,7 @@ for m in range(0,len(ptitles)):
             title_add = '_all_scenarios'
         else:
             selectS = pscens[m].split(';')
-            pst    = pc[pc['Indicator'].isin(selectI) & pc['Region'].isin(selectR) & ps['Scenario'].isin(selectS)] # Select the specified data and transpose them for plotting
+            pst    = pc[pc['Indicator'].isin(selectI) & pc['Region'].isin(selectR) & pc['Scenario'].isin(selectS)] # Select the specified data and transpose them for plotting
             title_add = '_select_scenarios_' + str(len(selectS))
         pst.set_index('Scenario', inplace=True)
         pst[prange[m]]
@@ -133,7 +143,7 @@ for m in range(0,len(ptitles)):
             title_add = '_all_regions'
         else:
             selectR = pregs[m].split(';')
-            pst    = pc[pc['Indicator'].isin(selectI) & pc['Region'].isin(selectR) & ps['Scenario'].isin(selectS)] # Select the specified data and transpose them for plotting
+            pst    = pc[pc['Indicator'].isin(selectI) & pc['Region'].isin(selectR) & pc['Scenario'].isin(selectS)] # Select the specified data and transpose them for plotting
             title_add = '_select_regions_' + str(len(selectR))
         pst.set_index('Region', inplace=True)
         pst[prange[m]]
@@ -144,40 +154,70 @@ for m in range(0,len(ptitles)):
         plt.title(title)
         plt.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title +'.png'), dpi=150, bbox_inches='tight')
         
+    if ptypes[m] == 'CE_strategy_sensitivity':
+        # Plot bar graph with sensitivity analysis of a given indicator by scenario
+        selectI = pinds[m].split(';')  # For different indicators, separated by ;
+        selectS = pscens[m].split(';') # For different scenarios, separated by ;
+        selectR = [pregs[m]]           # For one region
+        NooI    = len(selectI)
+        NooS    = len(selectS)
+        title_add = '_' + selectR[0]
+        # Select data sheet acc. to flag set:
+        if pflags[m] == 'annual':
+            ddf = ps
+        if pflags[m] == 'cumulative':
+            ddf = pc
+        # Create figure
+        fig, axs = plt.subplots(nrows=NooI, ncols=NooS , figsize=(3*NooS, 3*NooI))        
+        fig.suptitle(ptitles[m] + title_add + ', ' + prange[m] + ', ' + selectR[0],fontsize=18)
+        for iI in range(0,NooI):
+            for iS in range(0,NooS):
+                pst    = ddf[ddf['Indicator'].isin([selectI[iI]]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[iS]])] # Select the specified data
+                pst.set_index('Region', inplace=True)
+                pst[prange[m]]
+                unit = pst.iloc[0][3]
+                pstref    = ddf[ddf['Indicator'].isin([selectI[iI]]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[0]])] # Select the specified data
+                pstref.set_index('Region', inplace=True)
+                pstref[prange[m]]
+                valueref = pstref.iloc[0][prange[m]]
+                pstplot = pstref.drop(['Indicator', 'Scenario', 'Sectors', 'Unit'], axis=1)-pst.drop(['Indicator', 'Scenario', 'Sectors', 'Unit'], axis=1)
+                if iS > 0:
+                    pstplot.plot.barh(ax=axs[iI,iS], y=prange[m], legend=False, color = colors[m].split(';')[iI])
+                else: #left plot
+                    axs[iI,iS].plot()
+                    axs[iI,iS].text(0,0,int(np.rint(valueref)), fontsize = 15, style = 'oblique')
+                if iI == 0:
+                    axs[iI,iS].set_title( scelab[m].split(';')[iS], fontsize = 11)
+                if iS == 0:
+                    axs[iI,iS].set_ylabel(indlab[m].split(';')[iI], fontsize = 11)
+                else:
+                    axs[iI,iS].set_ylabel('')
+                axs[iI,iS].set_xlabel(unit)
+                axs[iI,iS].set_yticks([])
+        # adjust x axis limits
+        for iI in range(0,NooI):
+            xaleft  = [0]
+            xaright = [0]
+            for iS in range(1,NooS):
+                xaleft.append( axs[iI,iS].get_xlim()[0])
+                xaright.append(axs[iI,iS].get_xlim()[1])
+            xmin = min(xaleft)
+            xmax = max(xaright)
+            for iS in range(1,NooS):
+                if xaleft[iS] == 0:
+                    axs[iI,iS].set_xlim([0, xmax])
+                if xaright[iS] == 0:
+                    axs[iI,iS].set_xlim([xmin, 0])
+        ftitle = ptitles[m] + title_add
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ftitle +'.png'), dpi=150, bbox_inches='tight')
 
 
 
 
-
-
-# pst.rename(columns={'Scenario': 'Year'}, inplace=True)
-
-
-# .drop(['Region'])
-# pst.insert(0, "index", np.arange(0,51))
-
-# .set_index(np.arange(0,52)) 
-# pst.drop([0,1,2,4,5])
-# pst.plot(x='variable', y='value')
-
-# ps_2 = pC[pC['Variable'].isin(selectV) & pC['Region'].isin(selectR)]
-
-# ggplot(ps_1p, aes(x='variable', y='value')) + geom_point()
-# ggplot(ps_1p, aes(x='variable', y='value',color='Scenario')) + geom_point()
-# ggsave(ggplot(ps_1p, aes(x='variable', y='value',color='Scenario')) + geom_point(), filename="plot1.png", device='png', dpi=300, height=25, width=25, )
-# ggsave(ggplot(ps_1p, aes(x='variable', y='value', group='Scenario', color='Scenario')) 
-#        + geom_line() + geom_point() + theme_classic() 
-#        + scale_x_continuous(breaks=range(2020,2060,10) + xlim(2015,2060))
-#        + labs(title=selectV[0] + ', ' + unit,x='Year', y = unit), filename="plot1.png", path = pa, dpi=300, height=8, width=12, )
-  
-
-# plotd  = pl.plot(ps1.to_numpy()[:,5::].transpose())
-
-# unit    = ps_1['Unit'].iloc[0]
-# ps1p   = pd.melt(ps1, id_vars=['Scenario'], value_vars=[i for i in range(2015,2061)])
-
-# psn    = ps[ps['Variable'].isin(selectV) & ps['Region'].isin(selectR)].to_numpy()
-
-# ps1    = ps[ps['Variable'].isin(selectV) & ps['Region'].isin(selectR)]
-        
-# # ggtitle(selectV[0] + ', ' + unit)        
+#
+#
+#
+#
+# The end.
+#
+#    

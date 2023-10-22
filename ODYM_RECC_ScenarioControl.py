@@ -21,17 +21,14 @@ import RECC_Paths # Import path file
 import ODYM_RECC_Main
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-ScenarioSetting = 'Buildings_Global_Config_list'
+#ScenarioSetting = 'Buildings_Global_Config_list'
+ScenarioSetting = 'CRAFT_Coupling_Config_list'
 #ScenarioSetting = 'pav_reb_Config_list_all'
-#ScenarioSetting = 'Germany_detail_config'
-#ScenarioSetting = 'Germany_detail_config_all'
-#ScenarioSetting = 'Global_all'
-#ScenarioSetting = 'TestRun'
 
 # open scenario sheet
 ModelConfigListFile  = openpyxl.load_workbook(os.path.join(RECC_Paths.data_path,'RECC_ModelConfig_List.xlsx'))
 ModelConfigListSheet = ModelConfigListFile[ScenarioSetting]
-SheetName = 'Single_EU_Country'
+SheetName = 'Buildings_Global'
 #Read control lines and execute main model script
 ResultFolders = []
 Row = 3
