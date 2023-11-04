@@ -3797,7 +3797,7 @@ def main():
     OutputDict['Name_Scenario'] = Name_Scenario + '__' + TimeString + DescrString # return new scenario folder name to ScenarioControl script
         
     return OutputDict
-                        
+                    
 # code for script to be run as standalone function
 #if __name__ == "__main__":
 #    main()

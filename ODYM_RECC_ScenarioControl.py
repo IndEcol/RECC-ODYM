@@ -28,7 +28,7 @@ ScenarioSetting = 'CRAFT_Coupling_Config_list'
 # open scenario sheet
 ModelConfigListFile  = openpyxl.load_workbook(os.path.join(RECC_Paths.data_path,'RECC_ModelConfig_List.xlsx'))
 ModelConfigListSheet = ModelConfigListFile[ScenarioSetting]
-SheetName = 'Buildings_Global'
+SheetName = 'CRAFT_Coupling'
 #Read control lines and execute main model script
 ResultFolders = []
 Row = 3
