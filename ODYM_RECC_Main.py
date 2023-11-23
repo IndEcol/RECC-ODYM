@@ -471,7 +471,7 @@ def main():
     Service_Reb   = np.array([Heating_loc,Cooling_loc,DomstHW_loc])
     Ind_2015      = 115 #index of year 2015
     #Ind_2017      = 117 #index of year 2017
-    #Ind_2020      = 120 #index of year 2020
+    Ind_2020      = 120 #index of year 2020
     IsClose_Remainder_Small = 1e-15 
     IsClose_Remainder_Large = 1e-7 
     DPI_RES        = ScriptConfig['Plot4Max'] # 100 for overview or 500 for paper plots, defined in ModelConfig_List
@@ -1098,7 +1098,9 @@ def main():
     SysVar_WoodWasteIncineration     = np.zeros((Nt,Nr,Nw,Ne,NS,NR))
     WoodCascadingInflow              = np.zeros((Nt,Nr,NS,NR))
     WoodCascadingStock               = np.zeros((Nt,Nr,NS,NR))
-    
+    Stock_2020_pav                   = np.zeros((Nt,Nr,NS,NR))
+    Stock_2020_reb                   = np.zeros((Nt,Nr,NS,NR))
+    Stock_2020_nrb                   = np.zeros((Nt,Nr,NS,NR))
     NegInflowFlags                   = np.zeros((NG,NS,NR))
     time_dsm                         = np.arange(0,Nc,1) # time array of [0:Nc) needed for some sectors
     
@@ -1384,14 +1386,17 @@ def main():
     
             # Determine empty result containers for all sectors
             Stock_Detail_UsePhase_p     = np.zeros((Nt,Nc,Np,Nr)) # index structure: tcpr. Unit: million items.
+            Stock_2020_decline_p        = np.zeros((Nt,Np,Nr))    # index structure: tpr.  Unit: million items.
             Outflow_Detail_UsePhase_p   = np.zeros((Nt,Nc,Np,Nr)) # index structure: tcpr. Unit: million items.
             Inflow_Detail_UsePhase_p    = np.zeros((Nt,Np,Nr))    # index structure: tpr.  Unit: million items.
             
             Stock_Detail_UsePhase_B     = np.zeros((Nt,Nc,NB,Nr)) # index structure: tcBr. Unit: million m².
+            Stock_2020_decline_B        = np.zeros((Nt,NB,Nr))    # index structure: tBr.  Unit: million m².
             Outflow_Detail_UsePhase_B   = np.zeros((Nt,Nc,NB,Nr)) # index structure: tcBr. Unit: million m².
             Inflow_Detail_UsePhase_B    = np.zeros((Nt,NB,Nr))    # index structure: tBr.  Unit: million m².
         
             Stock_Detail_UsePhase_N     = np.zeros((Nt,Nc,NN,Nr)) # index structure: tcNr. Unit: million m².
+            Stock_2020_decline_N        = np.zeros((Nt,NN,Nr))    # index structure: tNr.  Unit: million m².
             Outflow_Detail_UsePhase_N   = np.zeros((Nt,Nc,NN,Nr)) # index structure: tcNr. Unit: million m².
             Inflow_Detail_UsePhase_N    = np.zeros((Nt,NN,Nr))    # index structure: tNr.  Unit: million m². 
             
@@ -1522,6 +1527,7 @@ def main():
                     # to introduce the type split for each, but using the product resolution of the full model with all sectors.
                     Stock_Detail_UsePhase_p[0,:,:,r]     += InitialStock.copy() # cgr, needed for correct calculation of mass balance later.
                     Stock_Detail_UsePhase_p[1::,:,:,r]   += Var_S[SwitchTime::,:,:].copy() # tcpr
+                    Stock_2020_decline_p[1::,:,r]        += Var_S[SwitchTime::,0:Ind_2020+1,:].copy().sum(axis=1) # tpr
                     Outflow_Detail_UsePhase_p[1::,:,:,r] += Var_O[SwitchTime::,:,:].copy() # tcpr
                     Inflow_Detail_UsePhase_p[1::,:,r]    += Var_I[SwitchTime::,:].copy() # tpr
                     Inflow_Prod_r[1::,r,Sector_pav_rge,mS,mR] = Var_I[SwitchTime::,:].copy()
@@ -1626,6 +1632,7 @@ def main():
                     # to introduce the type split for each, but using the product resolution of the full model with all sectors.
                     Stock_Detail_UsePhase_B[0,:,:,r]     += InitialStock.copy() # cgr, needed for correct calculation of mass balance later.
                     Stock_Detail_UsePhase_B[1::,:,:,r]   += Var_S[SwitchTime::,:,:].copy() # tcBr
+                    Stock_2020_decline_B[1::,:,r]        += Var_S[SwitchTime::,0:Ind_2020+1,:].copy().sum(axis=1) # tBr
                     Outflow_Detail_UsePhase_B[1::,:,:,r] += Var_O[SwitchTime::,:,:].copy() # tcBr
                     Inflow_Detail_UsePhase_B[1::,:,r]    += Var_I[SwitchTime::,:].copy() # tBr
                     # Check for negative inflows:
@@ -1743,6 +1750,7 @@ def main():
                     # to introduce the type split for each, but using the product resolution of the full model with all sectors.
                     Stock_Detail_UsePhase_N[0,:,:,r]     += InitialStock.copy() # cgr, needed for correct calculation of mass balance later.
                     Stock_Detail_UsePhase_N[1::,:,:,r]   += Var_S[SwitchTime::,:,:].copy() # tcNr
+                    Stock_2020_decline_N[1::,:,r]        += Var_S[SwitchTime::,0:Ind_2020+1,:].copy().sum(axis=1) # tNr
                     Outflow_Detail_UsePhase_N[1::,:,:,r] += Var_O[SwitchTime::,:,:].copy() # tcNr
                     Inflow_Detail_UsePhase_N[1::,:,r]    += Var_I[SwitchTime::,:].copy() # tNr
                     # Check for negative inflows:
@@ -2808,7 +2816,12 @@ def main():
             Outflow_Materials_Usephase_all[:,:,mS,mR]   = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() + np.einsum('tclLm->tm',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy() + np.einsum('tcoOm->tm',RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy()
             WasteMgtLosses_To_Landfill[:,:,mS,mR]       = RECC_System.FlowDict['F_9_0'].Values.copy()
             StockCurves_Mat[:,:,mS,mR]                  = np.einsum('tcrgm->tm',RECC_System.StockDict['S_7'].Values[:,:,:,:,:,0]).copy() + np.einsum('tclLm->tm',RECC_System.StockDict['S_7_Nl'].Values[:,:,:,:,:,0]).copy() + np.einsum('tcoOm->tm',RECC_System.StockDict['S_7_No'].Values[:,:,:,:,:,0]).copy()
-            
+            if 'pav' in SectorList:
+                Stock_2020_pav[:,:,mS,mR]               = Stock_2020_decline_p.sum(axis=1)
+            if 'reb' in SectorList:
+                Stock_2020_reb[:,:,mS,mR]               = Stock_2020_decline_B.sum(axis=1)
+            if 'nrb' in SectorList:
+                Stock_2020_nrb[:,:,mS,mR]               = Stock_2020_decline_N.sum(axis=1)               
             
             # Extract calibration for SSP1:
             if mS == 1:
@@ -2969,10 +2982,16 @@ def main():
     # stocks
     if 'pav' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Totl[:,Sector_pav_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, pass. vehicles','million units',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        for mr in range(0,Nr):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Stock_2020_pav[:,mr,:,:],newrowoffset,len(ColLabels),'Stock curve of all pre 2021 age-cohorts, pass. vehs.','Vehicles: million, Buildings: million m²',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     if 'reb' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Totl[:,Sector_reb_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, res. buildings','million m2',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        for mr in range(0,Nr):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Stock_2020_reb[:,mr,:,:],newrowoffset,len(ColLabels),'Stock curve of all pre 2021 age-cohorts, res. blds.','Vehicles: million, Buildings: million m²',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     if 'nrb' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Totl[:,Sector_nrb_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, nonres. buildings','million m2',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        for mr in range(0,Nr):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Stock_2020_nrb[:,mr,:,:],newrowoffset,len(ColLabels),'Stock curve of all pre 2021 age-cohorts, non-res. blds.','Vehicles: million, Buildings: million m²',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     for mg in range(0,Ng):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million, Buildings: million m2',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     for mm in range(0,Nm):

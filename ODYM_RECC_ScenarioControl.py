@@ -22,13 +22,14 @@ import ODYM_RECC_Main
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
 #ScenarioSetting = 'Buildings_Global_Config_list'
-ScenarioSetting = 'CRAFT_Coupling_Config_list'
+ScenarioSetting = 'Glob_BLd_MediumWood'
+#ScenarioSetting = 'CRAFT_Coupling_Config_list'
 #ScenarioSetting = 'pav_reb_Config_list_all'
 
 # open scenario sheet
 ModelConfigListFile  = openpyxl.load_workbook(os.path.join(RECC_Paths.data_path,'RECC_ModelConfig_List.xlsx'))
 ModelConfigListSheet = ModelConfigListFile[ScenarioSetting]
-SheetName = 'CRAFT_Coupling'
+SheetName = 'Buildings_Global'
 #Read control lines and execute main model script
 ResultFolders = []
 Row = 3

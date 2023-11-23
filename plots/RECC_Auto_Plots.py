@@ -4,8 +4,7 @@ Created on Thu Sep 28 13:54:19 2023
 
 @author: spauliuk
 
-This script takes a number of RECC scenarios (as defined in list), 
-loads a number of results and then compiles selected results 
+This script loads previously compiled results and then compiles selected results 
 into different visualisations, like line plots and bar charts.
 
 Works together with control workbook
