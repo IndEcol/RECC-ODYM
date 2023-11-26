@@ -224,6 +224,7 @@ for m in range(0,len(ptitles)):
         CLabels = [CData.axes[0].values[i] for i in range(0,len(CData.axes[0].values))]
         Data    = CData.values
         nD      = len(CLabels)
+        CLabels.append('Remainder')
         # Prepare plot
         ColOrder= [i for i in range(0,nD+1)]
         MyColorCycle = pylab.cm.Set1(np.arange(0,1,1/(nD+1))) # select colors from the 'Paired' color map.  
@@ -241,14 +242,14 @@ for m in range(0,len(ptitles)):
     
         ProxyHandlesList = []   # For legend     
         # plot bars
-        ax1.fill_between([0,0+bw], [0,0],[Left,Left],linestyle = '--', facecolor =MyColorCycle[ColOrder[0],:], linewidth = 0.0)
-        ax1.fill_between([1,1+bw], [Data[1],Data[1]],[Left,Left],linestyle = '--', facecolor =MyColorCycle[ColOrder[1],:], linewidth = 0.0)
+        ax1.fill_between([0,0+bw], [0,0],[Left,Left],linestyle = '--', facecolor = colors[m].split(';')[0], linewidth = 0.0)
+        ax1.fill_between([1,1+bw], [Data[1],Data[1]],[Left,Left],linestyle = '--', facecolor = colors[m].split(';')[1], linewidth = 0.0)
         for xca in range(2,nD):
-            ax1.fill_between([xca,xca+bw], [Data[xca],Data[xca]],[Data[xca-1],Data[xca-1]],linestyle = '--', facecolor =MyColorCycle[ColOrder[xca],:], linewidth = 0.0)
-        ax1.fill_between([nD,nD+bw], [0,0],[Data[nD-1],Data[nD-1]],linestyle = '--', facecolor =MyColorCycle[ColOrder[nD],:], linewidth = 0.0)                
+            ax1.fill_between([xca,xca+bw], [Data[xca],Data[xca]],[Data[xca-1],Data[xca-1]],linestyle = '--', facecolor = colors[m].split(';')[xca], linewidth = 0.0)
+        ax1.fill_between([nD,nD+bw], [0,0],[Data[nD-1],Data[nD-1]],linestyle = '--', facecolor = colors[m].split(';')[nD], linewidth = 0.0)                
             
-        for fca in range(0,nD):
-            ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[ColOrder[fca],:])) # create proxy artist for legend
+        for fca in range(0,nD+1):
+            ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc = colors[m].split(';')[fca])) # create proxy artist for legend
         
         # plot lines:
         plt.plot([0,LLeft],[Left,Left],linestyle = '-', linewidth = 0.5, color = 'k')
@@ -268,7 +269,7 @@ for m in range(0,len(ptitles)):
         plt.xticks(XTicks)
         plt.yticks(fontsize =18)
         ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
-        plt.legend(handles = ProxyHandlesList,labels = CLabels,shadow = False, prop={'size':12},ncol=1, loc = 'upper right' ,bbox_to_anchor=(2.18, 1)) 
+        plt.legend(handles = ProxyHandlesList,labels = CLabels,shadow = False, prop={'size':12},ncol=1, loc = 'lower center') # ,bbox_to_anchor=(1.18, 1)) 
         #plt.axis([-0.2, 7.7, 0.9*Right, 1.02*Left])
         plt.axis([-0.2, LLeft+bw/2, 0, 1.02*Left])
     
