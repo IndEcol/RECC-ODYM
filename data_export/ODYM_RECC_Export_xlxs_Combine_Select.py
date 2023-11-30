@@ -228,7 +228,7 @@ rsCS.cell(row=1, column=7).value = 'Cum. 2020-2050 (incl.)'
 rsCS.cell(row=1, column=8).value = 'Cum. 2020-2060 (incl.)'
 rsCS.cell(row=1, column=9).value = 'Cum. 2020-2029'
 rsCS.cell(row=1, column=10).value = 'Cum. 2030-2039'
-rsCS.cell(row=1, column=11).value = 'Cum. 2040-2040'
+rsCS.cell(row=1, column=11).value = 'Cum. 2040-2049'
 rsCS.cell(row=1, column=12).value = 'Cum. 2050-2059'
 for t in range(1,53):
     resS.cell(row=1, column=t).font = openpyxl.styles.Font(bold=True)

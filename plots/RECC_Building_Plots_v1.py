@@ -116,7 +116,8 @@ for m in range(0,len(ptitles)):
                 outflow_d[fsc] = pst.iloc[0]['Cum. 2020-2050 (incl.)'] / 1000 # in bn m²
             
             #c_f = np.array([[112,173,71],[198,224,180]])/255# medium green and light green
-            c_f = np.array([[214,238,252],[214,238,252]])/255# light blue
+            c_f = np.array([[228,211,148],[228,211,148]])/255# light brown
+            c_b = np.array([[214,238,252],[214,238,252]])/255# light blue
             fig, axs = plt.subplots(nrows=1, ncols=2 , figsize=(7, 3), gridspec_kw={'width_ratios':[3,1]})        
             fig.tight_layout(rect=[0, 0.03, 1, 0.85])
             fig.suptitle('stock pattern, ' + pflags[m] + ', ' + selectR, fontsize=18)
@@ -168,15 +169,15 @@ for m in range(0,len(ptitles)):
         for rr in range(0,len(regions)):
             selectR = regions[rr]
             selectS = pscens[m].split(';')
-            Data_P  = np.zeros((3,12))
+            Data_P  = np.zeros((3,12)) # primary material production
             Mats    = ['Cement production','Primary steel production','Construction wood, structural, from industrial roundwood']
             for mat in range(0,3):
                 for sce in range(0,12):
                     pst    = pc[pc['Indicator'].isin([Mats[mat]]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
                     unit = pst.iloc[0]['Unit']
                     Data_P[mat,sce] = pst.iloc[0]['Cum. 2020-2050 (incl.)']
-            Data_A  = np.zeros((3,12))                    
-            Mats = ['Outflow of materials from use phase, construction grade steel','Outflow of materials from use phase, cement','Outflow of materials from use phase, wood and wood products']
+            Data_A  = np.zeros((3,12)) # Outflow: material available for recycling
+            Mats = ['Outflow of materials from use phase, cement','Outflow of materials from use phase, construction grade steel','Outflow of materials from use phase, wood and wood products']
             for mat in range(0,3):
                 for sce in range(0,12):
                     pst    = pc[pc['Indicator'].isin([Mats[mat]]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
@@ -186,7 +187,7 @@ for m in range(0,len(ptitles)):
             for sce in range(0,12):
                 pst    = pc[pc['Indicator'].isin([Mats]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
                 Data_A[0,sce] += pst.iloc[0]['Cum. 2020-2050 (incl.)']* 0.15 # cement in concrete waste
-            Data_S  = np.zeros((3,12))
+            Data_S  = np.zeros((3,12)) # Actual re-use and recycling, including wood cascading
             Mats    = ['ReUse of materials in products, concrete','ReUse of materials in products, construction grade steel','ReUse of materials in products, wood and wood products']
             for mat in range(0,3):
                 for sce in range(0,12):
@@ -234,11 +235,11 @@ for m in range(0,len(ptitles)):
                     # top row:
                     ax1.fill_between([sce-bw/2,sce+bw/2], [Data_P[0:mat,sce].sum(),Data_P[0:mat,sce].sum()],[Data_P[0:mat+1,sce].sum(),Data_P[0:mat+1,sce].sum()],linestyle = '-', facecolor = c_m[mat,:], linewidth = lwi[sce], edgecolor = 'k')
                     ax1.fill_between([sce+bw/2,sce+1.5*bw],   [Data_P[0:mat,sce].sum(),Data_P[0:mat,sce].sum()],[Data_P[0:mat,sce].sum()+Data_A[mat,sce],Data_P[0:mat,sce].sum()+Data_A[mat,sce]],linestyle = '-', facecolor = c_a[mat,:], linewidth = 0, edgecolor = 'k')
-                    ax1.fill_between([sce+bw/2,sce+1.2*bw],   [Data_P[0:mat,sce].sum(),Data_P[0:mat,sce].sum()],[Data_P[0:mat,sce].sum()+Data_S[mat,sce],Data_P[0:mat,sce].sum()+Data_S[mat,sce]],linestyle = '-', facecolor = c_m[mat,:], linewidth = 0, edgecolor = 'k')
+                    ax1.fill_between([sce+bw/2,sce+1.5*bw],   [Data_P[0:mat,sce].sum(),Data_P[0:mat,sce].sum()],[Data_P[0:mat,sce].sum()+Data_S[mat,sce],Data_P[0:mat,sce].sum()+Data_S[mat,sce]],linestyle = '-', facecolor = c_m[mat,:], linewidth = 0, edgecolor = 'k')
                     # bottom row:
                     ax1.fill_between([sce-bw/2,sce+bw/2], [-Data_P[0:mat,sce+6].sum(),-Data_P[0:mat,sce+6].sum()],[-Data_P[0:mat+1,sce+6].sum(),-Data_P[0:mat+1,sce+6].sum()],linestyle = '-', facecolor = c_m[mat,:], linewidth = lwi[sce], edgecolor = 'k')
                     ax1.fill_between([sce+bw/2,sce+1.5*bw],   [-Data_P[0:mat,sce+6].sum(),-Data_P[0:mat,sce+6].sum()],[-Data_P[0:mat,sce+6].sum()-Data_A[mat,sce+6],-Data_P[0:mat,sce+6].sum()-Data_A[mat,sce+6]],linestyle = '-', facecolor = c_a[mat,:], linewidth = 0, edgecolor = 'k')
-                    ax1.fill_between([sce+bw/2,sce+1.2*bw],   [-Data_P[0:mat,sce+6].sum(),-Data_P[0:mat,sce+6].sum()],[-Data_P[0:mat,sce+6].sum()-Data_S[mat,sce+6],-Data_P[0:mat,sce+6].sum()-Data_S[mat,sce+6]],linestyle = '-', facecolor = c_m[mat,:], linewidth = 0, edgecolor = 'k')
+                    ax1.fill_between([sce+bw/2,sce+1.5*bw],   [-Data_P[0:mat,sce+6].sum(),-Data_P[0:mat,sce+6].sum()],[-Data_P[0:mat,sce+6].sum()-Data_S[mat,sce+6],-Data_P[0:mat,sce+6].sum()-Data_S[mat,sce+6]],linestyle = '-', facecolor = c_m[mat,:], linewidth = 0, edgecolor = 'k')
             # replot BASE scenario frame
             ax1.add_patch(Rectangle((3-bw/2, 0), bw, Data_P[:,3].sum(),  edgecolor = 'k', facecolor = 'blue', fill=False, lw=2))
             ax1.add_patch(Rectangle((3-bw/2, 0), bw, -Data_P[:,3].sum(), edgecolor = 'k', facecolor = 'blue', fill=False, lw=2))
