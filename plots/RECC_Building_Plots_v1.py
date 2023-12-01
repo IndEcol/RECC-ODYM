@@ -280,6 +280,166 @@ for m in range(0,len(ptitles)):
             plt.show()
             fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title +'.png'), dpi=150, bbox_inches='tight')
 
+    if ptypes[m] == 'Fig_Cascade':
+        # Plot cascade with indicator by scenario
+        #GHG emissions, system-wide;GHG emissions, buildings, use phase;GHG emissions, res+non-res buildings, energy supply;GHG emissions, primary material production
+        Inds    = pinds[m].split(';')
+        selectI = [Inds[0]]
+        selectR = [pregs[m]]
+        selectS = pscens[m].split(';')
+        title_add = '_' + selectR[0]
+        # Select data sheet acc. to flag set:
+        if pflags[m] == 'annual':
+            ddf = ps
+        if pflags[m] == 'cumulative':
+            ddf = pc
+        pst     = ddf[ddf['Indicator'].isin(selectI) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin(selectS)] # Select the specified data and transpose them for plotting
+        pst.set_index('Scenario', inplace=True)
+        unit = pst.iloc[0]['Unit']
+        CData=pst[prange[m]]
+        CLabels = [CData.axes[0].values[i] for i in range(0,len(CData.axes[0].values))]
+        Data    = CData.values
+        nD      = len(CLabels)
+        CLabels.append('Remainder')
+        CLabels.append('Use phase - scope 1')
+        CLabels.append('Use phase - scope 2')
+        CLabels.append('Material production')
+        # get breakdown data
+        bst     = ddf[ddf['Indicator'].isin(Inds[1::]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[0]])] # Select the specified data and transpose them for plotting
+        bst.set_index('Indicator', inplace=True)
+        bst.sort_index(inplace = True)
+        BData   = bst[prange[m]].values
+        rst     = ddf[ddf['Indicator'].isin(Inds[1::]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[-1]])] # Select the specified data and transpose them for plotting
+        rst.set_index('Indicator', inplace=True)
+        rst.sort_index(inplace = True)
+        RData   = rst[prange[m]].values        
+        # Prepare plot
+        ColOrder= [i for i in range(0,nD+1)]
+        MyColorCycle = pylab.cm.Set1(np.arange(0,1,1/(nD+1))) # select colors from the 'Paired' color map.  
+        Left  = Data[0]
+        Right = Data[-1]
+        inc = -100 * (Data[0] - Data[-1])/Data[0]
+        # plot results
+        bw = 0.5
+        
+        LLeft   = nD+bw
+        XTicks  = [0.25 + i for i in range(0,nD+1)]
+        
+        fig  = plt.figure(figsize=(5,8))
+        ax1  = plt.axes([0.08,0.08,0.85,0.9])
+    
+        ProxyHandlesList = []   # For legend     
+        # plot bars
+        ax1.fill_between([0,0+bw], [0,0],[Left,Left],linestyle = '--', facecolor = colors[m].split(';')[0], linewidth = 0.0)
+        ax1.fill_between([1,1+bw], [Data[1],Data[1]],[Left,Left],linestyle = '--', facecolor = colors[m].split(';')[1], linewidth = 0.0)
+        for xca in range(2,nD):
+            ax1.fill_between([xca,xca+bw], [Data[xca],Data[xca]],[Data[xca-1],Data[xca-1]],linestyle = '--', facecolor = colors[m].split(';')[xca], linewidth = 0.0)
+        ax1.fill_between([nD,nD+bw], [0,0],[Data[nD-1],Data[nD-1]],linestyle = '--', facecolor = colors[m].split(';')[nD], linewidth = 0.0)                
+            
+        for fca in range(0,nD+1):
+            ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc = colors[m].split(';')[fca])) # create proxy artist for legend
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc = '#ffffff00', hatch = 'xx'))
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc = '#ffffff00', hatch = '--'))
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc = '#ffffff00', hatch = 'OO'))
+        
+        # plot hatching:
+        ax1.fill_between([0,0+bw],   [0,0],[BData[0],BData[0]], linestyle = '--', facecolor = '#ffffff00',  linewidth = 0.0, hatch='xx')
+        ax1.fill_between([0,0+bw],   [BData[0],BData[0]],[BData[0]+BData[2],BData[0]+BData[2]], linestyle = '--', facecolor = '#ffffff00',  linewidth = 0.0, hatch='--')
+        ax1.fill_between([0,0+bw],   [BData[0]+BData[2],BData[0]+BData[2]],[BData.sum(),BData.sum()], linestyle = '--', facecolor = '#ffffff00',  linewidth = 0.0, hatch='OO')
+        
+        ax1.fill_between([nD,nD+bw], [0,0],[RData[0],RData[0]], linestyle = '--', facecolor = '#ffffff00', linewidth = 0.0, hatch='xx')                            
+        ax1.fill_between([nD,nD+bw], [RData[0],RData[0]],[RData[0]+RData[2],RData[0]+RData[2]], linestyle = '--', facecolor = '#ffffff00', linewidth = 0.0, hatch='--')                            
+        ax1.fill_between([nD,nD+bw], [RData[0]+RData[2],RData[0]+RData[2]],[RData.sum(),RData.sum()], linestyle = '--', facecolor = '#ffffff00', linewidth = 0.0, hatch='OO')                            
+        
+        # plot lines:
+        plt.plot([0,LLeft],[Left,Left],linestyle = '-', linewidth = 0.5, color = 'k')
+        for yca in range(1,nD):
+            plt.plot([yca,yca +1.5],[Data[yca],Data[yca]],linestyle = '-', linewidth = 0.5, color = 'k')
+            
+        plt.arrow(XTicks[-1], Data[nD-1],0, Data[0]-Data[nD-1], lw = 0.5, ls = '-', shape = 'full',
+              length_includes_head = True, head_width =0.1, head_length =0.01*Left, ec = 'k', fc = 'k')
+        plt.arrow(XTicks[-1],Data[0],0,Data[nD-1]-Data[0], lw = 0.5, ls = '-', shape = 'full',
+              length_includes_head = True, head_width =0.1, head_length =0.01*Left, ec = 'k', fc = 'k')
+            
+        # plot text and labels
+        plt.text(nD-1, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
+        title = ptitles[m] + '_' + selectR[0] + title_add
+        plt.title(title)
+        plt.ylabel(unit, fontsize = 18)
+        plt.xticks(XTicks)
+        plt.yticks(fontsize =18)
+        ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
+        plt.legend(handles = ProxyHandlesList,labels = CLabels,shadow = False, prop={'size':10},ncol=1, loc = 'lower center') # ,bbox_to_anchor=(1.18, 1)) 
+        #plt.axis([-0.2, 7.7, 0.9*Right, 1.02*Left])
+        plt.axis([-0.2, LLeft+bw/2, 0, 1.02*Left])
+    
+        plt.show()
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), 'Cascade' + title +'.png'), dpi=150, bbox_inches='tight')
+
+
+    if ptypes[m] == 'Fig_Energy_Consumption_Carrier':
+        # Custom plot for use phase energy consumption by carrier
+        Inds    = pinds[m].split(';')
+        selectR = [pregs[m]]
+        selectS = pscens[m].split(';')
+        title_add = '_' + selectR[0]
+        ddf     = ps # for time series only
+        Data    = np.zeros((4,6,46)) # array for 4 scenarios, 6 energy carriers, and 45 years
+        ECarrs  = ['electricity','coal','heating oil','natural gas','hydrogen','fuel wood']
+        # For RCP2.6 + reb:
+        for mmx in range(0,6):
+            pst     = ddf[ddf['Indicator'].isin([Inds[mmx]]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[1]])] # Select the specified data and transpose them for plotting
+            pst.set_index('Indicator', inplace=True)
+            unit    = pst.iloc[0]['Unit']
+            pst.drop(['Region', 'Scenario', 'Sectors', 'Unit'], axis=1, inplace = True)
+            CLabels = [pst.axes[0].values[i] for i in range(0,len(pst.axes[0].values))]
+            Data[0,mmx,:] = pst.values
+        # For RCP2.6 + nrb:
+        for mmx in range(0,6):
+            pst     = ddf[ddf['Indicator'].isin([Inds[mmx+6]]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[1]])] # Select the specified data and transpose them for plotting
+            pst.set_index('Indicator', inplace=True)
+            unit    = pst.iloc[0]['Unit']
+            pst.drop(['Region', 'Scenario', 'Sectors', 'Unit'], axis=1, inplace = True)
+            CLabels = [pst.axes[0].values[i] for i in range(0,len(pst.axes[0].values))]
+            Data[1,mmx,:] = pst.values
+        # For NoClimPol + reb:
+        for mmx in range(0,6):
+            pst     = ddf[ddf['Indicator'].isin([Inds[mmx]]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[0]])] # Select the specified data and transpose them for plotting
+            pst.set_index('Indicator', inplace=True)
+            unit    = pst.iloc[0]['Unit']
+            pst.drop(['Region', 'Scenario', 'Sectors', 'Unit'], axis=1, inplace = True)
+            CLabels = [pst.axes[0].values[i] for i in range(0,len(pst.axes[0].values))]
+            Data[2,mmx,:] = pst.values
+        # For NoClimPol + nrb:
+        for mmx in range(0,6):
+            pst     = ddf[ddf['Indicator'].isin([Inds[mmx+6]]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[0]])] # Select the specified data and transpose them for plotting
+            pst.set_index('Indicator', inplace=True)
+            unit    = pst.iloc[0]['Unit']
+            pst.drop(['Region', 'Scenario', 'Sectors', 'Unit'], axis=1, inplace = True)
+            CLabels = [pst.axes[0].values[i] for i in range(0,len(pst.axes[0].values))]
+            Data[3,mmx,:] = pst.values
+                    
+        x = np.linspace(2015,2060,46)
+                
+        # 2x2 socioeconomic and energy system plot
+        fig = plt.figure()
+        gs = fig.add_gridspec(2, 2, hspace=0, wspace=0)
+        (ax1, ax2), (ax3, ax4) = gs.subplots(sharex='col', sharey='row')
+        fig.suptitle('Energy demand, use phase, by scenario, ' + selectR[0])
+        ax1.stackplot(x, Data[0,:,:]/1e6)     # For RCP2.6 + reb
+        ax1.set_title('residential blds.', fontsize = 10)
+        ax2.stackplot(x, Data[1,:,:]/1e6)     # For RCP2.6 + nrb
+        ax2.set_title('non-residential blds.', fontsize = 10)
+        ax3.stackplot(x, Data[2,:,:]/1e6)     # For NoClimPol + reb
+        ax4.stackplot(x, Data[3,:,:]/1e6)     # For NoClimPol + nrb    
+        ax3.set(xlabel='year', ylabel='RCP2.6, \n EJ/yr')    
+        ax1.set(ylabel='NoNewClimPol, \n EJ/yr')    
+        ax4.set(xlabel='year')    
+        ax4.legend(ECarrs, loc='lower right', fontsize = 8)
+        
+        plt.show()
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), 'Energy' + title_add +'.png'), dpi=150, bbox_inches='tight')                 
+                    
 #
 #
 #

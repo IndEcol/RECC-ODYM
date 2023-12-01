@@ -216,8 +216,8 @@ for m in range(0,len(ptitles)):
         selectI = [pinds[m]]
         selectR = [pregs[m]]
         selectS = pscens[m].split(';')
-        pst     = ps[ps['Indicator'].isin(selectI) & ps['Region'].isin(selectR) & ps['Scenario'].isin(selectS)] # Select the specified data and transpose them for plotting
         title_add = '_select_scenarios_' + str(len(selectS))
+        pst     = ps[ps['Indicator'].isin(selectI) & ps['Region'].isin(selectR) & ps['Scenario'].isin(selectS)] # Select the specified data and transpose them for plotting
         pst.set_index('Scenario', inplace=True)
         unit = pst.iloc[0]['Unit']
         CData=pst[prange[m]]
