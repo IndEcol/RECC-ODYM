@@ -194,10 +194,6 @@ for m in range(0,len(ptitles)):
                     unit = pst.iloc[0]['Unit']
                     Data_S[mat,sce] = pst.iloc[0]['Cum. 2020-2050 (incl.)']            
             Data_S[0,:] = Data_S[0,:] * 0.15 # cement in concrete re-use
-            Mats = 'Cascading of wood'
-            for sce in range(0,8):
-                pst    = pc[pc['Indicator'].isin([Mats]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
-                Data_S[2,sce] += pst.iloc[0]['Cum. 2020-2050 (incl.)']            
             Mats = 'Secondary construction steel'
             for sce in range(0,8):
                 pst    = pc[pc['Indicator'].isin([Mats]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
@@ -206,13 +202,18 @@ for m in range(0,len(ptitles)):
             # Add secondary flows to primary to get total material production for new buildings
             Data_P += Data_S
             
-            # Convert to Gt:
+            # Convert from Mt/yr to Gt/yr:
             Data_P = Data_P / 1000
             Data_S = Data_S / 1000
             Data_A = Data_A / 1000
+
+            Mats = 'Cascading of wood' # Add only on the recycling side (after Data_P += Data_S), since the cascading flows go into other wood uses than structural timber.
+            for sce in range(0,8):
+                pst    = pc[pc['Indicator'].isin([Mats]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
+                Data_S[2,sce] += pst.iloc[0]['Cum. 2020-2050 (incl.)'] / 1000        
             
             # Prepare plot
-            c_a = np.array([[230,230,230],[207,214,223],[225,219,117]])/255# cement gray, steel blue, and wood brown, very light
+            c_a = np.array([[230,230,230],[207,214,223],[219,182,107]])/255# cement gray, steel blue, and wood brown, very light
             c_s = np.array([[167,167,167],[172,185,202],[191,143,0]])/255# cement gray, steel blue, and wood brown, light
             c_m = np.array([[120,120,120],[73,93,117],[142,105,0]])/255# cement gray, steel blue, and wood brown, dark
             
