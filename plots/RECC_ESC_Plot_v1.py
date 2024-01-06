@@ -227,7 +227,7 @@ for c in range(0,len(ctitles)):
         ProxyHandlesList.append(plta) # create proxy artist for legend    
         axs[0].set_title('Energy-GHG per capita = ')
         axs[0].set_ylabel('t CO2-eq/yr', fontsize = 12)
-        axs[0].set_facecolor((238/255, 245/255, 252/255))
+        axs[0].set_facecolor((221/255, 235/255, 247/255))
         axs[0].set_ylim(bottom=0)
         
         axs[1].plot(np.arange(2016,2061), esc_data[1,1::,:] * 1e6, linewidth = 2.0)  
@@ -266,7 +266,7 @@ for c in range(0,len(ctitles)):
         axs[6].set_title('= material-GHG (dashed:RMI) \n per capita')
         axs[6].set_ylabel('t CO2-eq/yr (dashed: t/yr)', fontsize = 12)
         axs[6].plot(np.arange(2016,2061), esc_data[8,1::,:], linewidth = 3.0, linestyle = '--') 
-        axs[6].set_facecolor((253/255, 239/255, 231/255))         
+        axs[6].set_facecolor((252/255, 228/255, 214/255))         
         axs[6].set_ylim(bottom=0)
         
         Labels = cscenss
