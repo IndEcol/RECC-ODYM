@@ -163,54 +163,42 @@ for m in range(0,len(ptitles)):
             fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), 'stock pattern_' + pflags[m] + '_' + selectR +'.png'), dpi=150, bbox_inches='tight')
      
         
-    if ptypes[m] == 'Fig_MaterialProduction':
+    if ptypes[m] == 'Fig_MaterialFlows':
         # Custom plot for material production
         for rr in range(0,len(regions)):
             selectR = regions[rr]
             selectS = pscens[m].split(';')
-            Data_P  = np.zeros((3,8)) # primary material production
-            Mats    = ['Cement production','Primary steel production','Construction wood, structural, from industrial roundwood']
+            Data_I  = np.zeros((3,8)) # final material consumption
+            Mats    = ['Final consumption of materials: cement','Final consumption of materials: construction grade steel','Final consumption of materials: wood and wood products']
             for mat in range(0,3):
                 for sce in range(0,8):
                     pst    = pc[pc['Indicator'].isin([Mats[mat]]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
                     unit = pst.iloc[0]['Unit']
-                    Data_P[mat,sce] = pst.iloc[0]['Cum. 2020-2050 (incl.)']
-            Data_A  = np.zeros((3,8)) # Outflow: material available for recycling
+                    Data_I[mat,sce] = pst.iloc[0]['Cum. 2020-2050 (incl.)']
+            Data_A  = np.zeros((3,8)) # Outflow: material _A_vailable for recycling
             Mats = ['Outflow of materials from use phase, cement','Outflow of materials from use phase, construction grade steel','Outflow of materials from use phase, wood and wood products']
             for mat in range(0,3):
                 for sce in range(0,8):
                     pst    = pc[pc['Indicator'].isin([Mats[mat]]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
                     unit = pst.iloc[0]['Unit']
                     Data_A[mat,sce] = pst.iloc[0]['Cum. 2020-2050 (incl.)']
-            Mats = 'Outflow of materials from use phase, concrete'
-            for sce in range(0,8):
-                pst    = pc[pc['Indicator'].isin([Mats]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
-                Data_A[0,sce] += pst.iloc[0]['Cum. 2020-2050 (incl.)']* 0.15 # cement in concrete waste
-            Data_S  = np.zeros((3,8)) # Actual re-use and recycling, including wood cascading
+            Data_S  = np.zeros((3,8)) # Actual re-use and recycling potential, excluding wood cascading (as this flow does not go back into structural timber)
             Mats    = ['ReUse of materials in products, concrete','ReUse of materials in products, construction grade steel','ReUse of materials in products, wood and wood products']
             for mat in range(0,3):
                 for sce in range(0,8):
                     pst    = pc[pc['Indicator'].isin([Mats[mat]]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
                     unit = pst.iloc[0]['Unit']
                     Data_S[mat,sce] = pst.iloc[0]['Cum. 2020-2050 (incl.)']            
-            Data_S[0,:] = Data_S[0,:] * 0.15 # cement in concrete re-use
-            Mats = 'Secondary construction steel'
+            Data_S[0,:] = Data_S[0,:] * 0.15 # only the cement in concrete re-use
+            Mats = 'Potential for secondary construction steel from EoL products' # Only the EoL-related recycling potential, not the flow including fabrication scrap
             for sce in range(0,8):
                 pst    = pc[pc['Indicator'].isin([Mats]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
-                Data_S[1,sce] += pst.iloc[0]['Cum. 2020-2050 (incl.)']                            
-            
-            # Add secondary flows to primary to get total material production for new buildings
-            Data_P += Data_S
+                Data_S[1,sce] += pst.iloc[0]['Cum. 2020-2050 (incl.)']                                        
             
             # Convert from Mt/yr to Gt/yr:
-            Data_P = Data_P / 1000
+            Data_I = Data_I / 1000
             Data_S = Data_S / 1000
-            Data_A = Data_A / 1000
-
-            Mats = 'Cascading of wood' # Add only on the recycling side (after Data_P += Data_S), since the cascading flows go into other wood uses than structural timber.
-            for sce in range(0,8):
-                pst    = pc[pc['Indicator'].isin([Mats]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
-                Data_S[2,sce] += pst.iloc[0]['Cum. 2020-2050 (incl.)'] / 1000        
+            Data_A = Data_A / 1000    
             
             # Prepare plot
             c_a = np.array([[230,230,230],[207,214,223],[219,182,107]])/255# cement gray, steel blue, and wood brown, very light
@@ -238,16 +226,16 @@ for m in range(0,len(ptitles)):
             for sce in range(0,4):
                 for mat in range(0,3):
                     # top row:
-                    ax1.fill_between([sce-bw/2,sce+bw/2],     [Data_P[0:mat,sce].sum(),Data_P[0:mat,sce].sum()],[Data_P[0:mat+1,sce].sum(),Data_P[0:mat+1,sce].sum()],linestyle = '-', facecolor = c_m[mat,:], linewidth = lwi[sce], edgecolor = 'k')
-                    ax1.fill_between([sce+bw/2,sce+1.5*bw],   [Data_P[0:mat,sce].sum(),Data_P[0:mat,sce].sum()],[Data_P[0:mat,sce].sum()+Data_A[mat,sce],Data_P[0:mat,sce].sum()+Data_A[mat,sce]],linestyle = '-', facecolor = c_a[mat,:], linewidth = 0, edgecolor = 'k')
-                    ax1.fill_between([sce+bw/2,sce+1.5*bw],   [Data_P[0:mat,sce].sum(),Data_P[0:mat,sce].sum()],[Data_P[0:mat,sce].sum()+Data_S[mat,sce],Data_P[0:mat,sce].sum()+Data_S[mat,sce]],linestyle = '-', facecolor = c_m[mat,:], linewidth = 0, edgecolor = 'k')
+                    ax1.fill_between([sce-bw/2,sce+bw/2],     [Data_I[0:mat,sce].sum(),Data_I[0:mat,sce].sum()],[Data_I[0:mat+1,sce].sum(),Data_I[0:mat+1,sce].sum()],linestyle = '-', facecolor = c_m[mat,:], linewidth = lwi[sce], edgecolor = 'k')
+                    ax1.fill_between([sce+bw/2,sce+1.5*bw],   [Data_I[0:mat,sce].sum(),Data_I[0:mat,sce].sum()],[Data_I[0:mat,sce].sum()+Data_A[mat,sce],Data_I[0:mat,sce].sum()+Data_A[mat,sce]],linestyle = '-', facecolor = c_a[mat,:], linewidth = 0, edgecolor = 'k')
+                    ax1.fill_between([sce+bw/2,sce+1.5*bw],   [Data_I[0:mat,sce].sum(),Data_I[0:mat,sce].sum()],[Data_I[0:mat,sce].sum()+Data_S[mat,sce],Data_I[0:mat,sce].sum()+Data_S[mat,sce]],linestyle = '-', facecolor = c_m[mat,:], linewidth = 0, edgecolor = 'k')
                     # bottom row:
-                    ax1.fill_between([sce-bw/2,sce+bw/2],     [-Data_P[0:mat,sce+4].sum(),-Data_P[0:mat,sce+4].sum()],[-Data_P[0:mat+1,sce+4].sum(),-Data_P[0:mat+1,sce+4].sum()],linestyle = '-', facecolor = c_m[mat,:], linewidth = lwi[sce], edgecolor = 'k')
-                    ax1.fill_between([sce+bw/2,sce+1.5*bw],   [-Data_P[0:mat,sce+4].sum(),-Data_P[0:mat,sce+4].sum()],[-Data_P[0:mat,sce+4].sum()-Data_A[mat,sce+4],-Data_P[0:mat,sce+4].sum()-Data_A[mat,sce+4]],linestyle = '-', facecolor = c_a[mat,:], linewidth = 0, edgecolor = 'k')
-                    ax1.fill_between([sce+bw/2,sce+1.5*bw],   [-Data_P[0:mat,sce+4].sum(),-Data_P[0:mat,sce+4].sum()],[-Data_P[0:mat,sce+4].sum()-Data_S[mat,sce+4],-Data_P[0:mat,sce+4].sum()-Data_S[mat,sce+4]],linestyle = '-', facecolor = c_m[mat,:], linewidth = 0, edgecolor = 'k')
+                    ax1.fill_between([sce-bw/2,sce+bw/2],     [-Data_I[0:mat,sce+4].sum(),-Data_I[0:mat,sce+4].sum()],[-Data_I[0:mat+1,sce+4].sum(),-Data_I[0:mat+1,sce+4].sum()],linestyle = '-', facecolor = c_m[mat,:], linewidth = lwi[sce], edgecolor = 'k')
+                    ax1.fill_between([sce+bw/2,sce+1.5*bw],   [-Data_I[0:mat,sce+4].sum(),-Data_I[0:mat,sce+4].sum()],[-Data_I[0:mat,sce+4].sum()-Data_A[mat,sce+4],-Data_I[0:mat,sce+4].sum()-Data_A[mat,sce+4]],linestyle = '-', facecolor = c_a[mat,:], linewidth = 0, edgecolor = 'k')
+                    ax1.fill_between([sce+bw/2,sce+1.5*bw],   [-Data_I[0:mat,sce+4].sum(),-Data_I[0:mat,sce+4].sum()],[-Data_I[0:mat,sce+4].sum()-Data_S[mat,sce+4],-Data_I[0:mat,sce+4].sum()-Data_S[mat,sce+4]],linestyle = '-', facecolor = c_m[mat,:], linewidth = 0, edgecolor = 'k')
             # replot BASE scenario frame
-            ax1.add_patch(Rectangle((2-bw/2, 0), bw,  Data_P[:,2].sum(), edgecolor = 'k', facecolor = 'blue', fill=False, lw=3))
-            ax1.add_patch(Rectangle((2-bw/2, 0), bw, -Data_P[:,2].sum(), edgecolor = 'k', facecolor = 'blue', fill=False, lw=3))
+            ax1.add_patch(Rectangle((2-bw/2, 0), bw,  Data_I[:,2].sum(), edgecolor = 'k', facecolor = 'blue', fill=False, lw=3))
+            ax1.add_patch(Rectangle((2-bw/2, 0), bw, -Data_I[:,2].sum(), edgecolor = 'k', facecolor = 'blue', fill=False, lw=3))
             # horizontal 0 line
             plt.hlines(0, -0.4, 3.7, linewidth = 1, color = 'k')
             #plt.Line2D([-0.4,3.7], [0,0], linewidth = 1, color = 'k')
@@ -273,18 +261,18 @@ for m in range(0,len(ptitles)):
                 if ylabels[yl].find('−') > -1:
                     ylabels[yl] = ylabels[yl][1::]
             ax1.set_yticklabels(ylabels)
-            plt.text(0.3,  Data_P[:,2].sum() *0.08, 'narrow', fontsize=18, fontweight='normal', style='italic')     
-            plt.text(2.5,  Data_P[:,2].sum() *0.08, 'wood-intensive', fontsize=18, fontweight='normal', style='italic')     
-            plt.text(0.3, -Data_P[:,2].sum() *0.12, 'slow+close', fontsize=18, fontweight='normal', style='italic')     
-            plt.text(2.5, -Data_P[:,2].sum() *0.12, 'all together', fontsize=18, fontweight='normal', style='italic')     
-            plt.text(0-0.05,    Data_P[:,2].sum() *0.08, selectS[0], fontsize=16, fontweight='normal', rotation = 90)     
-            plt.text(1-0.05,    Data_P[:,2].sum() *0.08, selectS[1], fontsize=16, fontweight='normal', rotation = 90)     
-            plt.text(2-0.05,    Data_P[:,2].sum() *0.08, selectS[2], fontsize=16, fontweight='bold', rotation = 90)     
-            plt.text(3-0.05,    Data_P[:,2].sum() *0.25, selectS[3], fontsize=16, fontweight='normal', rotation = 90) 
-            plt.text(0-0.05,    -Data_P[:,2].sum() *0.77, selectS[4], fontsize=16, fontweight='normal', rotation = 90)     
-            plt.text(1-0.05,    -Data_P[:,2].sum() *0.50, selectS[5], fontsize=16, fontweight='normal', rotation = 90)     
-            plt.text(2-0.05,    -Data_P[:,2].sum() *0.68, selectS[6], fontsize=16, fontweight='bold', rotation = 90)     
-            plt.text(3-0.05,    -Data_P[:,2].sum() *1.08, selectS[7], fontsize=16, fontweight='normal', rotation = 90) 
+            plt.text(0.3,  Data_I[:,2].sum() *0.08, 'narrow', fontsize=18, fontweight='normal', style='italic')     
+            plt.text(2.5,  Data_I[:,2].sum() *0.08, 'wood-intensive', fontsize=18, fontweight='normal', style='italic')     
+            plt.text(0.3, -Data_I[:,2].sum() *0.12, 'slow+close', fontsize=18, fontweight='normal', style='italic')     
+            plt.text(2.5, -Data_I[:,2].sum() *0.12, 'all together', fontsize=18, fontweight='normal', style='italic')     
+            plt.text(0-0.05,    Data_I[:,2].sum() *0.08, selectS[0], fontsize=16, fontweight='normal', rotation = 90)     
+            plt.text(1-0.05,    Data_I[:,2].sum() *0.08, selectS[1], fontsize=16, fontweight='normal', rotation = 90)     
+            plt.text(2-0.05,    Data_I[:,2].sum() *0.08, selectS[2], fontsize=16, fontweight='bold', rotation = 90)     
+            plt.text(3-0.05,    Data_I[:,2].sum() *0.25, selectS[3], fontsize=16, fontweight='normal', rotation = 90) 
+            plt.text(0-0.05,    -Data_I[:,2].sum() *0.77, selectS[4], fontsize=16, fontweight='normal', rotation = 90)     
+            plt.text(1-0.05,    -Data_I[:,2].sum() *0.50, selectS[5], fontsize=16, fontweight='normal', rotation = 90)     
+            plt.text(2-0.05,    -Data_I[:,2].sum() *0.68, selectS[6], fontsize=16, fontweight='bold', rotation = 90)     
+            plt.text(3-0.05,    -Data_I[:,2].sum() *1.08, selectS[7], fontsize=16, fontweight='normal', rotation = 90) 
             plt.legend(handles = ProxyHandlesList, labels = ['cement','steel','wood'],shadow = False, prop={'size':11},ncol=1, loc = 'upper left') # ,bbox_to_anchor=(2.18, 1)) 
             
             plt.show()
