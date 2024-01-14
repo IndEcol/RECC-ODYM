@@ -21,12 +21,14 @@ import openpyxl
 from plotnine import *
 import pandas as pd
 import pylab
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import matplotlib.lines as mlines
 import numpy as np
 import RECC_Paths # Import path file
 
+plt.style.use('default') # set all plotting parameters to their default values
 
 CP            = os.path.join(RECC_Paths.results_path,'RECCv2.5_EXPORT_Combine_Select.xlsx')   
 CF            = openpyxl.load_workbook(CP)
@@ -320,6 +322,7 @@ for m in range(0,len(ptitles)):
         # plot results
         bw = 0.5
         
+        XLeft   = -0.2
         LLeft   = nD+bw
         XTicks  = [0.25 + i for i in range(0,nD+1)]
         
@@ -360,7 +363,26 @@ for m in range(0,len(ptitles)):
               length_includes_head = True, head_width =0.1, head_length =0.01*Left, ec = 'k', fc = 'k')
             
         # plot text and labels
-        plt.text(nD-1, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
+        if pflags[m] == 'cumulative':
+            if selectR == ['Global']: # Plot breakdown by region and add global CO2 buget
+                regs   = ['R5.2SSA','R5.2LAM','EU_UK','China','India','R5.2ASIA_Other','R5.2MNF','R5.2REF','R5.2OECD_Other','R32USACAN']
+                regss  = ['SSA','LAM','EU_UK','China','India','ASIA_Oth','MNF','REF','OECD_Oth','USA_CAN']
+                regsdf = pc[pc['Indicator'].isin(selectI) & pc['Region'].isin(regs) & pc['Scenario'].isin([selectS[0]])]
+                regsdf.set_index('Region', inplace=True)
+                RegData=regsdf[prange[m]]
+                RegData = RegData.values 
+                PlotRegData = RegData.cumsum()
+                PlotRegData = np.insert(PlotRegData, 0, 0, axis=0)
+                plt.text(0.95, 170000, 'Reference values for',fontsize=16,fontweight='bold', color = colors[m].split(';')[5])    
+                plt.text(0.95, 154000, 'post 2020 budget:'    ,fontsize=16,fontweight='bold', color = colors[m].split(';')[5])    
+                plt.text(0.95, 138000, 'for 1.5 °C: 400 Gt'  ,fontsize=16,fontweight='bold', color = colors[m].split(';')[5])    
+                plt.text(0.95, 122000, 'for 2.0 °C: 1150 Gt'   ,fontsize=16,fontweight='bold', color = colors[m].split(';')[5])    
+                XLeft   = -1.2
+                for mmreg in range(1,11):
+                    ax1.fill_between([-1,-1+bw],[PlotRegData[mmreg-1],PlotRegData[mmreg-1]],[PlotRegData[mmreg],PlotRegData[mmreg]], linestyle = '-', facecolor = '#bbbbbbff', edgecolor = 'k', linewidth = 1.0) 
+                    plt.text(-0.75, PlotRegData[mmreg-1] + 0.4 * (PlotRegData[mmreg] - PlotRegData[mmreg-1]), regss[mmreg-1]   ,fontsize=9,fontweight='bold', color = 'k', horizontalalignment='center')  
+                plt.plot([-1,LLeft],[Left,Left],linestyle = '-', linewidth = 0.5, color = 'k')
+        plt.text(nD-1.5, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
         title = ptitles[m] + title_add
         plt.title(title)
         plt.ylabel(unit, fontsize = 18)
@@ -369,7 +391,7 @@ for m in range(0,len(ptitles)):
         ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
         plt.legend(handles = ProxyHandlesList,labels = CLabels,shadow = False, prop={'size':10},ncol=1, loc = 'lower center') # ,bbox_to_anchor=(1.18, 1)) 
         #plt.axis([-0.2, 7.7, 0.9*Right, 1.02*Left])
-        plt.axis([-0.2, LLeft+bw/2, 0, 1.02*Left])
+        plt.axis([XLeft, LLeft+bw/2, 0, 1.02*Left])
     
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), 'Cascade' + title +'.png'), dpi=150, bbox_inches='tight')
@@ -420,9 +442,12 @@ for m in range(0,len(ptitles)):
         x = np.linspace(2015,2060,46)
                 
         # 2x2 socioeconomic and energy system plot
+        # mpl.style.use('classic')
         fig = plt.figure()
         gs = fig.add_gridspec(2, 2, hspace=0, wspace=0)
         (ax1, ax2), (ax3, ax4) = gs.subplots(sharex='col', sharey='row')
+        #prop_cycle = plt.rcParams['axes.prop_cycle']
+        #colors = prop_cycle.by_key()['color']
         fig.suptitle('Energy demand, use phase, by scenario, ' + selectR[0])
         ax1.stackplot(x, Data[0,:,:]/1e6)     # For RCP2.6 + reb
         ax1.set_title('residential blds.', fontsize = 10)
@@ -436,7 +461,22 @@ for m in range(0,len(ptitles)):
         ax4.legend(ECarrs, loc='lower right', fontsize = 8)
         
         plt.show()
-        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), 'Energy' + title_add +'.png'), dpi=150, bbox_inches='tight')                 
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), 'Energy' + title_add +'.png'), dpi=150, bbox_inches='tight')     
+
+    if ptypes[m] == 'Sankey_Haas_Export':
+        # Extract and format Sankey plot for materials in a sector, according to the design by Haas et al. (2015)
+        # All values converted to Gt (cumulative flows)
+        selectR = [pregs[m]]
+        selectS = pscens[m].split(';')
+        title_add = '_' + selectR[0]
+        FC_BM = pc[pc['Indicator'].isin(['Final consumption of materials: wood and wood products']) & pc['Region'].isin(selectR) & pc['Scenario'].isin([selectS[0]])].values[0,5] / 1000
+        # create and populate file:
+        f = open(os.path.join(os.path.join(RECC_Paths.export_path,outpath), 'Sankey_Haas_' + title_add +'.txt'), 'w')
+        f.write('[Domestic Extraction: ' + str(36) + '] [(220,220,220)] [0] [40.00] [75.62] [296] [204]\n')
+        f.write('\n')
+        f.write('[Material use]  [' + str(FC_BM) + ']  [(0,126,57)] [ab] [Stocks]\n')
+        f.close()   
+        
                     
 #
 #

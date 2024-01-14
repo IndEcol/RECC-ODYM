@@ -29,6 +29,8 @@ def get_esc_data_from_pandas(ps,selectI,selectR,cscenss):
     Data    = pst.drop(['Scenario','Indicator', 'Region', 'Sectors', 'Unit'], axis=1).values
     return Data, unit
 
+plt.style.use('default') # set all plotting parameters to their default values
+
 # Definitions/Specifications
 CP            = os.path.join(RECC_Paths.results_path,'RECCv2.5_EXPORT_Combine_Select.xlsx')   
 CF            = openpyxl.load_workbook(CP)
@@ -180,7 +182,7 @@ for c in range(0,len(ctitles)):
         selectR = [cregs[c]]
         
         # Define data container
-        esc_data = np.zeros((9,46,nocs)) # 6 decoupling indices, 46 years, nocs scenarios
+        esc_data = np.zeros((10,46,nocs)) # 10 decoupling indices, 46 years, nocs scenarios
         
         # EXTRACT data and convert to ESC data array
         # Population:
@@ -192,9 +194,128 @@ for c in range(0,len(ctitles)):
         Data_ghg4, unit = get_esc_data_from_pandas(ps,'GHG emissions, primary material production',selectR,cscenss)
         # Final energy:
         Data_edx,  unit = get_esc_data_from_pandas(ps,'Energy cons., use phase, res+non-res buildings',selectR,cscenss)
-        #Stock:
+        # Stock:
+        Data_rebx, unit = get_esc_data_from_pandas(ps,'In-use stock, res. buildings',   selectR,cscenss)
+        Data_nrbx, unit = get_esc_data_from_pandas(ps,'In-use stock, nonres. buildings',selectR,cscenss)
+        # Inflow
+        Data_rebf, unit = get_esc_data_from_pandas(ps,'final consumption (use phase inflow), all res. building types together',   selectR,cscenss)
+        Data_nrbf, unit = get_esc_data_from_pandas(ps,'final consumption (use phase inflow), all nonres. building types together',selectR,cscenss)        
+        # Final material consumption:
+        Data_matm, unit = get_esc_data_from_pandas(ps,'Final consumption of materials',selectR,cscenss)
+        # Material footprint / RMI
+        Data_maf1, unit = get_esc_data_from_pandas(ps,'Material footprint, metal ores, system-wide',selectR,cscenss)
+        Data_maf2, unit = get_esc_data_from_pandas(ps,'Material footprint, non-metallic minerals, system-wide',selectR,cscenss)
+        Data_maf3, unit = get_esc_data_from_pandas(ps,'Material footprint, biomass (dry weight), system-wide', selectR,cscenss)
+
+        esc_data[0,:,:] = ((Data_ghg1 + Data_ghg2 + Data_ghg3)/Data_pop).transpose()
+        esc_data[1,:,:] = ((Data_ghg1 + Data_ghg2 + Data_ghg3)/Data_edx).transpose()
+        esc_data[2,:,:] = (Data_edx / (Data_rebx + Data_nrbx)).transpose() 
+        esc_data[3,:,:] = ((Data_rebx + Data_nrbx)/Data_pop).transpose()
+        esc_data[4,:,:] = ((Data_matm) / (Data_rebf + Data_nrbf)).transpose()
+        esc_data[5,:,:] = (Data_ghg4 / Data_matm).transpose()
+        esc_data[6,:,:] = (Data_ghg4 / Data_pop).transpose()
+        esc_data[7,:,:] = ((Data_maf1 + Data_maf2 + Data_maf3)/Data_matm).transpose()
+        esc_data[8,:,:] = ((Data_maf1 + Data_maf2 + Data_maf3)/Data_pop).transpose()
+        esc_data[9,:,:] = ((Data_rebf + Data_nrbf)/(Data_rebx + Data_nrbx)).transpose()
+                
+        # Define colors
+        cc = np.array([[128,128,128,255],[48,84,150,255],[198,89,17,255],[142,105,0,255],[112,48,160,255]])/255 # grey, blue, red, brown, purple
+        
+        # Plot results
+        fig, axs = plt.subplots(nrows=1, ncols=8 , figsize=(24, 3))        
+        fig.suptitle('Energy and material service cascade, ' + cregs[c],fontsize=18)
+        ProxyHandlesList = []   # For legend 
+        
+        plt.rcParams["axes.prop_cycle"] = plt.cycler("color", cc)
+        
+        axs[0].plot(np.arange(2016,2061), esc_data[0,1::,:],   linewidth = 3)
+        plta = Line2D(np.arange(2016,2061), esc_data[0,1::,:], linewidth = 3)
+        ProxyHandlesList.append(plta) # create proxy artist for legend    
+        axs[0].set_title('Energy-GHG per capita     = ', weight='bold')
+        axs[0].set_ylabel('t CO2-eq/yr', fontsize = 12)
+        #axs[0].set_facecolor((221/255, 235/255, 247/255))
+        axs[0].set_facecolor((197/255, 221/255, 241/255))
+        axs[0].set_ylim(bottom=0)
+        
+        axs[1].plot(np.arange(2016,2061), esc_data[1,1::,:] * 1e6, linewidth = 2.0)  
+        axs[1].set_title('GHG per final energy     *')
+        axs[1].set_ylabel('g CO2-eq/MJ', fontsize = 12)
+        axs[1].set_facecolor((238/255, 245/255, 252/255))
+        axs[1].set_ylim(bottom=0)
+        
+        axs[2].plot(np.arange(2016,2061), esc_data[2,1::,:], linewidth = 2.0) 
+        axs[2].set_title('Final energy per stock     *')
+        axs[2].set_ylabel('MJ/(m²·yr)', fontsize = 12)
+        axs[2].set_facecolor((238/255, 245/255, 252/255))
+        axs[2].set_ylim(bottom=0)
+        
+        axs[3].plot(np.arange(2016,2061), esc_data[3,1::,:], linewidth = 3.0)  
+        axs[3].set_title(' <-- | --> \n Stock per capita', weight='bold')
+        axs[3].set_ylabel('m²', fontsize = 12)
+        axs[3].set_facecolor((237/255, 226/255, 246/255))  
+        axs[3].set_ylim(bottom=0)
+        
+        axs[4].plot(np.arange(2016,2061), esc_data[9,1::,:], linewidth = 2.0)   
+        axs[4].set_title('*     inflow per stock')        
+        axs[4].set_ylabel('1/yr', fontsize = 12)
+        axs[4].set_facecolor((253/255, 239/255, 231/255))            
+        axs[4].set_ylim(bottom=0)
+        
+        axs[5].plot(np.arange(2016,2061), esc_data[4,1::,:] * 1e3, linewidth = 2.0)   
+        axs[5].set_title('*     material intensity of inflow')        
+        axs[5].set_ylabel('kg/m²', fontsize = 12)
+        axs[5].set_facecolor((253/255, 239/255, 231/255))            
+        axs[5].set_ylim(bottom=0)
+        
+        axs[6].plot(np.arange(2016,2061), esc_data[5,1::,:], linewidth = 2.0) 
+        axs[6].set_title('*     material-GHG per material')
+        axs[6].set_ylabel('t CO2-eq/t', fontsize = 12)
+        axs[6].set_facecolor((253/255, 239/255, 231/255))            
+        axs[6].set_ylim(bottom=0)
+        
+        axs[7].plot(np.arange(2016,2061), esc_data[6,1::,:], linewidth = 3.0) 
+        axs[7].set_title('=     material-GHG per capita', weight='bold')
+        axs[7].set_ylabel('t CO2-eq/yr', fontsize = 12)
+        #axs[7].set_facecolor((252/255, 228/255, 214/255))         
+        axs[7].set_facecolor((249/255, 203/255, 177/255))   
+        axs[7].set_ylim(bottom=0)
+        
+        Labels = cscenss
+        
+        fig.legend(Labels, shadow = False, prop={'size':14},ncol=5, loc = 'upper center',bbox_to_anchor=(0.5, -0.02)) 
+        plt.tight_layout()
+        plt.show()
+        title = ctitles[c]
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title + '.png'), dpi=150, bbox_inches='tight')
+
+    if ctypes[c] == 'version_3':
+        # get scenario list and length
+        if cscens[c] == 'All':
+            cscenss = scen
+        else:
+            cscenss = cscens[c].split(';')
+        nocs = len(cscenss)
+        selectR = [cregs[c]]
+        
+        # Define data container
+        esc_data = np.zeros((10,46,nocs)) # 10 decoupling indices, 46 years, nocs scenarios
+        
+        # EXTRACT data and convert to ESC data array
+        # Population:
+        Data_pop,  unit = get_esc_data_from_pandas(ps,'Population',selectR,cscenss)            
+        # GHG:
+        Data_ghg1, unit = get_esc_data_from_pandas(ps,'GHG emissions, res. buildings, use phase',selectR,cscenss)
+        Data_ghg2, unit = get_esc_data_from_pandas(ps,'GHG emissions, non-res. buildings, use phase',selectR,cscenss)
+        Data_ghg3, unit = get_esc_data_from_pandas(ps,'GHG emissions, res+non-res buildings, energy supply',selectR,cscenss)
+        Data_ghg4, unit = get_esc_data_from_pandas(ps,'GHG emissions, primary material production',selectR,cscenss)
+        # Final energy:
+        Data_edx,  unit = get_esc_data_from_pandas(ps,'Energy cons., use phase, res+non-res buildings',selectR,cscenss)
+        # Stock:
         Data_rebx, unit = get_esc_data_from_pandas(ps,'In-use stock, res. buildings',selectR,cscenss)
         Data_nrbx, unit = get_esc_data_from_pandas(ps,'In-use stock, nonres. buildings',selectR,cscenss)
+        # Inflow
+        Data_rebf, unit = get_esc_data_from_pandas(ps,'final consumption (use phase inflow), all res. building types together',   selectR,cscenss)
+        Data_nrbf, unit = get_esc_data_from_pandas(ps,'final consumption (use phase inflow), all nonres. building types together',selectR,cscenss)         
         # Final material consumption:
         Data_matm, unit = get_esc_data_from_pandas(ps,'Final consumption of materials',selectR,cscenss)
         # Material footprint / RMI
@@ -206,17 +327,18 @@ for c in range(0,len(ctitles)):
         esc_data[1,:,:] = ((Data_ghg1 + Data_ghg2 + Data_ghg3)/Data_edx).transpose()
         esc_data[2,:,:] = (Data_edx / (Data_rebx + Data_nrbx)).transpose() 
         esc_data[3,:,:] = ((Data_rebx + Data_nrbx)/Data_pop).transpose()
-        esc_data[4,:,:] = ((Data_matm) / (Data_rebx + Data_nrbx)).transpose()
+        esc_data[4,:,:] = ((Data_matm) / (Data_rebf + Data_nrbf)).transpose()
         esc_data[5,:,:] = (Data_ghg4 / Data_matm).transpose()
         esc_data[6,:,:] = (Data_ghg4 / Data_pop).transpose()
         esc_data[7,:,:] = ((Data_maf1 + Data_maf2 + Data_maf3)/Data_matm).transpose()
         esc_data[8,:,:] = ((Data_maf1 + Data_maf2 + Data_maf3)/Data_pop).transpose()
+        esc_data[9,:,:] = ((Data_rebf + Data_nrbf)/(Data_rebx + Data_nrbx)).transpose()        
                 
         # Define colors
         cc = np.array([[128,128,128,255],[48,84,150,255],[198,89,17,255],[142,105,0,255],[112,48,160,255]])/255 # grey, blue, red, brown, purple
         
         # Plot results
-        fig, axs = plt.subplots(nrows=1, ncols=7 , figsize=(24, 3))        
+        fig, axs = plt.subplots(nrows=1, ncols=8 , figsize=(24, 3))        
         fig.suptitle('Energy and material service cascade, ' + cregs[c],fontsize=18)
         ProxyHandlesList = []   # For legend 
         
@@ -225,58 +347,62 @@ for c in range(0,len(ctitles)):
         axs[0].plot(np.arange(2016,2061), esc_data[0,1::,:],   linewidth = 3)
         plta = Line2D(np.arange(2016,2061), esc_data[0,1::,:], linewidth = 3)
         ProxyHandlesList.append(plta) # create proxy artist for legend    
-        axs[0].set_title('Energy-GHG per capita = ')
+        axs[0].set_title('Energy-GHG per capita     = ', weight='bold')
         axs[0].set_ylabel('t CO2-eq/yr', fontsize = 12)
-        axs[0].set_facecolor((221/255, 235/255, 247/255))
+        #axs[0].set_facecolor((221/255, 235/255, 247/255))
+        axs[0].set_facecolor((197/255, 221/255, 241/255))
         axs[0].set_ylim(bottom=0)
         
         axs[1].plot(np.arange(2016,2061), esc_data[1,1::,:] * 1e6, linewidth = 2.0)  
-        axs[1].set_title('GHG per final energy *')
+        axs[1].set_title('GHG per final energy     *')
         axs[1].set_ylabel('g CO2-eq/MJ', fontsize = 12)
         axs[1].set_facecolor((238/255, 245/255, 252/255))
         axs[1].set_ylim(bottom=0)
         
         axs[2].plot(np.arange(2016,2061), esc_data[2,1::,:], linewidth = 2.0) 
-        axs[2].set_title('Final energy per stock *')
+        axs[2].set_title('Final energy per stock     *')
         axs[2].set_ylabel('MJ/(m²·yr)', fontsize = 12)
         axs[2].set_facecolor((238/255, 245/255, 252/255))
         axs[2].set_ylim(bottom=0)
         
         axs[3].plot(np.arange(2016,2061), esc_data[3,1::,:], linewidth = 3.0)  
-        axs[3].set_title('Stock per capita')
+        axs[3].set_title(' <-- | --> \n Stock per capita', weight='bold')
         axs[3].set_ylabel('m²', fontsize = 12)
-        # axs[3].set_facecolor((242/255, 242/255, 242/255))  
         axs[3].set_facecolor((237/255, 226/255, 246/255))  
         axs[3].set_ylim(bottom=0)
         
-        axs[4].plot(np.arange(2016,2061), esc_data[4,1::,:] * 1e3, linewidth = 2.0)   
-        axs[4].set_title('* material consumption per stock')        
-        axs[4].set_ylabel('kg/(m²·yr)', fontsize = 12)
+        axs[4].plot(np.arange(2016,2061), esc_data[9,1::,:], linewidth = 2.0)   
+        axs[4].set_title('*     inflow per stock')        
+        axs[4].set_ylabel('1/yr)', fontsize = 12)
         axs[4].set_facecolor((253/255, 239/255, 231/255))            
         axs[4].set_ylim(bottom=0)
-        
-        axs[5].plot(np.arange(2016,2061), esc_data[5,1::,:], linewidth = 2.0) 
-        axs[5].set_title('* material-GHG (dashed: RMI) \n per material')
-        axs[5].set_ylabel('t CO2-eq/t (dashed: t/t)', fontsize = 12)
-        axs[5].plot(np.arange(2016,2061), esc_data[7,1::,:], linewidth = 2.0, linestyle = '--') 
+
+        axs[5].plot(np.arange(2016,2061), esc_data[4,1::,:] * 1e3, linewidth = 2.0)   
+        axs[5].set_title('*     material intensity of inflow')        
+        axs[5].set_ylabel('kg/m²', fontsize = 12)
         axs[5].set_facecolor((253/255, 239/255, 231/255))            
-        axs[5].set_ylim(bottom=0)
+        axs[5].set_ylim(bottom=0)        
         
-        axs[6].plot(np.arange(2016,2061), esc_data[6,1::,:], linewidth = 3.0) 
-        axs[6].set_title('= material-GHG (dashed:RMI) \n per capita')
-        axs[6].set_ylabel('t CO2-eq/yr (dashed: t/yr)', fontsize = 12)
-        axs[6].plot(np.arange(2016,2061), esc_data[8,1::,:], linewidth = 3.0, linestyle = '--') 
-        axs[6].set_facecolor((252/255, 228/255, 214/255))         
+        axs[6].plot(np.arange(2016,2061), esc_data[7,1::,:], linewidth = 2.0) 
+        axs[6].set_title('*     RMI per material')
+        axs[6].set_ylabel('t/t', fontsize = 12)
+        axs[6].set_facecolor((253/255, 239/255, 231/255))            
         axs[6].set_ylim(bottom=0)
+        
+        axs[7].plot(np.arange(2016,2061), esc_data[8,1::,:], linewidth = 3.0) 
+        axs[7].set_title('=     RMI per capita', weight='bold')
+        axs[7].set_ylabel('t/yr', fontsize = 12)
+        #axs[7].set_facecolor((252/255, 228/255, 214/255))         
+        axs[7].set_facecolor((249/255, 203/255, 177/255))         
+        axs[7].set_ylim(bottom=0)
         
         Labels = cscenss
         
-        fig.legend(Labels, shadow = False, prop={'size':14},ncol=1, loc = 'upper center',bbox_to_anchor=(0.5, -0.02)) 
+        fig.legend(Labels, shadow = False, prop={'size':14},ncol=5, loc = 'upper center',bbox_to_anchor=(0.5, -0.02)) 
         plt.tight_layout()
         plt.show()
         title = ctitles[c]
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title + '.png'), dpi=150, bbox_inches='tight')
-
         
 #
 #

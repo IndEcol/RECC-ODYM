@@ -2763,7 +2763,7 @@ def main():
             # Calculate total env. pressure of system
             SysExt_Impacts_OtherThanUsePhaseDirect = SysExt_Impacts_UsePhase_7i_Scope2_El + SysExt_Impacts_UsePhase_7i_OtherIndir + SysExt_Impacts_PrimaryMaterial_3di + SysExt_Impacts_MaterialCycle_5di_9di
             # Compute total emissions of all processes in the system.
-            SysExt_TotalImpacts_13579di             = SysExt_Impacts_UsePhase_7d + SysExt_Impacts_OtherThanUsePhaseDirect + SysExt_CO2UptakeImpacts_Forests # include forest C sequestration
+            SysExt_TotalImpacts_13579di            = SysExt_Impacts_UsePhase_7d + SysExt_Impacts_OtherThanUsePhaseDirect + SysExt_CO2UptakeImpacts_Forests # include forest C sequestration
             SysExt_TotalImpacts_3579di             = SysExt_Impacts_UsePhase_7d + SysExt_Impacts_OtherThanUsePhaseDirect # no forest C sequestration
             SysExt_Impacts_Materials_3di_9di       = SysExt_Impacts_PrimaryMaterial_3di + SysExt_Impacts_WasteMgtRemelting_9di
             
@@ -2938,17 +2938,17 @@ def main():
     
     # GHG overview, bulk materials, material footprint
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[GWP100_loc,:,:,:],2,len(ColLabels),'GHG emissions, system-wide _3579di (excl. forests)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_13579di[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, system-wide _13579di (incl. forests)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[AllMat_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, all materials, system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[FosFuel_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, fossil fuels, system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[MetOres_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, metal ores, system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_13579di[GWP100_loc,:,:,:],newrowoffset, len(ColLabels),'GHG emissions, system-wide _13579di (incl. forests)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[AllMat_loc,:,:,:],newrowoffset,  len(ColLabels),'Material footprint, all materials, system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[FosFuel_loc,:,:,:],newrowoffset, len(ColLabels),'Material footprint, fossil fuels, system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[MetOres_loc,:,:,:],newrowoffset, len(ColLabels),'Material footprint, metal ores, system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[nMetOres_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, non-metallic minerals, system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[Biomass_loc,:,:,:],newrowoffset,len(ColLabels),'Material footprint, biomass (dry weight), system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[Land_loc,:,:,:],newrowoffset,len(ColLabels),'Land footprint, system-wide _3579di','1000 km² of land',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[Water_loc,:,:,:],newrowoffset,len(ColLabels),'Water footprint, system-wide _3579di','km³ of water',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[Biomass_loc,:,:,:],newrowoffset, len(ColLabels),'Material footprint, biomass (dry weight), system-wide _3579di','Mt/yr of raw materials',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[Land_loc,:,:,:],newrowoffset,    len(ColLabels),'Land footprint, system-wide _3579di','1000 km² of land',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[Water_loc,:,:,:],newrowoffset,   len(ColLabels),'Water footprint, system-wide _3579di','km³ of water',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, primary material production _3di','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'Process and direct emissions in process 3 and related energy supply','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,8,:,:],newrowoffset,len(ColLabels),'Cement production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,0:4,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary steel production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,0:4,:,:].sum(axis=1),newrowoffset, len(ColLabels),'Primary steel production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # final material consumption, fab scrap
     for m in range(0,Nm):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow[:,:,m,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials: ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[m],'Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -3397,7 +3397,7 @@ def main():
     LegendItems_SSP    = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items
     #LegendItems_RCP    = IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items
     LegendItems_SSP_RE = ['LED, no EST', 'LED, 2°C ES', 'SSP1, no EST', 'SSP1, 2°C ES', 'SSP2, no EST', 'SSP2, 2°C ES']
-    LegendItems_SSP_UP = ['Use Phase, SSP1, no EST', 'Rest of system GHG, SSP1, no EST','Use Phase, SSP1, 2°C ES', 'Rest of system GHG, SSP1, 2°C ES']
+    LegendItems_SSP_UP = ['Use Phase, SSP1, no EST', 'Rest of system GHG, SSP1, no EST, forestry excl.','Use Phase, SSP1, 2°C ES', 'Rest of system GHG, SSP1, 2°C ES, forestry excl.']
     ColorOrder         = [1,0,3]
     
     # policy baseline vs. RCP 2.6
@@ -3405,9 +3405,9 @@ def main():
     ax1.set_prop_cycle('color', MyColorCycle)
     ProxyHandlesList = []
     for m in range(0,NS):
-        ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),Impacts_System_3579di[0,:,m,0], linewidth = linewidth[m], color = MyColorCycle[ColorOrder[m],:])
+        ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),Impacts_System_13579di[0,:,m,0], linewidth = linewidth[m], color = MyColorCycle[ColorOrder[m],:])
         #ProxyHandlesList.append(plt.line((0, 0), 1, 1, fc=MyColorCycle[m,:]))
-        ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),Impacts_System_3579di[0,:,m,1], linewidth = linewidth2[m], linestyle = '--', color = MyColorCycle[ColorOrder[m],:])
+        ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),Impacts_System_13579di[0,:,m,1], linewidth = linewidth2[m], linestyle = '--', color = MyColorCycle[ColorOrder[m],:])
         #ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[m,:]))     
     #plt_lgd  = plt.legend(reversed(ProxyHandlesList),reversed(LegendItems_SSP_RE),shadow = False, prop={'size':9}, loc = 'lower left')# 'upper right' ,bbox_to_anchor=(1.20, 1))
     plt.legend(LegendItems_SSP_RE,shadow = False, prop={'size':9}, loc = 'upper left')# 'upper right' ,bbox_to_anchor=(1.20, 1))    
@@ -3548,7 +3548,7 @@ def main():
     
     SSPScens   = ['LED','SSP1','SSP2']
     RCPScens   = ['No climate policy','RCP2.6 energy mix']
-    Area       = ['use phase','use phase, scope 2 (el)','use phase, other indirect','primary material product.','manufact. & recycling','total (+ forest sequestr.)']     
+    Area       = ['use phase','use phase, scope 2 (el)','use phase, other energy, indirect','primary material product.','manufact. & recycling','forest sequestration','total (+ forest sequestr.)']     
     DataAExp   = np.zeros((NS,NR,Nt,6))
     
     
@@ -3571,6 +3571,8 @@ def main():
             ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend    
             ax1.fill_between(np.arange(2016,2061),Impacts_UsePhase_7d[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,1::,mS,mR] + Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR], Impacts_UsePhase_7d[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,1::,mS,mR] + Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR] + Impacts_MaterialCycle_5di_9di[GWP100_loc,1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[5,:], linewidth = 0.5)
             ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[5,:])) # create proxy artist for legend    
+            ax1.fill_between(np.arange(2016,2061),np.zeros((Nt-1)),Impacts_ForestCO2Uptake[GWP100_loc,1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[6,:], linewidth = 0.5)
+            ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[6,:])) # create proxy artist for legend    
             plt.plot(np.arange(2016,2061), Impacts_System_13579di[GWP100_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
             plta = Line2D(np.arange(2016,2061), Impacts_System_13579di[GWP100_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
             ProxyHandlesList.append(plta) # create proxy artist for legend    
@@ -3661,6 +3663,8 @@ def main():
             ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend    
             axs[0].fill_between(np.arange(2016,2061),Impacts_UsePhase_7d[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,1::,mS,mR] + Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR], Impacts_UsePhase_7d[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_Scope2_El[GWP100_loc,1::,mS,mR] + Impacts_UsePhase_7i_OtherIndir[GWP100_loc,1::,mS,mR] + Impacts_PrimaryMaterial_3di[GWP100_loc,1::,mS,mR] + Impacts_MaterialCycle_5di_9di[GWP100_loc,1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[5,:], linewidth = 0.5)
             ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[5,:])) # create proxy artist for legend    
+            axs[0].fill_between(np.arange(2016,2061),np.zeros((Nt-1)),Impacts_ForestCO2Uptake[GWP100_loc,1::,mS,mR], linestyle = '-', facecolor = MyColorCycle[6,:], linewidth = 0.5)
+            ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[6,:])) # create proxy artist for legend    
             axs[0].plot(np.arange(2016,2061), Impacts_System_13579di[GWP100_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
             plta = Line2D(np.arange(2016,2061), Impacts_System_13579di[GWP100_loc,1::,mS,mR] , linewidth = linewidth[2], color = 'k')
             ProxyHandlesList.append(plta) # create proxy artist for legend    
