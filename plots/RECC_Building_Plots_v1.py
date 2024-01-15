@@ -25,6 +25,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 import matplotlib.lines as mlines
+from matplotlib.lines import Line2D
 import numpy as np
 import RECC_Paths # Import path file
 
@@ -567,6 +568,7 @@ for m in range(0,len(ptitles)):
             groupsi = pflags[m].split(';')
             groupsi = [int(i) for i in groupsi]
             labelsg = indlab[m].split(';')
+            labelsc = scelab[m].split(';')
             title_add = '_' + selectR
             Data1   = np.zeros((groupsi[0],45)) # for 46 years
             Data2   = np.zeros((groupsi[1],45)) # for 46 years
@@ -618,8 +620,122 @@ for m in range(0,len(ptitles)):
             ax4.set(xlabel='year')    
             
             plt.show()
-            fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + title_add +'.png'), dpi=150, bbox_inches='tight')    
+            fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + title_add +'.png'), dpi=150, bbox_inches='tight')            
+            
+            # plot all in one:
+            fig  = plt.figure(figsize=(5,5))
+            axs  = plt.axes([0.08,0.08,0.85,0.9])
+            axs.plot(x, Data1.transpose(), color = '#1f77b4')     # For top left
+            axs.plot(x, Data2.transpose(), color = '#ff7f0e')     # For top right
+            axs.plot(x, Data3.transpose(), color = '#2ca02c')     # For bottom left
+            axs.plot(x, Data4.transpose(), color = '#d62728')     # For bottom right
+            axs.set(xlabel='year', ylabel=unit)    
+            axs.set_ylim(bottom=0)
+            plt.title(Inds[0] + ', ' + selectR)
+            ProxyHandlesList = []   # For legend
+            ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = '#1f77b4'))
+            ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = '#2ca02c'))
+            ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = '#ff7f0e'))
+            ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = '#d62728'))
+            axs.legend(handles = ProxyHandlesList,labels = labelsc, shadow = False, prop={'size':9},ncol=1, loc = 'lower left')
+            fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + title_add +'_Combined.png'), dpi=150, bbox_inches='tight')
+
+
+    if ptypes[m] == 'WoodSubstInd':
+        # Compile table for wood substitution indicators
+        selectS   = pscens[m].split(';')
+        title_add = ptitles[m]
+        DataMatsW = np.zeros((11,4,5)) # for 11 regions, 4 scenario pairs, and 5 indicators
+        IndsWood  = ['Construction wood, structural, from industrial roundwood','Cement production','Primary steel production','GHG emissions, primary material production','GHG emissions, non-biogenic']
+        for rr in range(0,len(regions)): # for each region
+            for ii in range(0,len(IndsWood)): # for each Indicator
+                for sp in range(0,4): # for each scenario pair
+                    pst1     = pc[pc['Indicator'].isin([IndsWood[ii]]) & pc['Region'].isin([regions[rr]]) & pc['Scenario'].isin([selectS[2*sp]])].iloc[0]['Cum. 2020-2050 (incl.)']
+                    pst2     = pc[pc['Indicator'].isin([IndsWood[ii]]) & pc['Region'].isin([regions[rr]]) & pc['Scenario'].isin([selectS[2*sp+1]])].iloc[0]['Cum. 2020-2050 (incl.)']
+                    DataMatsW[rr,sp,ii] = pst1-pst2
+        GHGS = -DataMatsW[:,:,4] / DataMatsW[:,:,0]  
+        PSTS = -DataMatsW[:,:,1] / DataMatsW[:,:,0]
+        PCES = -DataMatsW[:,:,2] / DataMatsW[:,:,0]
         
+        fig  = plt.figure(figsize=(5,5))
+        axs  = plt.axes([0.08,0.08,0.85,0.9])   
+
+        axs.scatter(np.ones(9)+1.3,GHGS[0:-2,0], color = '#1f77b4')                 
+        axs.scatter(np.ones(9)+1.2,GHGS[0:-2,1], color = '#2ca02c')     
+        axs.scatter(np.ones(9)+1.1,GHGS[0:-2,2], color = '#ff7f0e')  
+        axs.scatter(np.ones(9)+1.0,GHGS[0:-2,3], color = '#d62728')    
+        
+        axs.scatter(2.3,GHGS[-1,0], s = 300, color = 'k', marker = '_', linewidths = 3)                 
+        axs.scatter(2.2,GHGS[-1,1], s = 300, color = 'k', marker = '_', linewidths = 3)     
+        axs.scatter(2.1,GHGS[-1,2], s = 300, color = 'k', marker = '_', linewidths = 3)  
+        axs.scatter(2.0,GHGS[-1,3], s = 300, color = 'k', marker = '_', linewidths = 3)           
+        
+        axs.scatter(np.ones(9)+0.3,PCES[0:-2,0], color = '#1f77b4')                 
+        axs.scatter(np.ones(9)+0.2,PCES[0:-2,1], color = '#2ca02c')     
+        axs.scatter(np.ones(9)+0.1,PCES[0:-2,2], color = '#ff7f0e')  
+        axs.scatter(np.ones(9)+0.0,PCES[0:-2,3], color = '#d62728')    
+        
+        axs.scatter(1.3,PCES[-1,0], s = 300, color = 'k', marker = '_', linewidths = 3)                 
+        axs.scatter(1.2,PCES[-1,1], s = 300, color = 'k', marker = '_', linewidths = 3)     
+        axs.scatter(1.1,PCES[-1,2], s = 300, color = 'k', marker = '_', linewidths = 3)  
+        axs.scatter(1.0,PCES[-1,3], s = 300, color = 'k', marker = '_', linewidths = 3)     
+        
+        axyl = axs.get_ylim()
+        
+        axs.fill_between([1.4,1.9],[axyl[0],axyl[0]],[axyl[1],axyl[1]],facecolor = np.array([230,230,230])/255)        
+        
+        axs.scatter(np.ones(9)+0.8,PSTS[0:-2,0], color = '#1f77b4')                 
+        axs.scatter(np.ones(9)+0.7,PSTS[0:-2,1], color = '#2ca02c')     
+        axs.scatter(np.ones(9)+0.6,PSTS[0:-2,2], color = '#ff7f0e')  
+        axs.scatter(np.ones(9)+0.5,PSTS[0:-2,3], color = '#d62728')      
+        
+        axs.scatter(1.8,PSTS[-1,0], s = 300, color = 'k', marker = '_', linewidths = 3)                 
+        axs.scatter(1.7,PSTS[-1,1], s = 300, color = 'k', marker = '_', linewidths = 3)     
+        axs.scatter(1.6,PSTS[-1,2], s = 300, color = 'k', marker = '_', linewidths = 3)  
+        axs.scatter(1.5,PSTS[-1,3], s = 300, color = 'k', marker = '_', linewidths = 3)    
+        
+        plt.title('Materials & GHG saved per additional Mt of structural timber', fontsize = 10.5)
+        
+        ProxyHandlesList = []   # For legend
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], s = 300, color = 'k', marker = '_', linewidths = 3))
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#1f77b4'))
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#2ca02c'))
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#ff7f0e'))
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#d62728'))
+        axs.legend(handles = ProxyHandlesList,labels = ['Global average','High carbon Energy+Materials','High carbon Energy+Materials + Full CE','Low carbon Energy+Materials','Low carbon Energy+Materials + Full CE'], shadow = False, prop={'size':9},ncol=1, loc = 'upper left')       
+        
+        axs.set_xlim(left   = 0.9)
+        axs.set_xlim(right  = 2.4)
+        axs.set_ylim(bottom = axyl[0])
+        axs.set_ylim(top    = axyl[1])
+        
+        plt.text(0.95,  1.35, 'Mt of cement \nsaved', fontsize=12, fontweight='normal') 
+        plt.text(1.45,  1.35, 'Mt of primary \nsteel saved', fontsize=12, fontweight='normal') 
+        plt.text(1.95,  0.45, r'Mt of CO$_2$-eq', fontsize=12, fontweight='normal') 
+        plt.text(1.95,  0.25, '(non-biogenic) \nsaved across \nentire system', fontsize=12, fontweight='normal') 
+        
+        plt.xticks([])
+        
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '.png'), dpi=150, bbox_inches='tight')
+
+            
+    if ptypes[m] == 'LEDInd':
+        # Compile table for LED indicators
+        selectS   = pscens[m].split(';')
+        title_add = ptitles[m]
+        DataMatsD = np.zeros((11,4,7)) # for 11 regions, 4 scenario pairs, and 7 indicators
+        DataP     = np.zeros((11,8))   # for 8 regions and 8 scearios
+        IndsWood  = ['In-use stock, res. buildings','In-use stock, nonres. buildings','Construction wood, structural, from industrial roundwood','Cement production','Primary steel production','GHG emissions, primary material production','GHG emissions, non-biogenic']
+        for rr in range(0,len(regions)): # for each region
+            for ii in range(0,len(IndsWood)): # for each Indicator
+                for sp in range(0,4): # for each scenario pair
+                    pst1     = pc[pc['Indicator'].isin([IndsWood[ii]]) & pc['Region'].isin([regions[rr]]) & pc['Scenario'].isin([selectS[2*sp]])].iloc[0]['Cum. 2020-2050 (incl.)']
+                    pst2     = pc[pc['Indicator'].isin([IndsWood[ii]]) & pc['Region'].isin([regions[rr]]) & pc['Scenario'].isin([selectS[2*sp+1]])].iloc[0]['Cum. 2020-2050 (incl.)']
+                    DataMatsD[rr,sp,ii] = pst1-pst2            
+            for indp in range(0,len(selectS)):
+                DataP[rr,indp] = ps[ps['Indicator'].isin(['Population']) & ps['Region'].isin([regions[rr]]) & ps['Scenario'].isin([selectS[indp]])].iloc[0][2050]
+
+        DeltapCStock = (DataMatsD[:,:,0] + DataMatsD[:,:,1]) / np.einsum('p,s->ps',DataP[:,0],np.ones((4)))
 
     if ptypes[m] == 'Sankey_Haas_Export':
         # Extract and format Sankey plot for materials in a sector, according to the design by Haas et al. (2015)
