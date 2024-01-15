@@ -217,16 +217,19 @@ for c in range(0,len(ctitles)):
         esc_data[7,:,:] = ((Data_maf1 + Data_maf2 + Data_maf3)/Data_matm).transpose()
         esc_data[8,:,:] = ((Data_maf1 + Data_maf2 + Data_maf3)/Data_pop).transpose()
         esc_data[9,:,:] = ((Data_rebf + Data_nrbf)/(Data_rebx + Data_nrbx)).transpose()
-                
+        
+        # Define maximal GHG/cap
+        maxGHG = np.max(esc_data[[0,6],1::,:])
+        
         # Define colors
-        cc = np.array([[128,128,128,255],[48,84,150,255],[198,89,17,255],[142,105,0,255],[112,48,160,255]])/255 # grey, blue, red, brown, purple
+        ccol = np.array([[128,128,128,255],[48,84,150,255],[198,89,17,255],[142,105,0,255],[112,48,160,255]])/255 # grey, blue, red, brown, purple        
         
         # Plot results
         fig, axs = plt.subplots(nrows=1, ncols=8 , figsize=(24, 3))        
         fig.suptitle('Energy and material service cascade, ' + cregs[c],fontsize=18)
         ProxyHandlesList = []   # For legend 
         
-        plt.rcParams["axes.prop_cycle"] = plt.cycler("color", cc)
+        plt.rcParams["axes.prop_cycle"] = plt.cycler("color", ccol)
         
         axs[0].plot(np.arange(2016,2061), esc_data[0,1::,:],   linewidth = 3)
         plta = Line2D(np.arange(2016,2061), esc_data[0,1::,:], linewidth = 3)
@@ -236,6 +239,7 @@ for c in range(0,len(ctitles)):
         #axs[0].set_facecolor((221/255, 235/255, 247/255))
         axs[0].set_facecolor((197/255, 221/255, 241/255))
         axs[0].set_ylim(bottom=0)
+        axs[0].set_ylim(top=1.05 * maxGHG)
         
         axs[1].plot(np.arange(2016,2061), esc_data[1,1::,:] * 1e6, linewidth = 2.0)  
         axs[1].set_title('GHG per final energy     *')
@@ -279,6 +283,7 @@ for c in range(0,len(ctitles)):
         #axs[7].set_facecolor((252/255, 228/255, 214/255))         
         axs[7].set_facecolor((249/255, 203/255, 177/255))   
         axs[7].set_ylim(bottom=0)
+        axs[7].set_ylim(top=1.05 * maxGHG)
         
         Labels = cscenss
         
@@ -287,6 +292,7 @@ for c in range(0,len(ctitles)):
         plt.show()
         title = ctitles[c]
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title + '.png'), dpi=150, bbox_inches='tight')
+
 
     if ctypes[c] == 'version_3':
         # get scenario list and length
