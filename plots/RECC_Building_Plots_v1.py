@@ -165,6 +165,47 @@ for m in range(0,len(ptitles)):
             plt.show()
             fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), 'stock pattern_' + pflags[m] + '_' + selectR +'.png'), dpi=150, bbox_inches='tight')
      
+    if ptypes[m] == 'Fig_Ind_RegionalBreakdown':
+        # Custom plot for region-stacked indicator by year and scenario  
+        regs   = ['R5.2SSA','R5.2LAM','EU_UK','China','India','R5.2ASIA_Other','R5.2MNF','R5.2REF','R5.2OECD_Other','R32USACAN']
+        regss  = ['SSA','LAM','EU_UK','China','India','ASIA_Oth','MNF','REF','OECD_Oth','USA_CAN']
+        Inds    = pinds[m].split(';')
+        selectI = [Inds[0]] # only 1 indicator
+        selectS = pscens[m].split(';') # several scenarios
+        noS     = len(selectS)
+        ranges  = prange[m].split(';') # years as strings
+        labels  = scelab[m].split(';')
+        colorz  = colors[m].split(';')
+        
+        Data    = np.zeros((noS,len(regs))) # Data array
+        for inds in range(0,noS): # Fetch data
+            bd_df = ps[ps['Indicator'].isin(selectI) & ps['Region'].isin(regs) & ps['Scenario'].isin([selectS[inds]])]
+            bd_df.set_index('Region', inplace=True)
+            unit  = bd_df.iloc[0]['Unit']
+            IndData=bd_df[int(ranges[inds])]
+            Data[inds,:] = IndData.values
+        PlotRegData = Data.cumsum(axis=1)
+        PlotRegData = np.insert(PlotRegData, 0, 0, axis=1)
+             
+        
+        fig  = plt.figure(figsize=(8,5))
+        ax1  = plt.axes([0.08,0.08,0.85,0.9])   
+        bw = 0.35     
+        LLeft   = -0.5
+        XTicks  = np.arange(0,noS,1)        
+        # Plot data:
+        for mmreg in range(1,11):
+            for inds in range(0,noS):
+                ax1.fill_between([inds,inds+bw],[PlotRegData[inds,mmreg-1],PlotRegData[inds,mmreg-1]],[PlotRegData[inds,mmreg],PlotRegData[inds,mmreg]], linestyle = '-', facecolor = colorz[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
+            plt.text(2.45, PlotRegData[noS-1,mmreg-1] + 0.4 * (PlotRegData[noS-1,mmreg] - PlotRegData[noS-1,mmreg-1]), regss[mmreg-1]   ,fontsize=10,fontweight='bold', color = 'k', horizontalalignment='left')  
+        plt.xlim([-0.25,noS])       
+        plt.xticks([bw/2+i for i in range(0,noS)])            
+        ax1.set_xticklabels(labels, rotation =0, fontsize = 12, fontweight = 'bold')
+        plt.title(ptitles[m], fontsize = 22)
+        plt.ylabel(unit, fontsize = 15)
+        plt.show()
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] +'.png'), dpi=150, bbox_inches='tight')
+        
         
     if ptypes[m] == 'Fig_MaterialFlows':
         # Custom plot for material production
@@ -498,7 +539,7 @@ for m in range(0,len(ptitles)):
         Inds    = pinds[m].split(';')
         selectR = [pregs[m]]
         selectS = pscens[m].split(';')
-        title_add = '_' + selectR[0]
+        title_add = ptitles[m] + '_' + selectR[0]
         ddf     = ps # for time series only
         Data    = np.zeros((4,6,46)) # array for 4 scenarios, 6 energy carriers, and 45 years
         ECarrs  = ['electricity','coal','heating oil','natural gas','hydrogen','fuel wood']
@@ -557,7 +598,7 @@ for m in range(0,len(ptitles)):
         ax4.legend(ECarrs, loc='lower right', fontsize = 8)
         
         plt.show()
-        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), 'Energy' + title_add +'.png'), dpi=150, bbox_inches='tight')     
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title_add +'.png'), dpi=150, bbox_inches='tight')     
         
     if ptypes[m] == 'GHG_t_2x2':
         # Custom plot for indicator (time series per scenario group)
@@ -570,10 +611,10 @@ for m in range(0,len(ptitles)):
             labelsg = indlab[m].split(';')
             labelsc = scelab[m].split(';')
             title_add = '_' + selectR
-            Data1   = np.zeros((groupsi[0],45)) # for 46 years
-            Data2   = np.zeros((groupsi[1],45)) # for 46 years
-            Data3   = np.zeros((groupsi[2],45)) # for 46 years
-            Data4   = np.zeros((groupsi[3],45)) # for 46 years
+            Data1   = np.zeros((groupsi[0],45)) # for 45 years
+            Data2   = np.zeros((groupsi[1],45)) # for 45 years
+            Data3   = np.zeros((groupsi[2],45)) # for 45 years
+            Data4   = np.zeros((groupsi[3],45)) # for 45 years
             
             pst     = ps[ps['Indicator'].isin(Inds) & ps['Region'].isin([selectR])] # Select the specified data and transpose them for plotting
             pst.set_index('Indicator', inplace=True)
@@ -623,12 +664,16 @@ for m in range(0,len(ptitles)):
             fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + title_add +'.png'), dpi=150, bbox_inches='tight')            
             
             # plot all in one:
-            fig  = plt.figure(figsize=(5,5))
+            fig  = plt.figure(figsize=(6.5,5))
             axs  = plt.axes([0.08,0.08,0.85,0.9])
-            axs.plot(x, Data1.transpose(), color = '#1f77b4')     # For top left
-            axs.plot(x, Data2.transpose(), color = '#ff7f0e')     # For top right
-            axs.plot(x, Data3.transpose(), color = '#2ca02c')     # For bottom left
-            axs.plot(x, Data4.transpose(), color = '#d62728')     # For bottom right
+            axs.plot(x, Data1.transpose(), color = '#1f77b4')     # For top left, bright version: #7fbee9
+            axs.fill_between(x, np.min(Data1,axis=0), np.max(Data1,axis=0), facecolor = '#7fbee9', alpha=0.5)
+            axs.plot(x, Data2.transpose(), color = '#ff7f0e')     # For top right, bright version: #ffbf85
+            axs.fill_between(x, np.min(Data2,axis=0), np.max(Data2,axis=0), facecolor = '#ffbf85', alpha=0.5)
+            axs.plot(x, Data3.transpose(), color = '#2ca02c')     # For bottom left, bright version: #89df89
+            axs.fill_between(x, np.min(Data3,axis=0), np.max(Data3,axis=0), facecolor = '#89df89', alpha=0.5)
+            axs.plot(x, Data4.transpose(), color = '#d62728')     # For bottom right, bright version: #eb9595
+            axs.fill_between(x, np.min(Data4,axis=0), np.max(Data4,axis=0), facecolor = '#eb9595', alpha=0.5)
             axs.set(xlabel='year', ylabel=unit)    
             axs.set_ylim(bottom=0)
             plt.title(Inds[0] + ', ' + selectR)
@@ -639,6 +684,7 @@ for m in range(0,len(ptitles)):
             ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = '#d62728'))
             axs.legend(handles = ProxyHandlesList,labels = labelsc, shadow = False, prop={'size':9},ncol=1, loc = 'lower left')
             fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + title_add +'_Combined.png'), dpi=150, bbox_inches='tight')
+
 
 
     if ptypes[m] == 'WoodSubstInd':

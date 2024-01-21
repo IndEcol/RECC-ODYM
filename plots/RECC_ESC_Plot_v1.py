@@ -234,7 +234,7 @@ for c in range(0,len(ctitles)):
         axs[0].plot(np.arange(2016,2061), esc_data[0,1::,:],   linewidth = 3)
         plta = Line2D(np.arange(2016,2061), esc_data[0,1::,:], linewidth = 3)
         ProxyHandlesList.append(plta) # create proxy artist for legend    
-        axs[0].set_title('Energy-GHG per capita     = ', weight='bold')
+        axs[0].set_title('Energy-GHG per capita     = \n (Scope 1 + 2 emissions)      ', weight='bold')
         axs[0].set_ylabel('t CO2-eq/yr', fontsize = 12)
         #axs[0].set_facecolor((221/255, 235/255, 247/255))
         axs[0].set_facecolor((197/255, 221/255, 241/255))
@@ -278,7 +278,7 @@ for c in range(0,len(ctitles)):
         axs[6].set_ylim(bottom=0)
         
         axs[7].plot(np.arange(2016,2061), esc_data[6,1::,:], linewidth = 3.0) 
-        axs[7].set_title('=     material-GHG per capita', weight='bold')
+        axs[7].set_title('=     material-GHG per capita \n(Scope 3 emissions)', weight='bold')
         axs[7].set_ylabel('t CO2-eq/yr', fontsize = 12)
         #axs[7].set_facecolor((252/255, 228/255, 214/255))         
         axs[7].set_facecolor((249/255, 203/255, 177/255))   
