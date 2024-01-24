@@ -322,6 +322,59 @@ for m in range(0,len(ptitles)):
             plt.show()
             fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title +'.png'), dpi=150, bbox_inches='tight')
 
+
+    if ptypes[m] == 'Fig_PrimaryProduction':
+        # Custom plot for region-stacked cumulative material production for two scenarios
+        regs   = ['R5.2SSA','R5.2LAM','EU_UK','China','India','R5.2ASIA_Other','R5.2MNF','R5.2REF','R5.2OECD_Other','R32USACAN']
+        regss  = ['SSA','LAM','EU_UK','China','India','ASIA_Oth','MNF','REF','OECD_Oth','USA_CAN']
+        selectS = pscens[m].split(';') # several scenarios
+        noS     = len(selectS)
+        cement_grey = ['#ffffff','#f0f0f0','#d9d9d9','#bdbdbd','#969696','#818181','#676767','#525252','#252525','#000000']
+        steel_blue  = ['#f7fbff','#deebf7','#c6dbef','#9ecae1','#6baed6','#4292c6','#2171b5','#08519c','#08306b','#051e43']
+        wood_brown  = ['#ffffe5','#fff7bc','#fee391','#fec44f','#fe9929','#ec7014','#cc4c02','#993404','#662506','#4c1c04']
+        Data_PM = np.zeros((3,noS,len(regs)))
+        Mats    = ['Cement production','Primary steel production','Construction wood, structural, from industrial roundwood']
+        for mat in range(0,len(Mats)):
+            for sce in range(0,noS):
+                for reg in range(0,len(regs)):
+                    pst    = pc[pc['Indicator'].isin([Mats[mat]]) & pc['Region'].isin([regs[reg]]) & pc['Scenario'].isin([selectS[sce]])] # Select the specified data and compile them for plotting        
+                    unit = pst.iloc[0]['Unit']
+                    Data_PM[mat,sce,reg] = pst.iloc[0]['Cum. 2020-2050 (incl.)']       
+        PlotRegData = Data_PM.cumsum(axis=2) / 1000 # from Mt to Gt
+        PlotRegData = np.insert(PlotRegData, 0, 0, axis=2)                    
+            
+        fig  = plt.figure(figsize=(8,5))
+        ax1  = plt.axes([0.08,0.08,0.85,0.9])   
+        bw = 0.5    
+        LLeft   = -0.5
+        XTicks  = np.array([0, 1, 2, 3, 4, 5])
+        XTextpos=[-0.1,-0.1,-0.1,-0.1,-0.1,-0.1,-0.1,-0.1,1.3,-0.1,]
+        # Plot data:
+        for mmreg in range(1,11):
+            ax1.fill_between([0,0+bw],[PlotRegData[0,0,mmreg-1],PlotRegData[0,0,mmreg-1]],[PlotRegData[0,0,mmreg],PlotRegData[0,0,mmreg]], linestyle = '-', facecolor = cement_grey[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
+            ax1.fill_between([0.75,0.75+bw],[PlotRegData[0,1,mmreg-1],PlotRegData[0,1,mmreg-1]],[PlotRegData[0,1,mmreg],PlotRegData[0,1,mmreg]], linestyle = '-', facecolor = cement_grey[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
+            ax1.fill_between([1.75,1.75+bw],[PlotRegData[1,0,mmreg-1],PlotRegData[1,0,mmreg-1]],[PlotRegData[1,0,mmreg],PlotRegData[1,0,mmreg]], linestyle = '-', facecolor = steel_blue[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
+            ax1.fill_between([2.5,2.5+bw],[PlotRegData[1,1,mmreg-1],PlotRegData[1,1,mmreg-1]],[PlotRegData[1,1,mmreg],PlotRegData[1,1,mmreg]], linestyle = '-', facecolor = steel_blue[10-mmreg], edgecolor = 'k', linewidth = 1.0)             
+            ax1.fill_between([3.5,3.5+bw],[PlotRegData[2,0,mmreg-1],PlotRegData[2,0,mmreg-1]],[PlotRegData[2,0,mmreg],PlotRegData[2,0,mmreg]], linestyle = '-', facecolor = wood_brown[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
+            ax1.fill_between([4.25,4.25+bw],[PlotRegData[2,1,mmreg-1],PlotRegData[2,1,mmreg-1]],[PlotRegData[2,1,mmreg],PlotRegData[2,1,mmreg]], linestyle = '-', facecolor = wood_brown[10-mmreg], edgecolor = 'k', linewidth = 1.0)             
+            plt.text(XTextpos[mmreg-1], PlotRegData[0,0,mmreg-1] + 0.4 * (PlotRegData[0,0,mmreg] - PlotRegData[0,0,mmreg-1]), regss[mmreg-1]   ,fontsize=10,fontweight='bold', color = 'k', horizontalalignment='right')  
+        plt.xlim([-1.05,5])       
+        plt.xticks([])
+        ax1.set_ylim(bottom=0)
+        ax1.set_ylim(top=1.2*np.max(PlotRegData))
+        plt.text(0.3, 1.08*np.max(PlotRegData), 'Cement'     ,fontsize=18, fontweight='normal', color = cement_grey[5], horizontalalignment='left')  
+        plt.text(2.08, 1.08*np.max(PlotRegData), 'Steel'     ,fontsize=18, fontweight='normal', color = steel_blue[5], horizontalalignment='left')  
+        plt.text(3.6, 1.08*np.max(PlotRegData), 'Structural' ,fontsize=18, fontweight='normal', color = wood_brown[5], horizontalalignment='left')  
+        plt.text(3.85, 0.98*np.max(PlotRegData), 'Wood'      ,fontsize=18, fontweight='normal', color = wood_brown[5], horizontalalignment='left')  
+        #
+        plt.text(1.90, 0.52*np.max(PlotRegData), selectS[0]   ,fontsize=16, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
+        plt.text(2.65, 0.22*np.max(PlotRegData), selectS[1]   ,fontsize=16, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)          
+        plt.title(ptitles[m] + ', cumulative 2020-2050', fontsize = 18)
+        plt.ylabel('Gt', fontsize = 15)
+        plt.show()
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '.png'), dpi=150, bbox_inches='tight')     
+        
+
     if ptypes[m] == 'Fig_Cascade':
         # Plot cascade with indicator by scenario
         #GHG emissions, system-wide;GHG emissions, buildings, use phase;GHG emissions, res+non-res buildings, energy supply;GHG emissions, primary material production
@@ -726,6 +779,7 @@ for m in range(0,len(ptitles)):
         axs.scatter(1.1,PCES[-1,2], s = 300, color = 'k', marker = '_', linewidths = 3)  
         axs.scatter(1.0,PCES[-1,3], s = 300, color = 'k', marker = '_', linewidths = 3)     
         
+        axs.set_ylim(bottom = 0)
         axyl = axs.get_ylim()
         
         axs.fill_between([1.4,1.9],[axyl[0],axyl[0]],[axyl[1],axyl[1]],facecolor = np.array([230,230,230])/255)        
@@ -755,10 +809,10 @@ for m in range(0,len(ptitles)):
         axs.set_ylim(bottom = axyl[0])
         axs.set_ylim(top    = axyl[1])
         
-        plt.text(0.95,  1.35, 'Mt of cement \nsaved', fontsize=12, fontweight='normal') 
-        plt.text(1.45,  1.35, 'Mt of primary \nsteel saved', fontsize=12, fontweight='normal') 
-        plt.text(1.95,  0.45, r'Mt of CO$_2$-eq', fontsize=12, fontweight='normal') 
-        plt.text(1.95,  0.25, '(non-biogenic) \nsaved across \nentire system', fontsize=12, fontweight='normal') 
+        plt.text(0.95,  0.05, 'Mt of cement \nsaved', fontsize=12, fontweight='normal') 
+        plt.text(1.45,  0.05, 'Mt of primary \nsteel saved', fontsize=12, fontweight='normal') 
+        plt.text(1.95,  0.28, r'Mt of CO$_2$-eq', fontsize=12, fontweight='normal') 
+        plt.text(1.95,  0.05, '(non-biogenic) \nsaved across \nentire system', fontsize=12, fontweight='normal') 
         
         plt.xticks([])
         
@@ -769,19 +823,256 @@ for m in range(0,len(ptitles)):
         # Compile table for LED indicators
         selectS   = pscens[m].split(';')
         title_add = ptitles[m]
-        DataMatsD = np.zeros((11,4,7)) # for 11 regions, 4 scenario pairs, and 7 indicators
-        DataP     = np.zeros((11,8))   # for 8 regions and 8 scearios
-        IndsWood  = ['In-use stock, res. buildings','In-use stock, nonres. buildings','Construction wood, structural, from industrial roundwood','Cement production','Primary steel production','GHG emissions, primary material production','GHG emissions, non-biogenic']
+        Data_Cum  = np.zeros((11,4,3)) # for 11 regions, 4 scenario pairs, and 3 indicators
+        Data_Ann  = np.zeros((11,4,3)) # for 11 regions, 4 scenario pairs, and 3 indicators
+        Inds_Cum  = ['Cement production','Primary steel production','GHG emissions, non-biogenic']
+        Inds_Ann  = ['In-use stock, res. buildings','In-use stock, nonres. buildings','Population']
         for rr in range(0,len(regions)): # for each region
-            for ii in range(0,len(IndsWood)): # for each Indicator
+            for ii in range(0,len(Inds_Cum)): # for each Indicator
                 for sp in range(0,4): # for each scenario pair
-                    pst1     = pc[pc['Indicator'].isin([IndsWood[ii]]) & pc['Region'].isin([regions[rr]]) & pc['Scenario'].isin([selectS[2*sp]])].iloc[0]['Cum. 2020-2050 (incl.)']
-                    pst2     = pc[pc['Indicator'].isin([IndsWood[ii]]) & pc['Region'].isin([regions[rr]]) & pc['Scenario'].isin([selectS[2*sp+1]])].iloc[0]['Cum. 2020-2050 (incl.)']
-                    DataMatsD[rr,sp,ii] = pst1-pst2            
-            for indp in range(0,len(selectS)):
-                DataP[rr,indp] = ps[ps['Indicator'].isin(['Population']) & ps['Region'].isin([regions[rr]]) & ps['Scenario'].isin([selectS[indp]])].iloc[0][2050]
+                    pst1     = pc[pc['Indicator'].isin([Inds_Cum[ii]]) & pc['Region'].isin([regions[rr]]) & pc['Scenario'].isin([selectS[2*sp]])].iloc[0]['Cum. 2020-2050 (incl.)']
+                    pst2     = pc[pc['Indicator'].isin([Inds_Cum[ii]]) & pc['Region'].isin([regions[rr]]) & pc['Scenario'].isin([selectS[2*sp+1]])].iloc[0]['Cum. 2020-2050 (incl.)']
+                    Data_Cum[rr,sp,ii] = pst1-pst2    # Calculate Delta between scenario pairs        
+            for sp in range(0,4): # for each scenario pair
+                for ii in range(0,len(Inds_Ann)-1): # for each Indicator, except for the last one (population), where no difference is calculated
+                    pst1     = ps[ps['Indicator'].isin([Inds_Ann[ii]]) & ps['Region'].isin([regions[rr]]) & ps['Scenario'].isin([selectS[2*sp]])].iloc[0][2050]
+                    pst2     = ps[ps['Indicator'].isin([Inds_Ann[ii]]) & ps['Region'].isin([regions[rr]]) & ps['Scenario'].isin([selectS[2*sp+1]])].iloc[0][2050]
+                    Data_Ann[rr,sp,ii] = pst1-pst2    # Calculate Delta between scenario pairs                 
+                Data_Ann[rr,sp,2] = ps[ps['Indicator'].isin(['Population']) & ps['Region'].isin([regions[rr]]) & ps['Scenario'].isin([selectS[2*sp]])].iloc[0][2050]
 
-        DeltapCStock = (DataMatsD[:,:,0] + DataMatsD[:,:,1]) / np.einsum('p,s->ps',DataP[:,0],np.ones((4)))
+        DeltapCStock = (Data_Ann[:,0,0] + Data_Ann[:,0,1]) / Data_Ann[:,0,2] # Delta m²/cap for each region
+        DeltaStock   = Data_Ann[:,0,0]  + Data_Ann[:,0,1]  # Delta m² for each region
+
+        GHGS = Data_Cum[:,:,2] / np.einsum('r,s->rs',DeltapCStock,np.ones((4))) # Mt of GHG saved per m²/cap less
+        PSTS = Data_Cum[:,:,1] / np.einsum('r,s->rs',DeltapCStock,np.ones((4))) # Mt of steel saved per m²/cap
+        PCES = Data_Cum[:,:,0] / np.einsum('r,s->rs',DeltapCStock,np.ones((4))) # Mt of cement saved per m²/cap
+        
+        fig  = plt.figure(figsize=(5,5))
+        axs  = plt.axes([0.08,0.08,0.85,0.9])   
+
+        axs.scatter(np.ones(9)+1.3,GHGS[0:-2,0], color = '#1f77b4')                 
+        axs.scatter(np.ones(9)+1.2,GHGS[0:-2,1], color = '#2ca02c')     
+        axs.scatter(np.ones(9)+1.1,GHGS[0:-2,2], color = '#ff7f0e')  
+        axs.scatter(np.ones(9)+1.0,GHGS[0:-2,3], color = '#d62728')    
+        
+        axs.scatter(2.3,GHGS[-1,0], s = 300, color = 'k', marker = '_', linewidths = 3)                 
+        axs.scatter(2.2,GHGS[-1,1], s = 300, color = 'k', marker = '_', linewidths = 3)     
+        axs.scatter(2.1,GHGS[-1,2], s = 300, color = 'k', marker = '_', linewidths = 3)  
+        axs.scatter(2.0,GHGS[-1,3], s = 300, color = 'k', marker = '_', linewidths = 3)         
+        
+        axs.scatter(np.ones(9)+0.3,PCES[0:-2,0], color = '#1f77b4')                 
+        axs.scatter(np.ones(9)+0.2,PCES[0:-2,1], color = '#2ca02c')     
+        axs.scatter(np.ones(9)+0.1,PCES[0:-2,2], color = '#ff7f0e')  
+        axs.scatter(np.ones(9)+0.0,PCES[0:-2,3], color = '#d62728')    
+        
+        axs.scatter(1.3,PCES[-1,0], s = 300, color = 'k', marker = '_', linewidths = 3)                 
+        axs.scatter(1.2,PCES[-1,1], s = 300, color = 'k', marker = '_', linewidths = 3)     
+        axs.scatter(1.1,PCES[-1,2], s = 300, color = 'k', marker = '_', linewidths = 3)  
+        axs.scatter(1.0,PCES[-1,3], s = 300, color = 'k', marker = '_', linewidths = 3)     
+        
+        axs.set_ylim(bottom = 3)
+        axyl = axs.get_ylim()
+        
+        axs.fill_between([1.4,1.9],[axyl[0],axyl[0]],[4*axyl[1],4*axyl[1]],facecolor = np.array([230,230,230])/255)        
+        
+        axs.scatter(np.ones(9)+0.8,PSTS[0:-2,0], color = '#1f77b4')                 
+        axs.scatter(np.ones(9)+0.7,PSTS[0:-2,1], color = '#2ca02c')     
+        axs.scatter(np.ones(9)+0.6,PSTS[0:-2,2], color = '#ff7f0e')  
+        axs.scatter(np.ones(9)+0.5,PSTS[0:-2,3], color = '#d62728')      
+        
+        axs.scatter(1.8,PSTS[-1,0], s = 300, color = 'k', marker = '_', linewidths = 3)                 
+        axs.scatter(1.7,PSTS[-1,1], s = 300, color = 'k', marker = '_', linewidths = 3)     
+        axs.scatter(1.6,PSTS[-1,2], s = 300, color = 'k', marker = '_', linewidths = 3)  
+        axs.scatter(1.5,PSTS[-1,3], s = 300, color = 'k', marker = '_', linewidths = 3)    
+        
+        plt.title('Materials & GHG saved by region per m²/capita lower floorspace', fontsize = 10.5)
+        
+        ProxyHandlesList = []   # For legend
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], s = 300, color = 'k', marker = '_', linewidths = 3))
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#1f77b4'))
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#2ca02c'))
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#ff7f0e'))
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#d62728'))
+        axs.legend(handles = ProxyHandlesList,labels = ['Global total','High carbon Energy+Materials','High carbon Energy+Materials + Full CE','Low carbon Energy+Materials','Low carbon Energy+Materials + Full CE'], shadow = False, prop={'size':9},ncol=1, loc = 'upper left')       
+                
+        axs.set_xlim(left   = 0.9)
+        axs.set_xlim(right  = 2.4)
+        #axs.set_ylim(bottom = axyl[0])
+        axs.set_ylim(top    = 4*axyl[1])
+        axs.set_yscale('log')
+        
+        plt.text(0.95,  3.25, 'Mt of cement \nsaved', fontsize=12, fontweight='normal') 
+        plt.text(1.45,  3.25, 'Mt of primary \nsteel saved', fontsize=12, fontweight='normal') 
+        plt.text(1.95,  10.0, r'Mt of CO$_2$-eq', fontsize=12, fontweight='normal') 
+        plt.text(1.95,  3.25, '(non-biogenic) \nsaved across \nentire system', fontsize=12, fontweight='normal') 
+        
+        plt.xticks([])
+        
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '.png'), dpi=150, bbox_inches='tight')        
+        
+        
+    if ptypes[m] == 'LEDInd_pc':
+        # Compile table for LED indicators per capita
+        selectS   = pscens[m].split(';')
+        title_add = ptitles[m]
+        Data_Cum  = np.zeros((11,4,3)) # for 11 regions, 4 scenario pairs, and 3 indicators
+        Data_Ann  = np.zeros((11,4,3)) # for 11 regions, 4 scenario pairs, and 3 indicators
+        Inds_Cum  = ['Cement production','Primary steel production','GHG emissions, non-biogenic']
+        Inds_Ann  = ['In-use stock, res. buildings','In-use stock, nonres. buildings','Population']
+        for rr in range(0,len(regions)): # for each region
+            for ii in range(0,len(Inds_Cum)): # for each Indicator
+                for sp in range(0,4): # for each scenario pair
+                    pst1     = pc[pc['Indicator'].isin([Inds_Cum[ii]]) & pc['Region'].isin([regions[rr]]) & pc['Scenario'].isin([selectS[2*sp]])].iloc[0]['Cum. 2020-2050 (incl.)']
+                    pst2     = pc[pc['Indicator'].isin([Inds_Cum[ii]]) & pc['Region'].isin([regions[rr]]) & pc['Scenario'].isin([selectS[2*sp+1]])].iloc[0]['Cum. 2020-2050 (incl.)']
+                    Data_Cum[rr,sp,ii] = pst1-pst2    # Calculate Delta between scenario pairs        
+            for sp in range(0,4): # for each scenario pair
+                for ii in range(0,len(Inds_Ann)-1): # for each Indicator, except for the last one (population), where no difference is calculated
+                    pst1     = ps[ps['Indicator'].isin([Inds_Ann[ii]]) & ps['Region'].isin([regions[rr]]) & ps['Scenario'].isin([selectS[2*sp]])].iloc[0][2050]
+                    pst2     = ps[ps['Indicator'].isin([Inds_Ann[ii]]) & ps['Region'].isin([regions[rr]]) & ps['Scenario'].isin([selectS[2*sp+1]])].iloc[0][2050]
+                    Data_Ann[rr,sp,ii] = pst1-pst2    # Calculate Delta between scenario pairs                 
+                Data_Ann[rr,sp,2] = ps[ps['Indicator'].isin(['Population']) & ps['Region'].isin([regions[rr]]) & ps['Scenario'].isin([selectS[2*sp]])].iloc[0][2050]
+
+        DeltapCStock = (Data_Ann[:,0,0] + Data_Ann[:,0,1]) / Data_Ann[:,0,2] # Delta m²/cap for each region
+        DeltaStock   = Data_Ann[:,0,0]  + Data_Ann[:,0,1]  # Delta m² for each region
+
+        GHGS = Data_Cum[:,:,2] / np.einsum('r,s->rs',DeltaStock,np.ones((4))) # Mt of GHG saved per m²/cap less
+        PSTS = Data_Cum[:,:,1] / np.einsum('r,s->rs',DeltaStock,np.ones((4))) # Mt of steel saved per m²/cap
+        PCES = Data_Cum[:,:,0] / np.einsum('r,s->rs',DeltaStock,np.ones((4))) # Mt of cement saved per m²/cap
+        
+        fig  = plt.figure(figsize=(5,5))
+        axs  = plt.axes([0.08,0.08,0.85,0.9])   
+
+        axs.scatter(np.ones(9)+1.3,GHGS[0:-2,0], color = '#1f77b4')                 
+        axs.scatter(np.ones(9)+1.2,GHGS[0:-2,1], color = '#2ca02c')     
+        axs.scatter(np.ones(9)+1.1,GHGS[0:-2,2], color = '#ff7f0e')  
+        axs.scatter(np.ones(9)+1.0,GHGS[0:-2,3], color = '#d62728')    
+        
+        axs.scatter(2.3,GHGS[-1,0], s = 300, color = 'k', marker = '_', linewidths = 3)                 
+        axs.scatter(2.2,GHGS[-1,1], s = 300, color = 'k', marker = '_', linewidths = 3)     
+        axs.scatter(2.1,GHGS[-1,2], s = 300, color = 'k', marker = '_', linewidths = 3)  
+        axs.scatter(2.0,GHGS[-1,3], s = 300, color = 'k', marker = '_', linewidths = 3)         
+        
+        axs.scatter(np.ones(9)+0.3,PCES[0:-2,0], color = '#1f77b4')                 
+        axs.scatter(np.ones(9)+0.2,PCES[0:-2,1], color = '#2ca02c')     
+        axs.scatter(np.ones(9)+0.1,PCES[0:-2,2], color = '#ff7f0e')  
+        axs.scatter(np.ones(9)+0.0,PCES[0:-2,3], color = '#d62728')    
+        
+        axs.scatter(1.3,PCES[-1,0], s = 300, color = 'k', marker = '_', linewidths = 3)                 
+        axs.scatter(1.2,PCES[-1,1], s = 300, color = 'k', marker = '_', linewidths = 3)     
+        axs.scatter(1.1,PCES[-1,2], s = 300, color = 'k', marker = '_', linewidths = 3)  
+        axs.scatter(1.0,PCES[-1,3], s = 300, color = 'k', marker = '_', linewidths = 3)     
+        
+        axs.set_ylim(bottom = 0)
+        axyl = axs.get_ylim()
+        
+        axs.fill_between([1.4,1.9],[axyl[0],axyl[0]],[axyl[1],axyl[1]],facecolor = np.array([230,230,230])/255)        
+        
+        axs.scatter(np.ones(9)+0.8,PSTS[0:-2,0], color = '#1f77b4')                 
+        axs.scatter(np.ones(9)+0.7,PSTS[0:-2,1], color = '#2ca02c')     
+        axs.scatter(np.ones(9)+0.6,PSTS[0:-2,2], color = '#ff7f0e')  
+        axs.scatter(np.ones(9)+0.5,PSTS[0:-2,3], color = '#d62728')      
+        
+        axs.scatter(1.8,PSTS[-1,0], s = 300, color = 'k', marker = '_', linewidths = 3)                 
+        axs.scatter(1.7,PSTS[-1,1], s = 300, color = 'k', marker = '_', linewidths = 3)     
+        axs.scatter(1.6,PSTS[-1,2], s = 300, color = 'k', marker = '_', linewidths = 3)  
+        axs.scatter(1.5,PSTS[-1,3], s = 300, color = 'k', marker = '_', linewidths = 3)    
+        
+        plt.title('Materials & GHG savings per capita per m² of lower floorspace', fontsize = 10.5)
+        
+        ProxyHandlesList = []   # For legend
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], s = 300, color = 'k', marker = '_', linewidths = 3))
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#1f77b4'))
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#2ca02c'))
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#ff7f0e'))
+        ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#d62728'))
+        axs.legend(handles = ProxyHandlesList,labels = ['Global total','High carbon Energy+Materials','High carbon Energy+Materials + Full CE','Low carbon Energy+Materials','Low carbon Energy+Materials + Full CE'], shadow = False, prop={'size':9},ncol=1, loc = 'upper left')       
+                
+        axs.set_xlim(left   = 0.9)
+        axs.set_xlim(right  = 2.4)
+        axs.set_ylim(bottom = axyl[0])
+        axs.set_ylim(top    = axyl[1])
+        
+        plt.text(0.95,  0.55, 'Mt of cement \nsaved', fontsize=12, fontweight='normal') 
+        plt.text(1.45,  0.55, 'Mt of primary \nsteel saved', fontsize=12, fontweight='normal') 
+        plt.text(1.95,  0.17, r'Mt of CO$_2$-eq', fontsize=12, fontweight='normal') 
+        plt.text(1.95,  0.02, '(non-biogenic) \n(scope 1+2+3)', fontsize=12, fontweight='normal') 
+        
+        plt.xticks([])
+        
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '.png'), dpi=150, bbox_inches='tight')   
+
+
+    if ptypes[m] == 'GHG_Stacked':        
+        # Show stacked GHG emissions per process
+        MyColorCycle = pylab.cm.gist_earth(np.arange(0,1,0.155)) # select 12 colors from the 'Set1' color map.            
+        Area       = ['use phase','use phase, scope 2 (el)','use phase, other energy, indirect','primary material product.','manufact. & recycling','forest sequestration','total (+ forest sequestr.)']     
+        selectS   = pscens[m].split(';')
+        title_add = ptitles[m]
+        Data1     = np.zeros((7,46)) # For first scenario
+        Data2     = np.zeros((7,46)) # For second scenario
+        Regio     = 'Global'
+        Inds = ['GHG emissions, buildings, use phase','GHG emissions, use phase scope 2 (electricity)','GHG emissions, use phase other indirect (non-el.)','GHG emissions, primary material production','GHG emissions, manufact, wast mgt., remelting and indirect','GHG sequestration by forests (w. neg. sign)','GHG emissions, system-wide (incl. forests)']
+        # Fetch data
+        for indi in range(0,7):        
+            pst     = ps[ps['Indicator'].isin([Inds[indi]]) & ps['Region'].isin([Regio]) & ps['Scenario'].isin([selectS[0]])] # Select the specified data and transpose them for plotting
+            pst.set_index('Indicator', inplace=True)
+            Data1[indi,:] = pst.values[0,4::]
+            pst     = ps[ps['Indicator'].isin([Inds[indi]]) & ps['Region'].isin([Regio]) & ps['Scenario'].isin([selectS[1]])] # Select the specified data and transpose them for plotting
+            pst.set_index('Indicator', inplace=True)
+            Data2[indi,:] = pst.values[0,4::]            
+        Data1CS = Data1.cumsum(axis=0)
+        Data2CS = Data2.cumsum(axis=0)
+
+        fig  = plt.figure(figsize=(8,5))
+        ax1  = plt.axes([0.08,0.08,0.85,0.9])
+        
+        ProxyHandlesList = []   # For legend     
+        
+        # plot area
+        ax1.fill_between(np.arange(2016,2061),np.zeros((45)), Data1CS[0,1::], linestyle = '-', facecolor = MyColorCycle[1,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[1,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2016,2061),Data1CS[0,1::], Data1CS[1,1::], linestyle = '-', facecolor = MyColorCycle[2,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[2,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2016,2061),Data1CS[1,1::], Data1CS[2,1::], linestyle = '-', facecolor = MyColorCycle[3,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[3,:])) # create proxy artist for legend
+        ax1.fill_between(np.arange(2016,2061),Data1CS[2,1::],Data1CS[3,1::], linestyle = '-', facecolor = MyColorCycle[4,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[4,:])) # create proxy artist for legend    
+        ax1.fill_between(np.arange(2016,2061),Data1CS[3,1::], Data1CS[4,1::], linestyle = '-', facecolor = MyColorCycle[5,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[5,:])) # create proxy artist for legend    
+        ax1.fill_between(np.arange(2016,2061),np.zeros((45)),Data1[5,1::], linestyle = '-', facecolor = MyColorCycle[6,:], linewidth = 0.5)
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc=MyColorCycle[6,:])) # create proxy artist for legend    
+        plt.plot(np.arange(2016,2061), Data1[6,1::], linewidth = 1.3, color = 'k')
+        plta = Line2D(np.arange(2016,2061), Data1[6,1::] , linewidth = 1.3, color = 'k')
+        ProxyHandlesList.append(plta) # create proxy artist for legend 
+        
+        # For the LED alternative:
+        ax1.fill_between([2063,2068],[0,0], [Data2CS[0,-1],Data2CS[0,-1]], linestyle = '-', facecolor = MyColorCycle[1,:], linewidth = 0.5)            
+        ax1.fill_between([2063,2068],[Data2CS[0,-1],Data2CS[0,-1]], [Data2CS[1,-1],Data2CS[1,-1]], linestyle = '-', facecolor = MyColorCycle[2,:], linewidth = 0.5)            
+        ax1.fill_between([2063,2068],[Data2CS[1,-1],Data2CS[1,-1]], [Data2CS[2,-1],Data2CS[2,-1]], linestyle = '-', facecolor = MyColorCycle[3,:], linewidth = 0.5)            
+        ax1.fill_between([2063,2068],[Data2CS[2,-1],Data2CS[2,-1]], [Data2CS[3,-1],Data2CS[3,-1]], linestyle = '-', facecolor = MyColorCycle[4,:], linewidth = 0.5)            
+        ax1.fill_between([2063,2068],[Data2CS[3,-1],Data2CS[3,-1]], [Data2CS[4,-1],Data2CS[4,-1]], linestyle = '-', facecolor = MyColorCycle[5,:], linewidth = 0.5)            
+        ax1.fill_between([2063,2068],[0,0], [Data2[5,-1],Data2[5,-1]], linestyle = '-', facecolor = MyColorCycle[6,:], linewidth = 0.5)    
+        plt.plot([2063,2068], [Data2[6,-1],Data2[6,-1]], linewidth = 1.3, color = 'k')        
+        
+        # horizonal line
+        axyl = ax1.get_ylim()
+        plt.plot([2061.5,2061.5],[axyl[0],axyl[1]],linestyle = '--', linewidth = 0.8, color = 'k')
+        
+        plt.title(ptitles[m], fontsize = 18)
+        plt.ylabel(r'Mt of CO$_2$-eq.', fontsize = 18)
+        plt.xlabel('Year', fontsize = 18)
+        plt.xticks(fontsize=17)
+        plt.yticks(fontsize=17)
+        plt.legend(handles = reversed(ProxyHandlesList),labels = reversed(Area), shadow = False, prop={'size':11.5},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
+        ax1.set_xlim([2014, 2070])
+        ax1.set_ylim(axyl)
+        plt.xticks([2020,2030,2040,2050,2060,2065.5])
+        ax1.set_xticklabels(['2020','2030','2040','2050','2060','2060'], rotation = 0, fontsize = 17, fontweight = 'normal', rotation_mode="default")
+        plt.text(2040, -2300, selectS[0]     ,fontsize=18, fontweight='normal', color = 'k', horizontalalignment='left')  
+        plt.text(2059, -2300, selectS[1]     ,fontsize=18, fontweight='normal', color = 'k', horizontalalignment='left')  
+        plt.show()
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '.png'), dpi=150, bbox_inches='tight')   
+
 
     if ptypes[m] == 'Sankey_Haas_Export':
         # Extract and format Sankey plot for materials in a sector, according to the design by Haas et al. (2015)
