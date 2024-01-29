@@ -1010,7 +1010,7 @@ for m in range(0,len(ptitles)):
         title_add = ptitles[m]
         Data1     = np.zeros((7,46)) # For first scenario
         Data2     = np.zeros((7,46)) # For second scenario
-        Regio     = 'Global'
+        Regio     = pregs[m]
         Inds = ['GHG emissions, buildings, use phase','GHG emissions, use phase scope 2 (electricity)','GHG emissions, use phase other indirect (non-el.)','GHG emissions, primary material production','GHG emissions, manufact, wast mgt., remelting and indirect','GHG sequestration by forests (w. neg. sign)','GHG emissions, system-wide (incl. forests)']
         # Fetch data
         for indi in range(0,7):        
@@ -1058,7 +1058,7 @@ for m in range(0,len(ptitles)):
         axyl = ax1.get_ylim()
         plt.plot([2061.5,2061.5],[axyl[0],axyl[1]],linestyle = '--', linewidth = 0.8, color = 'k')
         
-        plt.title(ptitles[m], fontsize = 18)
+        plt.title(ptitles[m] + '_' + Regio, fontsize = 18)
         plt.ylabel(r'Mt of CO$_2$-eq.', fontsize = 18)
         plt.xlabel('Year', fontsize = 18)
         plt.xticks(fontsize=17)
@@ -1068,10 +1068,10 @@ for m in range(0,len(ptitles)):
         ax1.set_ylim(axyl)
         plt.xticks([2020,2030,2040,2050,2060,2065.5])
         ax1.set_xticklabels(['2020','2030','2040','2050','2060','2060'], rotation = 0, fontsize = 17, fontweight = 'normal', rotation_mode="default")
-        plt.text(2040, -2300, selectS[0]     ,fontsize=18, fontweight='normal', color = 'k', horizontalalignment='left')  
-        plt.text(2059, -2300, selectS[1]     ,fontsize=18, fontweight='normal', color = 'k', horizontalalignment='left')  
+        plt.text(2040, 0.5 * axyl[0], selectS[0]     ,fontsize=18, fontweight='normal', color = 'k', horizontalalignment='left')  
+        plt.text(2059, 0.5 * axyl[0], selectS[1]     ,fontsize=18, fontweight='normal', color = 'k', horizontalalignment='left')  
         plt.show()
-        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '.png'), dpi=150, bbox_inches='tight')   
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '_' + Regio + '.png'), dpi=150, bbox_inches='tight')   
 
 
     if ptypes[m] == 'Sankey_Haas_Export':

@@ -733,12 +733,15 @@ def main():
     # 11) MODEL CALIBRATION
     # Calibrate vehicle kilometrage: No longer used! VKM is now calibrated in scenario target table process to deliver correct pC stock number for 2015.
     #### ParameterDict['3_IO_Vehicles_UsePhase'].Values[3,:,:,:]                             = ParameterDict['3_IO_Vehicles_UsePhase'].Values[3,:,:,:]                           * np.einsum('r,tS->rtS',ParameterDict['6_PR_Calibration'].Values[0,:],np.ones((Nt,NS)))
-    # Calibrate vehicle fuel consumption, cgVnrS    
-    ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,Service_Drivg,:,:,:]        = ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,Service_Drivg,:,:,:]      * np.einsum('r,cpnS->cpnrS',ParameterDict['6_PR_Calibration'].Values[1,:],np.ones((115,Np,Nn,NS)))
+    # Calibrate vehicle fuel consumption, cgVnrS   
+    if 'pav' in SectorList:
+        ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,Service_Drivg,:,:,:]        = ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,Service_Drivg,:,:,:]      * np.einsum('r,cpnS->cpnrS',ParameterDict['6_PR_Calibration'].Values[1,:],np.ones((115,Np,Nn,NS)))
     # Calibrate res. building energy consumption
-    ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:]      = ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:]    * np.einsum('r,cBVnSR->cBVnrSR',ParameterDict['6_PR_Calibration'].Values[2,:],np.ones((115,NB,3,Nn,NS,NR)))
+    if 'reb' in SectorList:
+        ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:]      = ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:]    * np.einsum('r,cBVnSR->cBVnrSR',ParameterDict['6_PR_Calibration'].Values[2,:],np.ones((115,NB,3,Nn,NS,NR)))
     # Calibrate nonres. building energy consumption
-    ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:]   = ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:] * np.einsum('r,cNVnSR->cNVnrSR',ParameterDict['6_PR_Calibration'].Values[3,:],np.ones((115,NN,3,Nn,NS,NR)))
+    if 'nrb' in SectorList:
+        ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:]   = ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:] * np.einsum('r,cNVnSR->cNVnrSR',ParameterDict['6_PR_Calibration'].Values[3,:],np.ones((115,NN,3,Nn,NS,NR)))
     
     # 12) No recycling scenario (counterfactual reference)
     if ScriptConfig['IncludeRecycling'] == 'False': # no recycling and remelting
@@ -1398,6 +1401,7 @@ def main():
             
             Stock_Detail_UsePhase_B     = np.zeros((Nt,Nc,NB,Nr)) # index structure: tcBr. Unit: million m².
             Stock_2020_decline_B        = np.zeros((Nt,NB,Nr))    # index structure: tBr.  Unit: million m².
+            Stock_2020_agestruct_B      = np.zeros((Nc,NB,Nr))    # index structure: cBr.  Unit: million m².
             Outflow_Detail_UsePhase_B   = np.zeros((Nt,Nc,NB,Nr)) # index structure: tcBr. Unit: million m².
             Inflow_Detail_UsePhase_B    = np.zeros((Nt,NB,Nr))    # index structure: tBr.  Unit: million m².
         
@@ -1639,6 +1643,7 @@ def main():
                     Stock_Detail_UsePhase_B[0,:,:,r]     += InitialStock.copy() # cgr, needed for correct calculation of mass balance later.
                     Stock_Detail_UsePhase_B[1::,:,:,r]   += Var_S[SwitchTime::,:,:].copy() # tcBr
                     Stock_2020_decline_B[1::,:,r]        += Var_S[SwitchTime::,0:Ind_2020+1,:].copy().sum(axis=1) # tBr
+                    Stock_2020_agestruct_B[:,:,r]        += Var_S[Ind_2020,:,:].copy() # cBr
                     Outflow_Detail_UsePhase_B[1::,:,:,r] += Var_O[SwitchTime::,:,:].copy() # tcBr
                     Inflow_Detail_UsePhase_B[1::,:,r]    += Var_I[SwitchTime::,:].copy() # tBr
                     # Check for negative inflows:
@@ -3767,18 +3772,30 @@ def main():
     #DF_GHGA_global.to_excel(os.path.join(ProjectSpecs_Path_Result,'GHG_Area_Data.xlsx'), merge_cells=False)    
     
     # Export total material stock
-    ColIndex       = IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items
+    ColIndex_m     = IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items
+    ColIndex_t     = IndexTable.Classification[IndexTable.index.get_loc('Time')].Items
+    ColIndex_c     = IndexTable.Classification[IndexTable.index.get_loc('Cohort')].Items
     if 'pav' in SectorList:
         RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items,IndexTable.Classification[IndexTable.index.get_loc('Cars')].Items], names=('Region','Stock_Item'))
-        DF_matstock2015 = pd.DataFrame(np.einsum('mpr->rpm',TotalMaterialStock_2015_pav).reshape(Nr*Np,Nm), index=RowIndex, columns=ColIndex)
+        DF_matstock2015 = pd.DataFrame(np.einsum('mpr->rpm',TotalMaterialStock_2015_pav).reshape(Nr*Np,Nm), index=RowIndex, columns=ColIndex_m)
         DF_matstock2015.to_excel(pd_xlsx_writer, sheet_name="RECC_matstock_2015_pav_Mt", merge_cells=False) 
     if 'reb' in SectorList:
         RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items,IndexTable.Classification[IndexTable.index.get_loc('ResidentialBuildings')].Items], names=('Region','Stock_Item'))
-        DF_matstock2015 = pd.DataFrame(np.einsum('mBr->rBm',TotalMaterialStock_2015_reb).reshape(Nr*NB,Nm), index=RowIndex, columns=ColIndex)
+        DF_matstock2015 = pd.DataFrame(np.einsum('mBr->rBm',TotalMaterialStock_2015_reb).reshape(Nr*NB,Nm), index=RowIndex, columns=ColIndex_m)
         DF_matstock2015.to_excel(pd_xlsx_writer, sheet_name="RECC_matstock_2015_reb_Mt", merge_cells=False)
+        # Export pre 2021 age-cohorts building stock, customized export for Jan Streeck building stock comparison
+        DF_2020_lockin  = pd.DataFrame(np.einsum('tBr->rBt',Stock_2020_decline_B).reshape(Nr*NB,Nt), index=RowIndex, columns=ColIndex_t)
+        DF_2020_lockin.to_excel(pd_xlsx_writer, sheet_name="RECC_2020_lockin_reb_Mm2", merge_cells=False)            
+        DF_2020_agestru = pd.DataFrame(np.einsum('cBr->rBc',Stock_2020_agestruct_B).reshape(Nr*NB,Nc), index=RowIndex, columns=ColIndex_c)
+        DF_2020_agestru.to_excel(pd_xlsx_writer, sheet_name="RECC_2020_AgeStructure_reb_Mm2", merge_cells=False) 
+        RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items,IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items], names=('Region','Material'))
+        DF_2020_materia = pd.DataFrame(np.einsum('Btcm->mt',RECC_System.StockDict['S_7'].Values[:,0:Ind_2020+1,0,Sector_reb_rge,:,0]).reshape(Nr*Nm,Nt), index=RowIndex, columns=ColIndex_t)
+        DF_2020_materia.to_excel(pd_xlsx_writer, sheet_name="RECC_2020_lockin_reb_Mt", merge_cells=False)            
+        DF_2020_agestrm = pd.DataFrame(np.einsum('Bcm->mc',RECC_System.StockDict['S_7'].Values[Ind_2020-SwitchTime,:,0,Sector_reb_rge,:,0]).reshape(Nr*Nm,Nc), index=RowIndex, columns=ColIndex_c)
+        DF_2020_agestrm.to_excel(pd_xlsx_writer, sheet_name="RECC_2020_AgeStructure_reb_Mt", merge_cells=False) 
     if 'nrb' in SectorList:
         RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items,IndexTable.Classification[IndexTable.index.get_loc('NonresidentialBuildings')].Items], names=('Region','Stock_Item'))
-        DF_matstock2015 = pd.DataFrame(np.einsum('mNr->rNm',TotalMaterialStock_2015_nrb).reshape(Nr*NN,Nm), index=RowIndex, columns=ColIndex)
+        DF_matstock2015 = pd.DataFrame(np.einsum('mNr->rNm',TotalMaterialStock_2015_nrb).reshape(Nr*NN,Nm), index=RowIndex, columns=ColIndex_m)
         DF_matstock2015.to_excel(pd_xlsx_writer, sheet_name="RECC_matstock_2015_nrb_Mt", merge_cells=False)
     
     pd_xlsx_writer.close()

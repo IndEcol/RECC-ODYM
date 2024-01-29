@@ -291,7 +291,7 @@ for c in range(0,len(ctitles)):
         plt.tight_layout()
         plt.show()
         title = ctitles[c]
-        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title + '.png'), dpi=150, bbox_inches='tight')
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title + '_' + selectR[0] + '.png'), dpi=150, bbox_inches='tight')
 
 
     if ctypes[c] == 'version_3':
@@ -344,63 +344,42 @@ for c in range(0,len(ctitles)):
         cc = np.array([[128,128,128,255],[48,84,150,255],[198,89,17,255],[142,105,0,255],[112,48,160,255]])/255 # grey, blue, red, brown, purple
         
         # Plot results
-        fig, axs = plt.subplots(nrows=1, ncols=8 , figsize=(24, 3))        
+        fig, axs = plt.subplots(nrows=1, ncols=5 , figsize=(16, 3))        
         fig.suptitle('Energy and material service cascade, ' + cregs[c],fontsize=18)
         ProxyHandlesList = []   # For legend 
         
         plt.rcParams["axes.prop_cycle"] = plt.cycler("color", cc)
-        
-        axs[0].plot(np.arange(2016,2061), esc_data[0,1::,:],   linewidth = 3)
-        plta = Line2D(np.arange(2016,2061), esc_data[0,1::,:], linewidth = 3)
-        ProxyHandlesList.append(plta) # create proxy artist for legend    
-        axs[0].set_title('Energy-GHG per capita     = ', weight='bold')
-        axs[0].set_ylabel('t CO2-eq/yr', fontsize = 12)
-        #axs[0].set_facecolor((221/255, 235/255, 247/255))
-        axs[0].set_facecolor((197/255, 221/255, 241/255))
+                
+        axs[0].plot(np.arange(2016,2061), esc_data[3,1::,:], linewidth = 3.0)  
+        axs[0].set_title('Stock per capita', weight='bold')
+        axs[0].set_ylabel('m²', fontsize = 12)
+        axs[0].set_facecolor((237/255, 226/255, 246/255))  
         axs[0].set_ylim(bottom=0)
         
-        axs[1].plot(np.arange(2016,2061), esc_data[1,1::,:] * 1e6, linewidth = 2.0)  
-        axs[1].set_title('GHG per final energy     *')
-        axs[1].set_ylabel('g CO2-eq/MJ', fontsize = 12)
-        axs[1].set_facecolor((238/255, 245/255, 252/255))
+        axs[1].plot(np.arange(2016,2061), esc_data[9,1::,:], linewidth = 2.0)   
+        axs[1].set_title('*     inflow per stock')        
+        axs[1].set_ylabel('1/yr)', fontsize = 12)
+        axs[1].set_facecolor((253/255, 239/255, 231/255))            
         axs[1].set_ylim(bottom=0)
+
+        axs[2].plot(np.arange(2016,2061), esc_data[4,1::,:] * 1e3, linewidth = 2.0)   
+        axs[2].set_title('*     material intensity of inflow')        
+        axs[2].set_ylabel('kg/m²', fontsize = 12)
+        axs[2].set_facecolor((253/255, 239/255, 231/255))            
+        axs[2].set_ylim(bottom=0)        
         
-        axs[2].plot(np.arange(2016,2061), esc_data[2,1::,:], linewidth = 2.0) 
-        axs[2].set_title('Final energy per stock     *')
-        axs[2].set_ylabel('MJ/(m²·yr)', fontsize = 12)
-        axs[2].set_facecolor((238/255, 245/255, 252/255))
-        axs[2].set_ylim(bottom=0)
-        
-        axs[3].plot(np.arange(2016,2061), esc_data[3,1::,:], linewidth = 3.0)  
-        axs[3].set_title(' <-- | --> \n Stock per capita', weight='bold')
-        axs[3].set_ylabel('m²', fontsize = 12)
-        axs[3].set_facecolor((237/255, 226/255, 246/255))  
+        axs[3].plot(np.arange(2016,2061), esc_data[7,1::,:], linewidth = 2.0) 
+        axs[3].set_title('*     RMI per material')
+        axs[3].set_ylabel('t/t', fontsize = 12)
+        axs[3].set_facecolor((253/255, 239/255, 231/255))            
         axs[3].set_ylim(bottom=0)
         
-        axs[4].plot(np.arange(2016,2061), esc_data[9,1::,:], linewidth = 2.0)   
-        axs[4].set_title('*     inflow per stock')        
-        axs[4].set_ylabel('1/yr)', fontsize = 12)
-        axs[4].set_facecolor((253/255, 239/255, 231/255))            
+        axs[4].plot(np.arange(2016,2061), esc_data[8,1::,:], linewidth = 3.0) 
+        axs[4].set_title('=     RMI per capita', weight='bold')
+        axs[4].set_ylabel('t/yr', fontsize = 12)
+        #axs[4].set_facecolor((252/255, 228/255, 214/255))         
+        axs[4].set_facecolor((249/255, 203/255, 177/255))         
         axs[4].set_ylim(bottom=0)
-
-        axs[5].plot(np.arange(2016,2061), esc_data[4,1::,:] * 1e3, linewidth = 2.0)   
-        axs[5].set_title('*     material intensity of inflow')        
-        axs[5].set_ylabel('kg/m²', fontsize = 12)
-        axs[5].set_facecolor((253/255, 239/255, 231/255))            
-        axs[5].set_ylim(bottom=0)        
-        
-        axs[6].plot(np.arange(2016,2061), esc_data[7,1::,:], linewidth = 2.0) 
-        axs[6].set_title('*     RMI per material')
-        axs[6].set_ylabel('t/t', fontsize = 12)
-        axs[6].set_facecolor((253/255, 239/255, 231/255))            
-        axs[6].set_ylim(bottom=0)
-        
-        axs[7].plot(np.arange(2016,2061), esc_data[8,1::,:], linewidth = 3.0) 
-        axs[7].set_title('=     RMI per capita', weight='bold')
-        axs[7].set_ylabel('t/yr', fontsize = 12)
-        #axs[7].set_facecolor((252/255, 228/255, 214/255))         
-        axs[7].set_facecolor((249/255, 203/255, 177/255))         
-        axs[7].set_ylim(bottom=0)
         
         Labels = cscenss
         
@@ -408,7 +387,7 @@ for c in range(0,len(ctitles)):
         plt.tight_layout()
         plt.show()
         title = ctitles[c]
-        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title + '.png'), dpi=150, bbox_inches='tight')
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title + '_' + selectR[0] + '.png'), dpi=150, bbox_inches='tight')
         
 #
 #
