@@ -1104,6 +1104,7 @@ def main():
     BiogenicCO2WasteCombustion       = np.zeros((Nt,NS,NR))
     SysVar_RoundwoodConstruc_c_1_2_r = np.zeros((Nt,Nr,NS,NR))
     SysVar_WoodWasteIncineration     = np.zeros((Nt,Nr,Nw,Ne,NS,NR))
+    SysVar_CascadeRelease            = np.zeros((Nt,Nr,Nw,Ne,NS,NR))
     SysVar_WoodWaste_Gas_El          = np.zeros((Nt,Nr,NS,NR))
     WoodCascadingInflow              = np.zeros((Nt,Nr,NS,NR))
     WoodCascadingStock               = np.zeros((Nt,Nr,NS,NR))
@@ -2432,6 +2433,7 @@ def main():
                     casc_release = RECC_System.StockDict['S_9'].Values[t,t-clt,:,:,:].copy()
                     RECC_System.StockDict['S_9'].Values[t,t-clt,:,:,:] = 0
                     SysVar_WoodWasteIncineration[t,:,:,:,mS,mR] += casc_release
+                    SysVar_CascadeRelease[t,:,:,:,mS,mR]        += casc_release # record cascade release separately
                 # Send wood material to final combustion, both from the current year (no cascading) and after cascading
                 SysVar_WoodWasteIncineration[t,:,:,:,mS,mR] += np.einsum('r,rwe->rwe',1 - Par_RECC_WoodWaste_Cascading[t,Woodwaste_loc,Wood_loc,Woodwaste_loc,:],RECC_System.FlowDict['F_10_9w'].Values[t,:,:,:])
                 # SysVar_WoodWasteIncineration contains carbon flows whose related CO2 emissions are already accounted for as use phase direct emissions. Calculate to determine system-wide C release after wood use.
@@ -3161,6 +3163,7 @@ def main():
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,WoodCascadingInflow[:,mr,:,:],newrowoffset,len(ColLabels),'Wood for cascading (inflow), by region','Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7 (part) (F_10_9w in model code)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,WoodCascadingStock[:,mr,:,:], newrowoffset,len(ColLabels),'Carbon in cascaded wood products, in-use stock by region','Mt C',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part) (S_9 in model code)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,SysVar_WoodWasteIncineration[:,mr,Woodwaste_loc,Carbon_loc,:,:], newrowoffset,len(ColLabels),'Total carbon in wood waste for inc., by region, source of total biogenic CO2','Mt C / yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part) (S_9 in model code)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,SysVar_CascadeRelease[:,mr,Woodwaste_loc,Carbon_loc,:,:], newrowoffset,len(ColLabels),'Carbon in outflow of cascading stock, by region','Mt C / yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part) (S_9 in model code)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,SysVar_WoodWaste_Gas_El[:,mr,:,:], newrowoffset,len(ColLabels),'Carbon in wood waste for inc. (WtE), by region, excluding fuel wood subst.','Mt C / yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part) (S_9 in model code)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Inflow[:,mr,:,:], newrowoffset,len(ColLabels),'Cement, final consumption/inflow by region','Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     # specific energy consumption of vehicles and buildings
