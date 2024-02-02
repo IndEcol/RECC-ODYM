@@ -1105,9 +1105,9 @@ for m in range(0,len(ptitles)):
         'Use phase outflow of non-metallic minerals (aggregate materials group)',
         'Use phase outflow of biomaterials/wood (aggregate materials group)',
         'Use phase outflow of plastics (aggregate materials group)',
-        'Total wood waste for energy recovery incl. fuel wood use',
-        'Wood for cascading (inflow), by region',
-        'Carbon in outflow of cascading stock, by region']
+        'Wood for cascading (inflow)',
+        'EoL wood for cascading (inflow)',
+        'Outflow of cascading stock']
         DataArr = np.zeros((23,1)) # Data points for each indicator extracted
         
         # Fetch data:
@@ -1118,15 +1118,15 @@ for m in range(0,len(ptitles)):
         DataArr = np.round(DataArr / 1000,1) # Convert from Mt to Gt and round to 1 decimal
         
         # Calculate flows
-        i_de = str(Data[[0,1,2,3],0].sum())
-        i_mp = str(Data[[0,1,2,3,8,9,10,11,12,13,14,15],0].sum())
-        i_eu = str(Data[[2,3,20],0].sum())
-        i_dp = str(40)
-        i_mu = str(14)
-        i_si = str(40)
-        i_so = str(8)
-        i_eo = str(7)
-        i_re = str(5)
+        i_de = str(Data[[0,1,2,3],0].sum()) # Domestic extraction throughput
+        i_mp = str(Data[[0,1,2,3,8,9,10,11,12,13,14,15,21],0].sum()) # materials process throughput
+        i_eu = str(Data[[2,3,10,11,14,15,21,22],0].sum()-Data[[6,7,20],0].sum()) # energy use/recovery throughput
+        i_dp = str(Data[[0,1,2,3,16,17,18,19,22],0].sum()-Data[[4,5,6,7,20],0].sum()) # Domestic processed output total
+        i_mu = str(Data[[4,5,6,7,20],0].sum()) # total material use
+        i_si = str(Data[[4,5,6,7,20],0].sum()) # total stocks in
+        i_so = str(Data[[16,17,18,19,22],0].sum()) # total stocks out
+        i_eo = str(Data[[16,17,18,19,22],0].sum()) # total EoL waste
+        i_re = str(Data[[8,9,10,11,12,13,14,15,21],0].sum()) # total recycling volume
         
         # create and populate file:
         f = open(os.path.join(os.path.join(RECC_Paths.export_path,outpath), 'Sankey_Haas_' + title_add +'.txt'), 'w')
@@ -1146,42 +1146,42 @@ for m in range(0,len(ptitles)):
         f.write('[Domestic Extraction: ' + i_de + ' Gt]  [' + str(Data[2,0]) + ']  [(0,126,57)] [ab] [Materials Processed: ' + i_mp + ' Gt]\n')
         f.write('[Domestic Extraction: ' + i_de + ' Gt]  [' + str(Data[0,0]) + ']  [(48,84,150)] [ab] [Materials Processed: ' + i_mp + ' Gt]\n')
         f.write('[Domestic Extraction: ' + i_de + ' Gt]  [' + str(Data[1,0]) + ']  [(245,165,5)] [ab] [Materials Processed: ' + i_mp + ' Gt]\n')
-        f.write('[Materials Processed: ' + i_mp + ' Gt]  [35]  [(255,243,1)] [ab] [Energetic use: ' + i_eu + ' Gt]\n')
-        f.write('[Materials Processed: ' + i_mp + ' Gt]  [8]  [(0,126,57)] [ab] [Energetic use: ' + i_eu + ' Gt]\n')
-        f.write('[Materials Processed: ' + i_mp + ' Gt]  [8]  [(48,84,150)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
-        f.write('[Materials Processed: ' + i_mp + ' Gt]  [8]  [(245,165,5)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
-        f.write('[Energetic use: ' + i_eu + ' Gt]  [35]  [(255,243,1)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
-        f.write('[Energetic use: ' + i_eu + ' Gt]  [8]  [(0,126,57)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
-        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[2,0]) + ']  [(0,126,57)] [ab] [Material use: ' + i_mu + ' Gt]\n')
-        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[0,0]) + ']  [(48,84,150)] [ab] [Material use: ' + i_mu + ' Gt]\n')
-        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[1,0]) + ']  [(245,165,5)] [ab] [Material use: ' + i_mu + ' Gt]\n')
-        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[3,0]) + ']  [(255,243,1)] [ab] [Material use: ' + i_mu + ' Gt]\n')
-        f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[2,0]) + ']  [(0,126,57)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
-        f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[0,0]) + ']  [(48,84,150)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
-        f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[1,0]) + ']  [(245,165,5)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
-        f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[3,0]) + ']  [(255,243,1)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
-        f.write('[Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]  [' + str(Data[18,0]) + ']  [(0,126,57)] [ab] [EoL Waste: ' + i_eo + ' Gt]\n')
+        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[3,0]+Data[11,0]+Data[15,0]-Data[7,0]) + ']  [(255,243,1)] [ab] [Energetic use: ' + i_eu + ' Gt]\n')
+        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[2,0]+Data[10,0]+Data[14,0]-Data[6,0]+Data[21,0]-Data[20,0]) + ']  [(0,126,57)] [ab] [Energetic use: ' + i_eu + ' Gt]\n')
+        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[0,0]+Data[8,0]+Data[12,0]-Data[4,0]) + ']  [(48,84,150)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
+        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[1,0]+Data[9,0]+Data[13,0]-Data[5,0]) + ']  [(245,165,5)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
+        f.write('[Energetic use: ' + i_eu + ' Gt]  [' + str(Data[3,0]+Data[11,0]+Data[15,0]-Data[7,0]) + ']  [(255,243,1)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
+        f.write('[Energetic use: ' + i_eu + ' Gt]  [' + str(Data[2,0]+Data[10,0]+Data[14,0]-Data[6,0]+Data[21,0]+Data[22,0]-Data[20,0]) + ']  [(0,126,57)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
+        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[6,0]+Data[20,0]) + ']  [(0,126,57)] [ab] [Material use: ' + i_mu + ' Gt]\n')
+        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[4,0]) + ']  [(48,84,150)] [ab] [Material use: ' + i_mu + ' Gt]\n')
+        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[5,0]) + ']  [(245,165,5)] [ab] [Material use: ' + i_mu + ' Gt]\n')
+        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[7,0]) + ']  [(255,243,1)] [ab] [Material use: ' + i_mu + ' Gt]\n')
+        f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[6,0]+Data[20,0]) + ']  [(0,126,57)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
+        f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[4,0]) + ']  [(48,84,150)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
+        f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[5,0]) + ']  [(245,165,5)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
+        f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[7,0]) + ']  [(255,243,1)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
+        f.write('[Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]  [' + str(Data[18,0]+Data[22,0]) + ']  [(0,126,57)] [ab] [EoL Waste: ' + i_eo + ' Gt]\n')
         f.write('[Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]  [' + str(Data[16,0]) + ']  [(48,84,150)] [ab] [EoL Waste: ' + i_eo + ' Gt]\n')
         f.write('[Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]  [' + str(Data[17,0]) + ']  [(245,165,5)] [ab] [EoL Waste: ' + i_eo + ' Gt]\n')
         f.write('[Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]  [' + str(Data[19,0]) + ']  [(255,243,1)] [ab] [EoL Waste: ' + i_eo + ' Gt]\n')
-        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[20,0]) + ']  [(0,126,57)] [ab] [Energetic use: ' + i_eu + ' Gt]\n')
-        f.write('[EoL Waste: ' + i_eo + ' Gt]  [1]  [(0,126,57)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
-        f.write('[EoL Waste: ' + i_eo + ' Gt]  [1]  [(48,84,150)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
-        f.write('[EoL Waste: ' + i_eo + ' Gt]  [5]  [(245,165,5)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
-        f.write('[EoL Waste: ' + i_eo + ' Gt]  [5]  [(255,243,1)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
-        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[10,14],0]).sum() + ']  [(0,126,57)] [ab] [Recycling: ' + i_re + ' Gt]\n')
+        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[22,0]) + ']  [(0,126,57)] [ab] [Energetic use: ' + i_eu + ' Gt]\n')
+        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[18,0]-Data[10,0]-Data[14,0]-Data[21,0]) + ']  [(0,126,57)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
+        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[16,0]-Data[8,0]-Data[12,0]) + ']  [(48,84,150)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
+        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[17,0]-Data[9,0]-Data[13,0]) + ']  [(245,165,5)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
+        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[19,0]-Data[11,0]-Data[15,0]) + ']  [(255,243,1)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
+        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[10,14,21],0]).sum() + ']  [(0,126,57)] [ab] [Recycling: ' + i_re + ' Gt]\n')
         f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[8,12],0]).sum() + ']  [(48,84,150)] [ab] [Recycling: ' + i_re + ' Gt]\n')
         f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[9,13],0]).sum() + ']  [(245,165,5)] [ab] [Recycling: ' + i_re + ' Gt]\n')
         f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[11,15],0]).sum() + ']  [(255,243,1)] [ab] [Recycling: ' + i_re + ' Gt]\n')
-        f.write('[Recycling: ' + i_re + ' Gtg]  [' + str(Data[[10,14],0]).sum() + ']  [(0,126,57)] [ab] [  ]\n')
+        f.write('[Recycling: ' + i_re + ' Gtg]  [' + str(Data[[10,14,21],0]).sum() + ']  [(0,126,57)] [ab] [  ]\n')
         f.write('[Recycling: ' + i_re + ' Gt]  [' + str(Data[[8,12],0]).sum() + ']  [(48,84,150)] [ab] [  ]\n')
         f.write('[Recycling: ' + i_re + ' Gt]  [' + str(Data[[9,13],0]).sum() + ']  [(245,165,5)] [ab] [  ]\n')
         f.write('[RRecycling: ' + i_re + ' Gt]  [' + str(Data[[11,15],0]).sum() + ']  [(255,243,1)] [ab] [  ]\n')
-        f.write('[  ]  [1]  [(0,126,57)] [' + str(Data[[10,14],0]).sum() + '] [   ]\n')
+        f.write('[  ]  [1]  [(0,126,57)] [' + str(Data[[10,14,21],0]).sum() + '] [   ]\n')
         f.write('[  ]  [1]  [(48,84,150)] [' + str(Data[[8,12],0]).sum() + '] [   ]\n')
         f.write('[  ]  [5]  [(245,165,5)] [' + str(Data[[9,13],0]).sum() + '] [   ]\n')
         f.write('[  ]  [5]  [(255,243,1)] [' + str(Data[[11,15],0]).sum() + '] [   ]\n')
-        f.write('[   ]  [1]  [(0,126,57)] [' + str(Data[[10,14],0]).sum() + '] [Materials Processed: ' + i_mp + ' Gt]\n')
+        f.write('[   ]  [1]  [(0,126,57)] [' + str(Data[[10,14,21],0]).sum() + '] [Materials Processed: ' + i_mp + ' Gt]\n')
         f.write('[   ]  [1]  [(48,84,150)] [' + str(Data[[8,12],0]).sum() + '] [Materials Processed: ' + i_mp + ' Gt]\n')
         f.write('[   ]  [5]  [(245,165,5)] [' + str(Data[[9,13],0]).sum() + '] [Materials Processed: ' + i_mp + ' Gt]\n')
         f.write('[   ]  [5]  [(255,243,1)] [' + str(Data[[11,15],0]).sum() + '] [Materials Processed: ' + i_mp + ' Gt]\n')
