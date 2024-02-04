@@ -1064,7 +1064,9 @@ def main():
     EnergyCons_Wm                    = np.zeros((Nt,NS,NR))
     EnergyCons_PP                    = np.zeros((Nt,NS,NR))
     EnergyCons_PP_m                  = np.zeros((Nt,Nm,NS,NR))
-    EnergyCons_UP_Service            = np.zeros((Nt,Nr,NV,NS,NR))
+    EnergyCons_UP_serv_pav           = np.zeros((Nt,Nr,NV,NS,NR))
+    EnergyCons_UP_serv_reb           = np.zeros((Nt,Nr,NV,NS,NR))
+    EnergyCons_UP_serv_nrb           = np.zeros((Nt,Nr,NV,NS,NR))
     EnergyCons_UP_total              = np.zeros((Nt,Nn,NS,NR))
     EnergyCons_UP_reb                = np.zeros((Nt,Nn,NS,NR))
     EnergyCons_UP_nrb                = np.zeros((Nt,Nn,NS,NR))
@@ -2499,9 +2501,11 @@ def main():
                 SysVar_EnergyDemand_UsePhase_ByService_reb        = np.zeros((Nt,Nr,NV))
             if 'nrb' in SectorList: 
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.einsum('cNVnrt,cNVr,tcNr->trNn', ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values,RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS],Stock_Detail_UsePhase_N, optimize = True)
+                SysVar_EnergyDemand_UsePhase_ByService_nrb        = np.einsum('cNVnrt,cNVr,tcNr->trV',  ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values,RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS],Stock_Detail_UsePhase_N, optimize = True)
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all += np.einsum('trNn->tnr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
             else:
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.zeros((Nt,Nr,NN,Nn))
+                SysVar_EnergyDemand_UsePhase_ByService_nrb        = np.zeros((Nt,Nr,NV))
             if 'nrbg' in SectorList:     
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg = np.zeros((Nt,No,NN,Nn)) # Not yet quantified!
             else:
@@ -2843,10 +2847,13 @@ def main():
             EnergyCons_Wm[:,mS,mR]                      = SysVar_EnergyDemand_WasteMgt.sum(axis =1).copy() +  SysVar_EnergyDemand_Remelting.sum(axis =1).copy()
             EnergyCons_PP[:,mS,mR]                      = np.einsum('tmPn->t',SysVar_EnergyDemand_PrimaryProd)
             EnergyCons_PP_m[:,:,mS,mR]                  = np.einsum('tmPn->tm',SysVar_EnergyDemand_PrimaryProd)
-            EnergyCons_UP_Service[:,:,Service_Drivg,mS,mR] = SysVar_EnergyDemand_UsePhase_ByService_pav[:,:,Service_Drivg].copy()
-            EnergyCons_UP_Service[:,:,Heating_loc,mS,mR]= SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,Heating_loc].copy()
-            EnergyCons_UP_Service[:,:,Cooling_loc,mS,mR]= SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,Cooling_loc].copy()
-            EnergyCons_UP_Service[:,:,DomstHW_loc,mS,mR]= SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,DomstHW_loc].copy()
+            EnergyCons_UP_serv_pav[:,:,Service_Drivg,mS,mR] = SysVar_EnergyDemand_UsePhase_ByService_pav[:,:,Service_Drivg].copy()
+            EnergyCons_UP_serv_reb[:,:,Heating_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,Heating_loc].copy()
+            EnergyCons_UP_serv_reb[:,:,Cooling_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,Cooling_loc].copy()
+            EnergyCons_UP_serv_reb[:,:,DomstHW_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,DomstHW_loc].copy()
+            EnergyCons_UP_serv_nrb[:,:,Heating_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_nrb[:,:,Heating_loc].copy()
+            EnergyCons_UP_serv_nrb[:,:,Cooling_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_nrb[:,:,Cooling_loc].copy()
+            EnergyCons_UP_serv_nrb[:,:,DomstHW_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_nrb[:,:,DomstHW_loc].copy()
             EnergyCons_UP_total[:,:,mS,mR]              = np.einsum('tnr->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all)
             EnergyCons_UP_reb[:,:,mS,mR]                = np.einsum('trBn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
             EnergyCons_UP_nrb[:,:,mS,mR]                = np.einsum('trNn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
@@ -3177,10 +3184,19 @@ def main():
     for mr in range(0,Nr):
         for mB in range(0,len(Sector_reb_rge)):
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,ResBuildng_EnergyCons[:,mB,mr,:,:],newrowoffset,len(ColLabels),'specific energy consumption, heating/cooling/DHW, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_reb_rge[mB]],'MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    # specific energy consumption of vehicles and residential buildings
+    # specific energy consumption of vehicles and buildings
     for mr in range(0,Nr):
-        for mV in range(0,NV):
-            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Service[:,mr,mV,:,:],newrowoffset,len(ColLabels),'Total use phase energy consumption, ' + IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items[mV],'TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        # driving
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_pav[:,mr,Service_Drivg,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, pass. vehs., driving','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        # heating
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_reb[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, res. bld. heating','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_nrb[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, nonres. bld. heating','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        # cooling
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_reb[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, res. bld. cooling','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_nrb[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, nonres. bld. cooling','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        # domestic hot water (DHW)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_reb[:,mr,DomstHW_loc,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, res. bld. DHW','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_nrb[:,mr,DomstHW_loc,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, nonres. bld. DHW','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # GWP by energy carrier, vehicles and residential buildings
     # for mr in range(0,Nr):
     #     for mn in range(0,Nn):
@@ -3804,9 +3820,9 @@ def main():
         DF_2020_agestru = pd.DataFrame(np.einsum('cBr->rBc',Stock_2020_agestruct_B).reshape(Nr*NB,Nc), index=RowIndex, columns=ColIndex_c)
         DF_2020_agestru.to_excel(pd_xlsx_writer, sheet_name="RECC_2020_AgeStructure_reb_Mm2", merge_cells=False) 
         RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items,IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items], names=('Region','Material'))
-        DF_2020_materia = pd.DataFrame(np.einsum('Btcm->mt',RECC_System.StockDict['S_7'].Values[:,0:Ind_2020+1,0,Sector_reb_rge,:,0]).reshape(Nr*Nm,Nt), index=RowIndex, columns=ColIndex_t)
+        DF_2020_materia = pd.DataFrame(np.einsum('Btcrm->rmt',RECC_System.StockDict['S_7'].Values[:,0:Ind_2020+1,:,Sector_reb_rge,:,0]).reshape(Nr*Nm,Nt), index=RowIndex, columns=ColIndex_t)
         DF_2020_materia.to_excel(pd_xlsx_writer, sheet_name="RECC_2020_lockin_reb_Mt", merge_cells=False)            
-        DF_2020_agestrm = pd.DataFrame(np.einsum('Bcm->mc',RECC_System.StockDict['S_7'].Values[Ind_2020-SwitchTime,:,0,Sector_reb_rge,:,0]).reshape(Nr*Nm,Nc), index=RowIndex, columns=ColIndex_c)
+        DF_2020_agestrm = pd.DataFrame(np.einsum('Bcrm->rmc',RECC_System.StockDict['S_7'].Values[Ind_2020-SwitchTime,:,:,Sector_reb_rge,:,0]).reshape(Nr*Nm,Nc), index=RowIndex, columns=ColIndex_c)
         DF_2020_agestrm.to_excel(pd_xlsx_writer, sheet_name="RECC_2020_AgeStructure_reb_Mt", merge_cells=False) 
     if 'nrb' in SectorList:
         RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items,IndexTable.Classification[IndexTable.index.get_loc('NonresidentialBuildings')].Items], names=('Region','Stock_Item'))
