@@ -110,7 +110,7 @@ for m in range(0,len(ptitles)):
             # For the cumulative plot
             inflow_d  = np.zeros((3))
             outflow_d = np.zeros((3))
-            flowscen  = ['LED_LIGHT','SSP1_LIGHT','SSP2_BASE']
+            flowscen  = ['LEMD_FullCE','SSP1_FullCE','SSP2-BASE']
             for fsc in range(0,3):
                 pst    = pc[pc['Indicator'].isin([iflo]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([flowscen[fsc]])] # Select the specified data and compile them for plotting        
                 inflow_d[fsc]  = pst.iloc[0]['Cum. 2020-2050 (incl.)'] / 1000 # in bn m²  
@@ -137,7 +137,7 @@ for m in range(0,len(ptitles)):
             axs[0].set_ylim(bottom=0)
             axs[0].set_ylabel('Billion m²', fontsize = 12)
             axs[0].set_xlabel('Year', fontsize = 12)
-            axs[0].legend(labels = ['LED-SSP1-SSP2 range','SSP1','pre 2020 age-cohorts','pre 2020 age-cohorts','2020 stock level'],shadow = False, prop={'size':7},ncol=1, loc = 'upper left')
+            axs[0].legend(labels = ['LEMD-SSP1-SSP2 range','SSP1','pre 2020 age-cohorts','pre 2020 age-cohorts','2020 stock level'],shadow = False, prop={'size':7},ncol=1, loc = 'upper left')
             axs[0].set_xlim([2020,2060])
             axs[0].title.set_text('stock over time')
             
@@ -154,7 +154,7 @@ for m in range(0,len(ptitles)):
             axs[1].plot([2,2],[outflow_d[0], outflow_d[2]],linestyle = '-', linewidth = 0.8, color = 'k')
             axs[1].set_ylabel('Billion m²', fontsize = 12)
             axs[1].title.set_text('cumulative flows, \n 2020-2050')
-            axs[1].legend(handles = ProxyHandlesList2, labels = ['SSP1 base', 'LED-SSP1-\nSSP2 range'],shadow = False, prop={'size':6},ncol=1, loc = 'upper right')
+            axs[1].legend(handles = ProxyHandlesList2, labels = ['SSP1', 'LEMD-SSP1-\nSSP2 range'],shadow = False, prop={'size':6},ncol=1, loc = 'upper right')
             axs[1].set_xlim([0,3])
             # plot text and labels
             plt.xticks([1,2])
@@ -175,6 +175,7 @@ for m in range(0,len(ptitles)):
         noS     = len(selectS)
         ranges  = prange[m].split(';') # years as strings
         labels  = scelab[m].split(';')
+        labels  = [i.replace('\\n','\n') for i in labels]
         colorz  = colors[m].split(';')
         
         Data    = np.zeros((noS,len(regs))) # Data array
@@ -184,25 +185,32 @@ for m in range(0,len(ptitles)):
             unit  = bd_df.iloc[0]['Unit']
             IndData=bd_df[int(ranges[inds])]
             Data[inds,:] = IndData.values
-        PlotRegData = Data.cumsum(axis=1)
+        PlotRegData = Data.cumsum(axis=1) / 1000 # from million to billion
         PlotRegData = np.insert(PlotRegData, 0, 0, axis=1)
              
         
-        fig  = plt.figure(figsize=(8,5))
+        fig  = plt.figure(figsize=(4,3))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])   
         bw = 0.35     
         LLeft   = -0.5
-        XTicks  = np.arange(0,noS,1)        
+        XTicks  = np.array([0, 1, 1.5, 2])        
         # Plot data:
         for mmreg in range(1,11):
             for inds in range(0,noS):
-                ax1.fill_between([inds,inds+bw],[PlotRegData[inds,mmreg-1],PlotRegData[inds,mmreg-1]],[PlotRegData[inds,mmreg],PlotRegData[inds,mmreg]], linestyle = '-', facecolor = colorz[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
-            plt.text(2.45, PlotRegData[noS-1,mmreg-1] + 0.4 * (PlotRegData[noS-1,mmreg] - PlotRegData[noS-1,mmreg-1]), regss[mmreg-1]   ,fontsize=10,fontweight='bold', color = 'k', horizontalalignment='left')  
-        plt.xlim([-0.25,noS])       
-        plt.xticks([bw/2+i for i in range(0,noS)])            
-        ax1.set_xticklabels(labels, rotation =0, fontsize = 12, fontweight = 'bold')
-        plt.title(ptitles[m], fontsize = 22)
-        plt.ylabel(unit, fontsize = 15)
+                ax1.fill_between([XTicks[inds],XTicks[inds]+bw],[PlotRegData[inds,mmreg-1],PlotRegData[inds,mmreg-1]],[PlotRegData[inds,mmreg],PlotRegData[inds,mmreg]], linestyle = '-', facecolor = colorz[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
+            plt.text(2.45, PlotRegData[noS-1,mmreg-1] + 0.4 * (PlotRegData[noS-1,mmreg] - PlotRegData[noS-1,mmreg-1]), regss[mmreg-1]   ,fontsize=8,fontweight='normal', color = 'k', horizontalalignment='left')  
+        plt.xlim([-0.25,3.1])       
+        ax1.set_ylim(bottom=0)
+        axyl = ax1.get_ylim()
+        plt.text(-0.07, 0.85*axyl[1], '2020', fontsize=15, fontweight='normal', rotation = 0) 
+        plt.text(1.2,  0.85*axyl[1], '2060', fontsize=15, fontweight='normal', rotation = 0) 
+        plt.xticks([bw/2+i for i in [0, 1, 1.5, 2]])            
+        ax1.set_xticklabels(labels, rotation =0, fontsize = 10, fontweight = 'normal')
+        #plt.title(ptitles[m], fontsize = 22)
+        #plt.ylabel(unit, fontsize = 15)
+        plt.ylabel('billion m²', fontsize = 15)
+        ax1.set_axisbelow(True)
+        plt.grid(ls='--',lw=0.5,axis='y')
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] +'.png'), dpi=150, bbox_inches='tight')
         
@@ -212,7 +220,7 @@ for m in range(0,len(ptitles)):
         for rr in range(0,len(regions)):
             selectR = regions[rr]
             selectS = pscens[m].split(';')
-            Data_I  = np.zeros((3,8)) # final material consumption
+            Data_I  = np.zeros((3,8)) # final material consumptionf
             Mats    = ['Final consumption of materials: cement','Final consumption of materials: construction grade steel','Final consumption of materials: wood and wood products']
             for mat in range(0,3):
                 for sce in range(0,8):
@@ -281,7 +289,7 @@ for m in range(0,len(ptitles)):
             ax1.add_patch(Rectangle((2-bw/2, 0), bw,  Data_I[:,2].sum(), edgecolor = 'k', facecolor = 'blue', fill=False, lw=3))
             ax1.add_patch(Rectangle((2-bw/2, 0), bw, -Data_I[:,2].sum(), edgecolor = 'k', facecolor = 'blue', fill=False, lw=3))
             # horizontal 0 line
-            plt.hlines(0, -0.4, 3.7, linewidth = 1, color = 'k')
+            plt.hlines(0, -0.4, 3.7, linewidth = 2.2, color = 'k')
             #plt.Line2D([-0.4,3.7], [0,0], linewidth = 1, color = 'k')
             #ax1.plot([-0.4,3.7],[-0.4,3.7],linestyle = '-', linewidth = 1, color = 'k')
     
@@ -305,18 +313,18 @@ for m in range(0,len(ptitles)):
                 if ylabels[yl].find('−') > -1:
                     ylabels[yl] = ylabels[yl][1::]
             ax1.set_yticklabels(ylabels)
-            plt.text(0.3,  Data_I[:,2].sum() *0.08, 'narrow', fontsize=18, fontweight='normal', style='italic')     
-            plt.text(2.5,  Data_I[:,2].sum() *0.08, 'wood-intensive', fontsize=18, fontweight='normal', style='italic')     
-            plt.text(0.3, -Data_I[:,2].sum() *0.12, 'slow+close', fontsize=18, fontweight='normal', style='italic')     
-            plt.text(2.5, -Data_I[:,2].sum() *0.12, 'all together', fontsize=18, fontweight='normal', style='italic')     
-            plt.text(0-0.05,    Data_I[:,2].sum() *0.08, selectS[0], fontsize=16, fontweight='normal', rotation = 90)     
-            plt.text(1-0.05,    Data_I[:,2].sum() *0.08, selectS[1], fontsize=16, fontweight='normal', rotation = 90)     
-            plt.text(2-0.05,    Data_I[:,2].sum() *0.08, selectS[2], fontsize=16, fontweight='bold', rotation = 90)     
-            plt.text(3-0.05,    Data_I[:,2].sum() *0.25, selectS[3], fontsize=16, fontweight='normal', rotation = 90) 
-            plt.text(0-0.05,    -Data_I[:,2].sum() *0.77, selectS[4], fontsize=16, fontweight='normal', rotation = 90)     
-            plt.text(1-0.05,    -Data_I[:,2].sum() *0.50, selectS[5], fontsize=16, fontweight='normal', rotation = 90)     
-            plt.text(2-0.05,    -Data_I[:,2].sum() *0.68, selectS[6], fontsize=16, fontweight='bold', rotation = 90)     
-            plt.text(3-0.05,    -Data_I[:,2].sum() *1.08, selectS[7], fontsize=16, fontweight='normal', rotation = 90) 
+            plt.text(0.3,  Data_I[:,2].sum() *0.08, 'narrow', fontsize=16.5, fontweight='bold', style='italic')     
+            plt.text(2.5,  Data_I[:,2].sum() *0.08, 'wood-intensive', fontsize=16.5, fontweight='bold', style='italic')     
+            plt.text(0.3, -Data_I[:,2].sum() *0.12, 'slow+close', fontsize=16.5, fontweight='bold', style='italic')     
+            plt.text(2.5, -Data_I[:,2].sum() *0.12, 'all together', fontsize=16.5, fontweight='bold', style='italic')     
+            plt.text(0-0.05,    Data_I[:,2].sum() *0.08, selectS[0], fontsize=14.5, fontweight='normal', rotation = 90)     
+            plt.text(1-0.05,    Data_I[:,2].sum() *0.08, selectS[1], fontsize=14.5, fontweight='normal', rotation = 90)     
+            plt.text(2-0.05,    Data_I[:,2].sum() *0.08, selectS[2], fontsize=14.5, fontweight='bold', rotation = 90)     
+            plt.text(3-0.05,    Data_I[:,2].sum() *0.25, selectS[3], fontsize=14.5, fontweight='normal', rotation = 90) 
+            plt.text(0-0.05,    -Data_I[:,2].sum() *0.87, selectS[4], fontsize=14.5, fontweight='normal', rotation = 90)     
+            plt.text(1-0.05,    -Data_I[:,2].sum() *0.70, selectS[5], fontsize=14.5, fontweight='normal', rotation = 90)     
+            plt.text(2-0.05,    -Data_I[:,2].sum() *0.68, selectS[6], fontsize=14.5, fontweight='bold', rotation = 90)     
+            plt.text(3-0.05,    -Data_I[:,2].sum() *1.04, selectS[7], fontsize=13.5, fontweight='normal', rotation = 90) 
             plt.legend(handles = ProxyHandlesList, labels = ['cement','steel','wood'],shadow = False, prop={'size':11},ncol=1, loc = 'upper left') # ,bbox_to_anchor=(2.18, 1)) 
             
             plt.show()
@@ -345,32 +353,37 @@ for m in range(0,len(ptitles)):
             
         fig  = plt.figure(figsize=(8,5))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])   
-        bw = 0.5    
-        LLeft   = -0.5
-        XTicks  = np.array([0, 1, 2, 3, 4, 5])
-        XTextpos=[-0.1,-0.1,-0.1,-0.1,-0.1,-0.1,-0.1,-0.1,1.3,-0.1,]
+        bw   = 2    
+        XTextpos=[-0.3,-0.3,-0.3,-0.3,-0.3,-0.3,-0.3,-0.3,7.8,-0.3,]
+        XOffsetC=[0,3,6,9]
+        XOffsetS=[14,17,20,23]
+        XOffsetW=[28,31,34,37]
         # Plot data:
         for mmreg in range(1,11):
-            ax1.fill_between([0,0+bw],[PlotRegData[0,0,mmreg-1],PlotRegData[0,0,mmreg-1]],[PlotRegData[0,0,mmreg],PlotRegData[0,0,mmreg]], linestyle = '-', facecolor = cement_grey[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
-            ax1.fill_between([0.75,0.75+bw],[PlotRegData[0,1,mmreg-1],PlotRegData[0,1,mmreg-1]],[PlotRegData[0,1,mmreg],PlotRegData[0,1,mmreg]], linestyle = '-', facecolor = cement_grey[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
-            ax1.fill_between([1.75,1.75+bw],[PlotRegData[1,0,mmreg-1],PlotRegData[1,0,mmreg-1]],[PlotRegData[1,0,mmreg],PlotRegData[1,0,mmreg]], linestyle = '-', facecolor = steel_blue[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
-            ax1.fill_between([2.5,2.5+bw],[PlotRegData[1,1,mmreg-1],PlotRegData[1,1,mmreg-1]],[PlotRegData[1,1,mmreg],PlotRegData[1,1,mmreg]], linestyle = '-', facecolor = steel_blue[10-mmreg], edgecolor = 'k', linewidth = 1.0)             
-            ax1.fill_between([3.5,3.5+bw],[PlotRegData[2,0,mmreg-1],PlotRegData[2,0,mmreg-1]],[PlotRegData[2,0,mmreg],PlotRegData[2,0,mmreg]], linestyle = '-', facecolor = wood_brown[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
-            ax1.fill_between([4.25,4.25+bw],[PlotRegData[2,1,mmreg-1],PlotRegData[2,1,mmreg-1]],[PlotRegData[2,1,mmreg],PlotRegData[2,1,mmreg]], linestyle = '-', facecolor = wood_brown[10-mmreg], edgecolor = 'k', linewidth = 1.0)             
+            for mscen in range(0,noS):
+                ax1.fill_between([XOffsetC[mscen],XOffsetC[mscen]+bw],[PlotRegData[0,mscen,mmreg-1],PlotRegData[0,mscen,mmreg-1]],[PlotRegData[0,mscen,mmreg],PlotRegData[0,mscen,mmreg]], linestyle = '-', facecolor = cement_grey[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
+                ax1.fill_between([XOffsetS[mscen],XOffsetS[mscen]+bw],[PlotRegData[1,mscen,mmreg-1],PlotRegData[1,mscen,mmreg-1]],[PlotRegData[1,mscen,mmreg],PlotRegData[1,mscen,mmreg]], linestyle = '-', facecolor = steel_blue[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
+                ax1.fill_between([XOffsetW[mscen],XOffsetW[mscen]+bw],[PlotRegData[2,mscen,mmreg-1],PlotRegData[2,mscen,mmreg-1]],[PlotRegData[2,mscen,mmreg],PlotRegData[2,mscen,mmreg]], linestyle = '-', facecolor = wood_brown[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
             plt.text(XTextpos[mmreg-1], PlotRegData[0,0,mmreg-1] + 0.4 * (PlotRegData[0,0,mmreg] - PlotRegData[0,0,mmreg-1]), regss[mmreg-1]   ,fontsize=10,fontweight='bold', color = 'k', horizontalalignment='right')  
-        plt.xlim([-1.05,5])       
+        plt.xlim([-5.6,40])       
         plt.xticks([])
         ax1.set_ylim(bottom=0)
         ax1.set_ylim(top=1.2*np.max(PlotRegData))
-        plt.text(0.3, 1.08*np.max(PlotRegData), 'Cement'     ,fontsize=18, fontweight='normal', color = cement_grey[5], horizontalalignment='left')  
-        plt.text(2.08, 1.08*np.max(PlotRegData), 'Steel'     ,fontsize=18, fontweight='normal', color = steel_blue[5], horizontalalignment='left')  
-        plt.text(3.6, 1.08*np.max(PlotRegData), 'Structural' ,fontsize=18, fontweight='normal', color = wood_brown[5], horizontalalignment='left')  
-        plt.text(3.85, 0.98*np.max(PlotRegData), 'Wood'      ,fontsize=18, fontweight='normal', color = wood_brown[5], horizontalalignment='left')  
+        plt.plot([12.5,12.5],[0,1.2*np.max(PlotRegData)],linestyle = '--', linewidth = 0.8, color = 'k')
+        plt.plot([26.5,26.5],[0,1.2*np.max(PlotRegData)],linestyle = '--', linewidth = 0.8, color = 'k')
+        plt.text(1.8, 1.08*np.max(PlotRegData), 'Cement'     ,fontsize=18, fontweight='normal', color = cement_grey[5], horizontalalignment='left')  
+        plt.text(16.5, 1.08*np.max(PlotRegData), 'Steel'     ,fontsize=18, fontweight='normal', color = steel_blue[5], horizontalalignment='left')  
+        plt.text(29, 1.08*np.max(PlotRegData), 'Structural' ,fontsize=18, fontweight='normal', color = wood_brown[5], horizontalalignment='left')  
+        plt.text(31, 0.98*np.max(PlotRegData), 'Wood'      ,fontsize=18, fontweight='normal', color = wood_brown[5], horizontalalignment='left')  
         #
-        plt.text(1.90, 0.52*np.max(PlotRegData), selectS[0]   ,fontsize=16, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
-        plt.text(2.65, 0.22*np.max(PlotRegData), selectS[1]   ,fontsize=16, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)          
+        plt.text(14.3, 0.47*np.max(PlotRegData), selectS[0]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
+        plt.text(17.5, 0.47*np.max(PlotRegData), selectS[1]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
+        plt.text(20.3, 0.47*np.max(PlotRegData), selectS[2]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
+        plt.text(23.3, 0.47*np.max(PlotRegData), selectS[3]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
         plt.title(ptitles[m] + ', cumulative 2020-2050', fontsize = 18)
         plt.ylabel('Gt', fontsize = 15)
+        ax1.set_axisbelow(True)
+        plt.grid(ls='--',lw=0.5)
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '.png'), dpi=150, bbox_inches='tight')     
         
@@ -388,12 +401,15 @@ for m in range(0,len(ptitles)):
             ddf = ps
         if pflags[m] == 'cumulative':
             ddf = pc
-        pst     = ddf[ddf['Indicator'].isin(selectI) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin(selectS)] # Select the specified data and transpose them for plotting
-        pst.set_index('Scenario', inplace=True)
-        unit = pst.iloc[0]['Unit']
-        CData=pst[prange[m]]
-        CLabels = [CData.axes[0].values[i] for i in range(0,len(CData.axes[0].values))]
-        Data    = CData.values
+        Data    = np.zeros((len(selectS)))
+        CLabels = []
+        for scenind in range(0,len(selectS)):
+            pst     = ddf[ddf['Indicator'].isin(selectI) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[scenind]])] # Select the specified data and transpose them for plotting
+            pst.set_index('Scenario', inplace=True)
+            unit = pst.iloc[0]['Unit']
+            CData=pst[prange[m]]
+            CLabels.append(CData.axes[0].values[0])
+            Data[scenind] = CData.values
         nD      = len(CLabels)
         CLabels.append('Remainder')
         CLabels.append('Use phase - scope 1')
@@ -485,12 +501,15 @@ for m in range(0,len(ptitles)):
             ddf = ps
         if pflags[m] == 'cumulative':
             ddf = pc
-        pst     = ddf[ddf['Indicator'].isin(selectI) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin(selectS)] # Select the specified data and transpose them for plotting
-        pst.set_index('Scenario', inplace=True)
-        unit = pst.iloc[0]['Unit']
-        CData=pst[prange[m]]
-        CLabels = [CData.axes[0].values[i] for i in range(0,len(CData.axes[0].values))]
-        Data    = CData.values/1000
+        Data    = np.zeros((len(selectS)))
+        CLabels = []
+        for scenind in range(0,len(selectS)):
+            pst     = ddf[ddf['Indicator'].isin(selectI) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[scenind]])] # Select the specified data and transpose them for plotting
+            pst.set_index('Scenario', inplace=True)
+            unit = pst.iloc[0]['Unit']
+            CData=pst[prange[m]]
+            CLabels.append(CData.axes[0].values[0])
+            Data[scenind] = CData.values / 1000 # drom Mt to Gt           
         nD      = len(CLabels)
         CLabels.append('Remainder')
         CLabels.append('Material production')
@@ -569,7 +588,7 @@ for m in range(0,len(ptitles)):
         plt.text(0.95, 138, 'for 1.5 °C: 400 Gt'  ,fontsize=16,fontweight='bold', color = colors[m].split(';')[5])    
         plt.text(0.95, 122, 'for 2.0 °C: 1150 Gt'   ,fontsize=16,fontweight='bold', color = colors[m].split(';')[5])    
         for mmreg in range(1,11):
-            ax1.fill_between([-1,-1+bw],[PlotRegData[mmreg-1],PlotRegData[mmreg-1]],[PlotRegData[mmreg],PlotRegData[mmreg]], linestyle = '-', facecolor = '#bbbbbbff', edgecolor = 'k', linewidth = 1.0) 
+            ax1.fill_between([-1,-1+bw],[PlotRegData[mmreg-1],PlotRegData[mmreg-1]],[PlotRegData[mmreg],PlotRegData[mmreg]], linestyle = '-', facecolor = '#ccccccff', edgecolor = 'k', linewidth = 1.0) 
             plt.text(-0.75, PlotRegData[mmreg-1] + 0.4 * (PlotRegData[mmreg] - PlotRegData[mmreg-1]), regss[mmreg-1]   ,fontsize=9,fontweight='bold', color = 'k', horizontalalignment='center')  
         plt.plot([-1,LLeft],[Left,Left],linestyle = '-', linewidth = 0.5, color = 'k')
         plt.text(nD-1.5, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
@@ -638,17 +657,20 @@ for m in range(0,len(ptitles)):
         (ax1, ax2), (ax3, ax4) = gs.subplots(sharex='col', sharey='row')
         #prop_cycle = plt.rcParams['axes.prop_cycle']
         #colors = prop_cycle.by_key()['color']
-        fig.suptitle('Energy demand, use phase, by scenario, ' + selectR[0])
+        fig.suptitle(scelab[m] + ', energy demand, use phase, by scenario, ' + selectR[0])
         ax1.stackplot(x, Data[0,:,:]/1e6)     # For RCP2.6 + reb
         ax1.set_title('residential blds.', fontsize = 10)
+        if ptitles[m] == 'Energy_Cons_Base':
+            ax1.legend(ECarrs, loc='lower center', fontsize = 7, ncol = 2)
         ax2.stackplot(x, Data[1,:,:]/1e6)     # For RCP2.6 + nrb
         ax2.set_title('non-residential blds.', fontsize = 10)
+        if ptitles[m] == 'Energy_Cons_LEMD':
+            ax2.legend(ECarrs, loc='upper center', fontsize = 7, ncol = 2)        
         ax3.stackplot(x, Data[2,:,:]/1e6)     # For NoClimPol + reb
         ax4.stackplot(x, Data[3,:,:]/1e6)     # For NoClimPol + nrb    
         ax3.set(xlabel='year', ylabel='NoNewClimPol, \n EJ/yr')    
         ax1.set(ylabel='RCP2.6, \n EJ/yr')    
         ax4.set(xlabel='year')    
-        ax4.legend(ECarrs, loc='lower right', fontsize = 8)
         
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title_add +'.png'), dpi=150, bbox_inches='tight')     
@@ -727,9 +749,11 @@ for m in range(0,len(ptitles)):
             axs.fill_between(x, np.min(Data3,axis=0), np.max(Data3,axis=0), facecolor = '#89df89', alpha=0.5)
             axs.plot(x, Data4.transpose(), color = '#d62728')     # For bottom right, bright version: #eb9595
             axs.fill_between(x, np.min(Data4,axis=0), np.max(Data4,axis=0), facecolor = '#eb9595', alpha=0.5)
-            axs.set(xlabel='year', ylabel=unit)    
+            plt.xlabel('Year', fontsize = 18)
+            plt.ylabel(unit, fontsize = 18)
             axs.set_ylim(bottom=0)
-            plt.title(Inds[0] + ', ' + selectR)
+            axs.set_xlim([2017, 2061])
+            plt.title(Inds[0] + ', ' + selectR, fontsize = 18)
             ProxyHandlesList = []   # For legend
             ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = '#1f77b4'))
             ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = '#2ca02c'))
@@ -809,6 +833,9 @@ for m in range(0,len(ptitles)):
         axs.set_ylim(bottom = axyl[0])
         axs.set_ylim(top    = axyl[1])
         
+        axs.set_axisbelow(True)
+        plt.grid(ls='--',lw=0.7)
+        
         plt.text(0.95,  0.05, 'Mt of cement \nsaved', fontsize=12, fontweight='normal') 
         plt.text(1.45,  0.05, 'Mt of primary \nsteel saved', fontsize=12, fontweight='normal') 
         plt.text(1.95,  0.28, r'Mt of CO$_2$-eq', fontsize=12, fontweight='normal') 
@@ -819,8 +846,8 @@ for m in range(0,len(ptitles)):
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '.png'), dpi=150, bbox_inches='tight')
 
             
-    if ptypes[m] == 'LEDInd':
-        # Compile table for LED indicators
+    if ptypes[m] == 'LEMDInd':
+        # Compile table for LEMD indicators
         selectS   = pscens[m].split(';')
         title_add = ptitles[m]
         Data_Cum  = np.zeros((11,4,3)) # for 11 regions, 4 scenario pairs, and 3 indicators
@@ -906,13 +933,16 @@ for m in range(0,len(ptitles)):
         plt.text(1.95,  10.0, r'Mt of CO$_2$-eq', fontsize=12, fontweight='normal') 
         plt.text(1.95,  3.25, '(non-biogenic) \nsaved across \nentire system', fontsize=12, fontweight='normal') 
         
+        axs.set_axisbelow(True)
+        plt.grid(ls='--',lw=0.7)
+        
         plt.xticks([])
         
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '.png'), dpi=150, bbox_inches='tight')        
         
         
-    if ptypes[m] == 'LEDInd_pc':
-        # Compile table for LED indicators per capita
+    if ptypes[m] == 'LEMDInd_pc':
+        # Compile table for LEMD indicators per capita
         selectS   = pscens[m].split(';')
         title_add = ptitles[m]
         Data_Cum  = np.zeros((11,4,3)) # for 11 regions, 4 scenario pairs, and 3 indicators
@@ -997,6 +1027,9 @@ for m in range(0,len(ptitles)):
         plt.text(1.95,  0.17, r'Mt of CO$_2$-eq', fontsize=12, fontweight='normal') 
         plt.text(1.95,  0.02, '(non-biogenic) \n(scope 1+2+3)', fontsize=12, fontweight='normal') 
         
+        axs.set_axisbelow(True)
+        plt.grid(ls='--',lw=0.7)
+        
         plt.xticks([])
         
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '.png'), dpi=150, bbox_inches='tight')   
@@ -1005,7 +1038,7 @@ for m in range(0,len(ptitles)):
     if ptypes[m] == 'GHG_Stacked':        
         # Show stacked GHG emissions per process
         MyColorCycle = pylab.cm.gist_earth(np.arange(0,1,0.155)) # select 12 colors from the 'Set1' color map.            
-        Area       = ['use phase','use phase, scope 2 (el)','use phase, other energy, indirect','primary material product.','manufact. & recycling','forest sequestration','total (+ forest sequestr.)']     
+        Area       = ['use phase','use phase, scope 2 (electricity)','use phase, other energy, indirect','primary material product.','manufact. & recycling','forest sequestration','total (+ forest sequestr.)']     
         selectS   = pscens[m].split(';')
         title_add = ptitles[m]
         Data1     = np.zeros((7,46)) # For first scenario
@@ -1045,7 +1078,7 @@ for m in range(0,len(ptitles)):
         plta = Line2D(np.arange(2016,2061), Data1[6,1::] , linewidth = 1.3, color = 'k')
         ProxyHandlesList.append(plta) # create proxy artist for legend 
         
-        # For the LED alternative:
+        # For the LEMD alternative:
         ax1.fill_between([2063,2068],[0,0], [Data2CS[0,-1],Data2CS[0,-1]], linestyle = '-', facecolor = MyColorCycle[1,:], linewidth = 0.5)            
         ax1.fill_between([2063,2068],[Data2CS[0,-1],Data2CS[0,-1]], [Data2CS[1,-1],Data2CS[1,-1]], linestyle = '-', facecolor = MyColorCycle[2,:], linewidth = 0.5)            
         ax1.fill_between([2063,2068],[Data2CS[1,-1],Data2CS[1,-1]], [Data2CS[2,-1],Data2CS[2,-1]], linestyle = '-', facecolor = MyColorCycle[3,:], linewidth = 0.5)            
@@ -1054,9 +1087,10 @@ for m in range(0,len(ptitles)):
         ax1.fill_between([2063,2068],[0,0], [Data2[5,-1],Data2[5,-1]], linestyle = '-', facecolor = MyColorCycle[6,:], linewidth = 0.5)    
         plt.plot([2063,2068], [Data2[6,-1],Data2[6,-1]], linewidth = 1.3, color = 'k')        
         
-        # horizonal line
+        # vertical and horizonal lines
         axyl = ax1.get_ylim()
         plt.plot([2061.5,2061.5],[axyl[0],axyl[1]],linestyle = '--', linewidth = 0.8, color = 'k')
+        plt.plot([2014,2070],[0,0],linestyle = '-', linewidth = 0.5, color = 'k')
         
         plt.title(ptitles[m] + '_' + Regio, fontsize = 18)
         plt.ylabel(r'Mt of CO$_2$-eq.', fontsize = 18)
@@ -1064,12 +1098,12 @@ for m in range(0,len(ptitles)):
         plt.xticks(fontsize=17)
         plt.yticks(fontsize=17)
         plt.legend(handles = reversed(ProxyHandlesList),labels = reversed(Area), shadow = False, prop={'size':11.5},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
-        ax1.set_xlim([2014, 2070])
+        ax1.set_xlim([2017, 2070])
         ax1.set_ylim(axyl)
         plt.xticks([2020,2030,2040,2050,2060,2065.5])
         ax1.set_xticklabels(['2020','2030','2040','2050','2060','2060'], rotation = 0, fontsize = 17, fontweight = 'normal', rotation_mode="default")
-        plt.text(2040, 0.5 * axyl[0], selectS[0]     ,fontsize=18, fontweight='normal', color = 'k', horizontalalignment='left')  
-        plt.text(2059, 0.5 * axyl[0], selectS[1]     ,fontsize=18, fontweight='normal', color = 'k', horizontalalignment='left')  
+        plt.text(2040, 0.5 * axyl[0], selectS[0]     ,fontsize=16, fontweight='normal', color = 'k', horizontalalignment='left')  
+        plt.text(2059, 0.5 * axyl[0], selectS[1]     ,fontsize=16, fontweight='normal', color = 'k', horizontalalignment='left')  
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '_' + Regio + '.png'), dpi=150, bbox_inches='tight')   
 
