@@ -330,7 +330,55 @@ for m in range(0,len(ptitles)):
             plt.show()
             fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title +'.png'), dpi=150, bbox_inches='tight')
 
-
+    if ptypes[m] == 'Fig_MaterialStock':
+        # Custom plot for use phase material stock for selected materials
+        Inds    = pinds[m].split(';')
+        selectR = [pregs[m]]
+        selectS = pscens[m].split(';')
+        title_add = ptitles[m] + '_' + selectR[0]
+        fcolors = colors[m].split(';')
+        ddf     = ps # for time series only
+        Data    = np.zeros((6,3,46)) # array for 6 scenarios, 3 materials, and 45 years
+        MatsL   = ['cement','steel','struct. timber']
+        # For all scenarios and materials:
+        for scenindx in range(0,6):
+            for mmx in range(0,3):
+                pst     = ddf[ddf['Indicator'].isin([Inds[mmx]]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[scenindx]])] # Select the specified data and transpose them for plotting
+                pst.set_index('Indicator', inplace=True)
+                unit    = pst.iloc[0]['Unit']
+                pst.drop(['Region', 'Scenario', 'Sectors', 'Unit'], axis=1, inplace = True)
+                CLabels = [pst.axes[0].values[i] for i in range(0,len(pst.axes[0].values))]
+                Data[scenindx,mmx,:] = pst.values
+                    
+        x = np.linspace(2015,2060,46)
+                
+        # 3x2 scenario plot
+        # mpl.style.use('classic')
+        fig = plt.figure()
+        gs = fig.add_gridspec(2, 3, hspace=0, wspace=0)
+        (ax1, ax2, ax3), (ax4, ax5, ax6) = gs.subplots(sharex='col', sharey='row')
+        #prop_cycle = plt.rcParams['axes.prop_cycle']
+        #colors = prop_cycle.by_key()['color']
+        fig.suptitle(scelab[m] + ', in-use stocks, by scenario, ' + selectR[0])
+        ax1.stackplot(x, Data[0,:,:], colors = fcolors)     # For SSP2 + no CE
+        ax1.set_title('no additional CE', fontsize = 10)
+        ax1.legend(MatsL, loc='upper left', fontsize = 7, ncol = 1)
+        ax2.stackplot(x, Data[1,:,:], colors = fcolors)     # For SSP2 + full CE
+        ax2.set_title('full CE', fontsize = 10)
+        ax3.stackplot(x, Data[2,:,:], colors = fcolors)     # For SSP2 + full CE + wood
+        ax3.set_title('full CE + wood intensive', fontsize = 10)
+        ax4.stackplot(x, Data[3,:,:], colors = fcolors)     # For LEMD + no CE
+        ax5.stackplot(x, Data[4,:,:], colors = fcolors)     # For LEMD + full CE    
+        ax6.stackplot(x, Data[5,:,:], colors = fcolors)     # For LEMD + full CE + wood
+        ax4.set(xlabel='year', ylabel='LEMD, Mt')    
+        ax1.set(ylabel='SSP2, Mt')    
+        ax5.set(xlabel='year')    
+        ax6.set(xlabel='year')    
+        
+        plt.show()
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title_add +'.png'), dpi=150, bbox_inches='tight')     
+        
+        
     if ptypes[m] == 'Fig_PrimaryProduction':
         # Custom plot for region-stacked cumulative material production for two scenarios
         regs   = ['R5.2SSA','R5.2LAM','EU_UK','China','India','R5.2ASIA_Other','R5.2MNF','R5.2REF','R5.2OECD_Other','R32USACAN']
