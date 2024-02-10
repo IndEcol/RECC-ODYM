@@ -2883,14 +2883,15 @@ def main():
             Outflow_Materials_Usephase_all[:,:,mS,mR]   = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() + np.einsum('tclLm->tm',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy() + np.einsum('tcoOm->tm',RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy()
             WasteMgtLosses_To_Landfill[:,:,mS,mR]       = RECC_System.FlowDict['F_9_0'].Values.copy()
             StockCurves_Mat[:,:,mS,mR]                  = np.einsum('tcrgm->tm',RECC_System.StockDict['S_7'].Values[:,:,:,:,:,0]).copy() + np.einsum('tclLm->tm',RECC_System.StockDict['S_7_Nl'].Values[:,:,:,:,:,0]).copy() + np.einsum('tcoOm->tm',RECC_System.StockDict['S_7_No'].Values[:,:,:,:,:,0]).copy()
-            StockCurves_Mat_reb[:,:,mS,mR]              = np.einsum('gtcrm->tm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_reb_rge,:,0])
-            StockCurves_Mat_nrb[:,:,mS,mR]              = np.einsum('gtcrm->tm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_nrb_rge,:,0])
+            
             if 'pav' in SectorList:
                 Stock_2020_pav[:,:,mS,mR]               = Stock_2020_decline_p.sum(axis=1)
             if 'reb' in SectorList:
                 Stock_2020_reb[:,:,mS,mR]               = Stock_2020_decline_B.sum(axis=1)
+                StockCurves_Mat_reb[:,:,mS,mR]          = np.einsum('gtcrm->tm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_reb_rge,:,0])
             if 'nrb' in SectorList:
                 Stock_2020_nrb[:,:,mS,mR]               = Stock_2020_decline_N.sum(axis=1)               
+                StockCurves_Mat_nrb[:,:,mS,mR]          = np.einsum('gtcrm->tm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_nrb_rge,:,0])
             
             # Extract calibration for SSP1:
             if mS == 1:
@@ -3051,12 +3052,14 @@ def main():
     for mm in range(0,Nm):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat[:,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    for mm in range(0,Nm):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_reb[:,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, reb, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_reb.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, reb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    for mm in range(0,Nm):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb[:,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, nrb, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nrb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    if 'reb' in SectorList:
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_reb[:,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, reb, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_reb.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, reb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'nrb' in SectorList: 
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb[:,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, nrb, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nrb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     #per capita stocks per sector
     for mr in range(0,Nr):
         for mG in range(0,NG):
