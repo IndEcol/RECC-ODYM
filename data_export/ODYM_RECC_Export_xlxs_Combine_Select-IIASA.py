@@ -2,7 +2,7 @@
 """
 Created on Mon Jun 14 15:42:03 2021
 
-@author: spauliuk
+@author: chauenstein, spauliuk
 
 This script takes a number of RECC scenarios (as defined in list), 
 loads a number of results and then compiles them into an excel workbook/csv 
@@ -355,7 +355,7 @@ if glob_agg    == 'True':
 '''
             
 # Save exported results
-RB.save(os.path.join(RECC_Paths.export_path,outpath,'Results_Extracted_RECCv2.5_' + fn_add + '_sep.xlsx')) 
+RB.save(os.path.join(RECC_Paths.export_path,outpath,'Results_Extracted_RECCv2.5_' + fn_add + '.xlsx')) 
                  
 #
 #
