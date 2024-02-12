@@ -222,14 +222,6 @@ for rs in [resS,rsCS]:
     rs.cell(row=1, column=5).value = 'Unit'
     #rs.cell(row=1, column=6).value = '2005' #IIASA CIRCOMOD template starting with year 2005
     #rs.cell(row=1, column=7).value = '2010'
-    '''
-    rs.cell(row=1, column=1).value = 'Model id'
-    rs.cell(row=1, column=2).value = 'Region'
-    rs.cell(row=1, column=3).value = 'Indicator'
-    rs.cell(row=1, column=4).value = 'Scenario'
-    rs.cell(row=1, column=5).value = 'Sectors'
-    rs.cell(row=1, column=6).value = 'Unit'
-    '''
     
 #for t in range(0,46): 
 #    resS.cell(row=1, column=7+t).value = 2015 + t
@@ -248,13 +240,6 @@ rsCS.cell(row=1, column=12).value = 'Cum. 2050-2059'
 for t in range(1,26):
     resS.cell(row=1, column=t).font = openpyxl.styles.Font(bold=True)
     
-'''
-for t in range(1,53):
-    resS.cell(row=1, column=t).font = openpyxl.styles.Font(bold=True)
-for t in range(1,13):
-    resS.cell(row=1, column=t).font = openpyxl.styles.Font(bold=True)
-'''
-    
 # fill labels #2024-01-18 adapt order to IIASA template, remove sector indicator
 for m in range(0,nor*nos*noi):
      r = m // (noi*nos)
@@ -270,38 +255,12 @@ for m in range(0,nor*nos*noi):
      resS.cell(row=m+2, column=5).value   = tu[i]
      rsCS.cell(row=m+2, column=5).value   = tuc[i]
 
-'''
-for m in range(0,nor*nos*noi):
-     r = m // (noi*nos)
-     x = m %  (noi*nos)
-     i = x // nos
-     s = x %  nos
-     for rs in [resS,rsCS]:
-         rs.cell(row=m+2, column=1).value = Model_id 
-         rs.cell(row=m+2, column=2).value = Ar[r]
-         rs.cell(row=m+2, column=3).value = ti[i]
-         rs.cell(row=m+2, column=4).value = scen[s]
-         rs.cell(row=m+2, column=5).value = sl[i]
-     resS.cell(row=m+2, column=6).value   = tu[i]
-     rsCS.cell(row=m+2, column=6).value   = tuc[i]
-'''
-
 # fill data    #2024-01-18 only every fifth year, currently results only 2015-2060 
 for m in range(0,nor*nos*noi):
-    for n in range(0,10):
-        resS.cell(row=2+m, column=8+n).value = Res[m,5*n] #start in column 8 (no results for 2005 and 2010); only results for every fifth year, starting with year 2015
+    for n in range(1,10):
+        resS.cell(row=2+m, column=8+n).value = Res[m,5*n] #start in column 9 (no results for 2005, 2010, and 2015); only results for every fifth year, starting with year 2020
     for n in range(0,6):
         rsCS.cell(row=2+m, column=7+n).value = ResC[m,n]
-        
-'''        
-  # fill data    
-  for m in range(0,nor*nos*noi):
-      for n in range(0,46):
-          resS.cell(row=2+m, column=7+n).value = Res[m,n]
-      for n in range(0,6):
-          rsCS.cell(row=2+m, column=7+n).value = ResC[m,n]
-                
-'''
         
 # Special: All regions to global aggregate, if region is outer index and all regions add up
 if glob_agg    == 'True':
@@ -319,40 +278,18 @@ if glob_agg    == 'True':
          s = (m-start_ind) %  nos
          for rs in [resS,rsCS]:
              rs.cell(row=m+2, column=1).value = Model_id 
-             rs.cell(row=m+2, column=3).value = 'Global'
+             rs.cell(row=m+2, column=3).value = 'World'
              rs.cell(row=m+2, column=4).value = ti[i]
              rs.cell(row=m+2, column=2).value = scen[s]
            #  rs.cell(row=m+2, column=5).value = sl[i]
          resS.cell(row=m+2, column=5).value   = tu[i]
          rsCS.cell(row=m+2, column=5).value   = tuc[i]
-    # fill data    #2024-01-18 only every fifth year, currently results only 2015-2060
+    # fill data    #2024-01-18 only every fifth year, currently results only 2020-2060
     for m in range(start_ind,start_ind+nos*noi):
-        for n in range(0,10):
+        for n in range(1,10):
             resS.cell(row=2+m, column=8+n).value = Res_r_agg[m-start_ind,5*n]        
         for n in range(0,6):
             rsCS.cell(row=2+m, column=7+n).value = Res_rC_agg[m-start_ind,n]   
-
-'''
-    # fill labels
-    for m in range(start_ind,start_ind+nos*noi):
-         i = (m-start_ind) // nos
-         s = (m-start_ind) %  nos
-         for rs in [resS,rsCS]:
-             rs.cell(row=m+2, column=1).value = Model_id 
-             rs.cell(row=m+2, column=2).value = 'Global'
-             rs.cell(row=m+2, column=3).value = ti[i]
-             rs.cell(row=m+2, column=4).value = scen[s]
-             rs.cell(row=m+2, column=5).value = sl[i]
-         resS.cell(row=m+2, column=6).value   = tu[i]
-         rsCS.cell(row=m+2, column=6).value   = tuc[i]
-    # fill data    
-    for m in range(start_ind,start_ind+nos*noi):
-        for n in range(0,46):
-            resS.cell(row=2+m, column=7+n).value = Res_r_agg[m-start_ind,n]        
-        for n in range(0,6):
-            rsCS.cell(row=2+m, column=7+n).value = Res_rC_agg[m-start_ind,n]        
-
-'''
             
 # Save exported results
 RB.save(os.path.join(RECC_Paths.export_path,outpath,'Results_Extracted_RECCv2.5_' + fn_add + '.xlsx')) 
