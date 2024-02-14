@@ -175,11 +175,11 @@ for rf in Folders:
         for s in range(0,nos): # iterate over all selected scenarios
             for j in range(0,noif): # for all source indicators
                 i = ti.index(tif[j]) # target position of indicator
-                print('Reading data for ' + ti[i])
+                print('Reading source data for ' + ti[i])
                 for r in range(0,nor): # for all regions
                     if region == Ar[r] or region in Dr[r]: # the current result file region is or is part of the current target region
                         targetpos = r*nos*noi + i * nos + s # position in Res array: outer index: region, middle index: indicator, inner index: scenario
-                        if sector in sL[i]: # if current sector is part of target sector for indicator
+                        if sector in sL[j]: # if current sector is part of source sector(s) for target indicator
                             if rf in secs[s]: # if current folder is in list for currect scenario --> extract results!
                                 if rr[j] == 'Aggregate': # use indicator for aggregate region label and add to results:
                                     try:
