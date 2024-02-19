@@ -2615,13 +2615,13 @@ def main():
             
                     # Assign growth table values to stock and stock changes in process 1:
                     # only the forest carbon pool change relative to the baseline is quantified, not the total forest carbon stock.    
-                    RECC_System.StockDict['S_1t'].Values[:,:,mmr,Carbon_loc]              = Forest_GrowthTable_timber[SwitchTime-1::,:]
+                    RECC_System.StockDict['S_1t'].Values[:,:,mmr,Carbon_loc]              = Forest_GrowthTable_timber[0:Nt,:]
                     RECC_System.StockDict['S_1f'].Values[:,SwitchTime-1::,mmr,Carbon_loc] = Forest_GrowthTable_fuelwd 
                                 
-                    RECC_System.StockDict['dS_1t'].Values[:,mmr,Carbon_loc]   = Forest_GrowthTable_timber.sum(axis=1)[SwitchTime-1::]
-                    RECC_System.StockDict['dS_1t'].Values[1::,mmr,Carbon_loc] = np.diff(Forest_GrowthTable_timber.sum(axis=1))[SwitchTime-1::]
-                    RECC_System.StockDict['dS_1f'].Values[:,mmr,Carbon_loc]   = Forest_GrowthTable_fuelwd.sum(axis=1).copy()
-                    RECC_System.StockDict['dS_1f'].Values[1::,mmr,Carbon_loc] = np.diff(Forest_GrowthTable_fuelwd.sum(axis=1)).copy()
+                    RECC_System.StockDict['dS_1t'].Values[:,mmr,Carbon_loc]   = RECC_System.StockDict['S_1t'].Values[0,:,mmr,Carbon_loc].sum()
+                    RECC_System.StockDict['dS_1t'].Values[1::,mmr,Carbon_loc] = np.diff(RECC_System.StockDict['S_1t'].Values[:,:,mmr,Carbon_loc],axis=0).sum(axis=1)
+                    RECC_System.StockDict['dS_1f'].Values[:,mmr,Carbon_loc]   = RECC_System.StockDict['S_1f'].Values[0,:,mmr,Carbon_loc].sum()
+                    RECC_System.StockDict['dS_1f'].Values[1::,mmr,Carbon_loc] = np.diff(RECC_System.StockDict['S_1f'].Values[:,:,mmr,Carbon_loc],axis=0).sum(axis=1)
         
             if ScriptConfig['ForestryModel'] == 'CarbonNeutral': # Default option   
                 # only the forest carbon pool change relative to the baseline is quantified, not the total forest carbon stock.
@@ -3926,7 +3926,7 @@ def main():
     print('done.')
     
     OutputDict['Name_Scenario'] = Name_Scenario + '__' + TimeString + DescrString # return new scenario folder name to ScenarioControl script
-        
+    
     return OutputDict
                     
 # code for script to be run as standalone function
