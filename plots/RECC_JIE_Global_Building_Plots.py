@@ -110,7 +110,7 @@ for m in range(0,len(ptitles)):
             # For the cumulative plot
             inflow_d  = np.zeros((3))
             outflow_d = np.zeros((3))
-            flowscen  = ['LEMD_FullCE','SSP1_FullCE','SSP2-BASE']
+            flowscen  = ['LEMD_FullCE','SSP1_FullCE','SSP2_Base']
             for fsc in range(0,3):
                 pst    = pc[pc['Indicator'].isin([iflo]) & pc['Region'].isin([selectR]) & pc['Scenario'].isin([flowscen[fsc]])] # Select the specified data and compile them for plotting        
                 inflow_d[fsc]  = pst.iloc[0]['Cum. 2020-2050 (incl.)'] / 1000 # in bn m²  
@@ -366,12 +366,12 @@ for m in range(0,len(ptitles)):
         ax1.set_title('no additional CE', fontsize = 10)
         ax2.stackplot(x, Data[1,:,:], colors = fcolors)     # For SSP2 + full CE
         ax2.set_title('full CE', fontsize = 10)
-        ax2.legend(MatsL, loc='upper left', fontsize = 7, ncol = 1)
+        ax2.legend(MatsL, loc='upper center', fontsize = 7, ncol = 1)
         ax3.stackplot(x, Data[2,:,:], colors = fcolors)     # For SSP2 + full CE + wood
         ax3.set_title('full CE + wood intensive', fontsize = 10)
         ax4.stackplot(x, Data[3,:,:], colors = fcolors)     # For LEMD + no CE
         ax5.stackplot(x, Data[4,:,:], colors = fcolors)     # For LEMD + full CE    
-        ax5.legend(MatsL, loc='upper right', fontsize = 7, ncol = 1)
+        ax5.legend(MatsL, loc='upper center', fontsize = 7, ncol = 1)
         ax6.stackplot(x, Data[5,:,:], colors = fcolors)     # For LEMD + full CE + wood
         ax1.set_ylim(top=1.05 * maxstock)
         ax4.set_ylim(top=1.05 * maxstock)
@@ -777,12 +777,14 @@ for m in range(0,len(ptitles)):
         fig.suptitle(scelab[m] + ', energy demand, use phase, by scenario, ' + selectR[0])
         ax1.stackplot(x, Data[0,:,:]/1e6)     # For RCP2.6 + reb
         ax1.set_title('residential blds.', fontsize = 10)
-        if ptitles[m] == 'Energy_Cons_Base':
-            ax1.legend(ECarrs, loc='lower center', fontsize = 7, ncol = 2)
         ax2.stackplot(x, Data[1,:,:]/1e6)     # For RCP2.6 + nrb
         ax2.set_title('non-residential blds.', fontsize = 10)
         if ptitles[m] == 'Energy_Cons_LEMD':
-            ax2.legend(ECarrs, loc='upper center', fontsize = 7, ncol = 2)        
+            ax2.legend(ECarrs, loc='upper center', fontsize = 6, ncol = 2)        
+        if ptitles[m] == 'Energy_Cons_SSP1':
+            ax2.legend(ECarrs, loc='lower center', fontsize = 6, ncol = 2)
+        if ptitles[m] == 'Energy_Cons_SSP2':
+            ax2.legend(ECarrs, loc='lower center', fontsize = 6, ncol = 2)            
         ax3.stackplot(x, Data[2,:,:]/1e6)     # For NoClimPol + reb
         ax4.stackplot(x, Data[3,:,:]/1e6)     # For NoClimPol + nrb
         ax1.set_ylim(top=1.05 * maxflow)
@@ -803,7 +805,6 @@ for m in range(0,len(ptitles)):
             groupsi = pflags[m].split(';')
             groupsi = [int(i) for i in groupsi]
             labelsg = indlab[m].split(';')
-            labelsc = scelab[m].split(';')
             title_add = '_' + selectR
             Data1   = np.zeros((groupsi[0],45)) # for 45 years
             Data2   = np.zeros((groupsi[1],45)) # for 45 years
@@ -857,30 +858,47 @@ for m in range(0,len(ptitles)):
             plt.show()
             fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + title_add +'.png'), dpi=150, bbox_inches='tight')            
             
+
+    if ptypes[m] == 'GHG_t_range_pairs':
+        # Custom plot for indicator (time series per scenario group)
+        Inds    = pinds[m].split(';')
+        for rr in range(0,len(regions)):
+            selectR = regions[rr]
+            selectS = pscens[m].split(';')
+            labelsc = scelab[m].split(';')
+            title_add = '_' + selectR
+            DataP   = np.zeros((len(selectS),45)) # for 45 years
+            
+            pst     = ps[ps['Indicator'].isin(Inds) & ps['Region'].isin([selectR])] # Select the specified data and transpose them for plotting
+            pst.set_index('Indicator', inplace=True)
+            unit    = pst.iloc[0]['Unit']
+            pst.drop(['Region', 'Sectors', 'Unit'], axis=1, inplace = True)
+            for mmii in range(0,len(selectS)):
+                psa = pst[pst['Scenario'].isin([selectS[mmii]])]
+                DataP[mmii,:] = psa.values[0,2::]             
+                        
+            maxInd = np.max(DataP)
+                
+            x = np.linspace(2016,2060,45)
+            ProxyHandlesList = []   # For legend
+            #colorsf = [,,'#2ca02c',,]
+            colorsf = ['#888888','#aaaaaa','#cccccc','#1f77b4','#ff7f0e','#d62728']
+            
             # plot all in one:
             fig  = plt.figure(figsize=(6.5,5))
             axs  = plt.axes([0.08,0.08,0.85,0.9])
-            axs.plot(x, Data1.transpose(), color = '#1f77b4')     # For top left, bright version: #7fbee9
-            axs.fill_between(x, np.min(Data1,axis=0), np.max(Data1,axis=0), facecolor = '#7fbee9', alpha=0.5)
-            axs.plot(x, Data2.transpose(), color = '#ff7f0e')     # For top right, bright version: #ffbf85
-            axs.fill_between(x, np.min(Data2,axis=0), np.max(Data2,axis=0), facecolor = '#ffbf85', alpha=0.5)
-            axs.plot(x, Data3.transpose(), color = '#2ca02c')     # For bottom left, bright version: #89df89
-            axs.fill_between(x, np.min(Data3,axis=0), np.max(Data3,axis=0), facecolor = '#89df89', alpha=0.5)
-            axs.plot(x, Data4.transpose(), color = '#d62728')     # For bottom right, bright version: #eb9595
-            axs.fill_between(x, np.min(Data4,axis=0), np.max(Data4,axis=0), facecolor = '#eb9595', alpha=0.5)
+            for mrange in range(0,int(len(selectS)/2)):
+                axs.plot(x, DataP[2*mrange], color = colorsf[mrange])   
+                axs.plot(x, DataP[2*mrange+1], color = colorsf[mrange])   
+                axs.fill_between(x, np.min(DataP[[2*mrange,2*mrange+1],:],axis=0), np.max(DataP[[2*mrange,2*mrange+1],:],axis=0), facecolor = colorsf[mrange], alpha=0.5)
+                ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = colorsf[mrange]))
             plt.xlabel('Year', fontsize = 18)
             plt.ylabel(unit, fontsize = 18)
             axs.set_ylim(bottom=0)
             axs.set_xlim([2017, 2061])
             plt.title(Inds[0] + ', ' + selectR, fontsize = 18)
-            ProxyHandlesList = []   # For legend
-            ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = '#1f77b4'))
-            ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = '#2ca02c'))
-            ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = '#ff7f0e'))
-            ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = '#d62728'))
-            axs.legend(handles = ProxyHandlesList,labels = labelsc, shadow = False, prop={'size':9},ncol=1, loc = 'lower left')
+            axs.legend(handles = ProxyHandlesList,labels = labelsc, shadow = False, prop={'size':8},ncol=2, loc = 'lower left')
             fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + title_add +'_Combined.png'), dpi=150, bbox_inches='tight')
-
 
 
     if ptypes[m] == 'WoodSubstInd':
@@ -1157,7 +1175,7 @@ for m in range(0,len(ptitles)):
     if ptypes[m] == 'GHG_Stacked':        
         # Show stacked GHG emissions per process
         MyColorCycle = pylab.cm.gist_earth(np.arange(0,1,0.155)) # select 12 colors from the 'Set1' color map.            
-        Area       = ['use phase','use phase, scope 2 (electricity)','use phase, other energy, indirect','primary material product.','manufacturing, waste mgt., recycling','forest sequestration','total (+ forest sequestr.)']     
+        Area       = ['use phase, direct (scope 1)','use phase, electricity (scope 2)','use phase, other energy, indirect','primary material production','manufacturing, waste mgt., recycling','forest sequestration*','total (+ forest sequestr.)']     
         selectS   = pscens[m].split(';')
         title_add = ptitles[m]
         Data1     = np.zeros((7,46)) # For first scenario
@@ -1223,6 +1241,7 @@ for m in range(0,len(ptitles)):
         ax1.set_xticklabels(['2020','2030','2040','2050','2060','2060'], rotation = 0, fontsize = 17, fontweight = 'normal', rotation_mode="default")
         plt.text(2040, 0.5 * axyl[0], selectS[0]     ,fontsize=16, fontweight='normal', color = 'k', horizontalalignment='left')  
         plt.text(2059, 0.5 * axyl[0], selectS[1]     ,fontsize=16, fontweight='normal', color = 'k', horizontalalignment='left')  
+        plt.text(2018, 0.9 * axyl[0], '*) assuming forestry with constant C pool at landscape level'     ,fontsize=14, fontweight='normal', color = 'k', horizontalalignment='left')  
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '_' + Regio + '.png'), dpi=150, bbox_inches='tight')   
 
@@ -1260,11 +1279,13 @@ for m in range(0,len(ptitles)):
         'Use phase outflow of plastics (aggregate materials group)',
         'Wood for cascading (inflow)',
         'EoL wood for cascading (inflow)',
-        'Outflow of cascading stock']
-        Data = np.zeros((23,1)) # Data points for each indicator extracted
+        'Outflow of cascading stock',
+        'Fabrication scrap: heavy melt, plate, and structural steel scrap',
+        'Fabrication scrap: construction waste, concrete, bricks, tiles, ceramics']
+        Data = np.zeros((25,1)) # Data points for each indicator extracted
         
         # Fetch data:
-        for mindi in range(0,23):
+        for mindi in range(0,25):
             Selectdf = ddf[ddf['Indicator'].isin([Indicators[mindi]]) & pc['Region'].isin(selectR) & pc['Scenario'].isin(selectS)]
             Selectdf.set_index('Indicator', inplace=True)
             Data[mindi,0] = Selectdf[prange[m]].values
@@ -1291,7 +1312,7 @@ for m in range(0,len(ptitles)):
         f.write('[Material use: ' + i_mu + ' Gt] [(220,220,220)] [0] [40.00] [60.00] [573] [210]\n')
         f.write('[Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt] [(170,170,170)] [0] [80.00] [53.33] [706] [270]\n')
         f.write('[EoL Waste: ' + i_eo + ' Gt] [(220,220,220)] [0] [40.00] [19.33] [863] [326]\n')
-        f.write('[Recycling: ' + i_re + ' Gt] [(220,220,220)] [90] [20.00] [8.00] [930] [361]\n')
+        f.write('[Recycling and reuse: ' + i_re + ' Gt] [(220,220,220)] [90] [20.00] [8.00] [930] [361]\n')
         f.write('[  ] [(220,220,220)] [180] [00.00] [8.00] [890] [419]\n')
         f.write('[   ] [(220,220,220)] [180] [00.00] [8.00] [463] [420]\n')
         f.write('\n')
@@ -1306,30 +1327,30 @@ for m in range(0,len(ptitles)):
         f.write('[Energetic use: ' + i_eu + ' Gt]  [' + str(Data[3,0]+Data[11,0]+Data[15,0]-Data[7,0]) + ']  [(255,243,1)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
         f.write('[Energetic use: ' + i_eu + ' Gt]  [' + str(Data[2,0]+Data[10,0]+Data[14,0]-Data[6,0]+Data[21,0]+Data[22,0]-Data[20,0]) + ']  [(0,126,57)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
         f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[6,0]+Data[20,0]) + ']  [(0,126,57)] [ab] [Material use: ' + i_mu + ' Gt]\n')
-        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[4,0]) + ']  [(48,84,150)] [ab] [Material use: ' + i_mu + ' Gt]\n')
-        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[5,0]) + ']  [(245,165,5)] [ab] [Material use: ' + i_mu + ' Gt]\n')
+        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[4,0]+Data[23,0]) + ']  [(48,84,150)] [ab] [Material use: ' + i_mu + ' Gt]\n')
+        f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[5,0]+Data[24,0]) + ']  [(245,165,5)] [ab] [Material use: ' + i_mu + ' Gt]\n')
         f.write('[Materials Processed: ' + i_mp + ' Gt]  [' + str(Data[7,0]) + ']  [(255,243,1)] [ab] [Material use: ' + i_mu + ' Gt]\n')
         f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[6,0]+Data[20,0]) + ']  [(0,126,57)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
-        f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[4,0]) + ']  [(48,84,150)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
-        f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[5,0]) + ']  [(245,165,5)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
+        f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[4,0]+Data[23,0]) + ']  [(48,84,150)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
+        f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[5,0]+Data[24,0]) + ']  [(245,165,5)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
         f.write('[Material use: ' + i_mu + ' Gt]  [' + str(Data[7,0]) + ']  [(255,243,1)] [ab] [Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]\n')
         f.write('[Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]  [' + str(Data[18,0]+Data[22,0]) + ']  [(0,126,57)] [ab] [EoL Waste: ' + i_eo + ' Gt]\n')
-        f.write('[Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]  [' + str(Data[16,0]) + ']  [(48,84,150)] [ab] [EoL Waste: ' + i_eo + ' Gt]\n')
-        f.write('[Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]  [' + str(Data[17,0]) + ']  [(245,165,5)] [ab] [EoL Waste: ' + i_eo + ' Gt]\n')
+        f.write('[Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]  [' + str(Data[16,0]+Data[23,0]) + ']  [(48,84,150)] [ab] [EoL Waste: ' + i_eo + ' Gt]\n')
+        f.write('[Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]  [' + str(Data[17,0]+Data[24,0]) + ']  [(245,165,5)] [ab] [EoL Waste: ' + i_eo + ' Gt]\n')
         f.write('[Stocks, in: ' + i_si + ' Gt | out: ' + i_so + ' Gt]  [' + str(Data[19,0]) + ']  [(255,243,1)] [ab] [EoL Waste: ' + i_eo + ' Gt]\n')
         f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[22,0]) + ']  [(0,126,57)] [ab] [Energetic use: ' + i_eu + ' Gt]\n')
         f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[18,0]-Data[10,0]-Data[14,0]-Data[21,0]) + ']  [(0,126,57)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
-        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[16,0]-Data[8,0]-Data[12,0]) + ']  [(48,84,150)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
-        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[17,0]-Data[9,0]-Data[13,0]) + ']  [(245,165,5)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
+        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[16,0]+Data[23,0]-Data[8,0]-Data[12,0]) + ']  [(48,84,150)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
+        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[17,0]+Data[24,0]-Data[9,0]-Data[13,0]) + ']  [(245,165,5)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
         f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[19,0]-Data[11,0]-Data[15,0]) + ']  [(255,243,1)] [ab] [Domestic processed output: ' + i_dp + ' Gt]\n')
-        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[10,14,21],0].sum()) + ']  [(0,126,57)] [ab] [Recycling: ' + i_re + ' Gt]\n')
-        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[8,12],0].sum()) + ']  [(48,84,150)] [ab] [Recycling: ' + i_re + ' Gt]\n')
-        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[9,13],0].sum()) + ']  [(245,165,5)] [ab] [Recycling: ' + i_re + ' Gt]\n')
-        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[11,15],0].sum()) + ']  [(255,243,1)] [ab] [Recycling: ' + i_re + ' Gt]\n')
-        f.write('[Recycling: ' + i_re + ' Gt]  [' + str(Data[[10,14,21],0].sum()) + ']  [(0,126,57)] [ab] [  ]\n')
-        f.write('[Recycling: ' + i_re + ' Gt]  [' + str(Data[[8,12],0].sum()) + ']  [(48,84,150)] [ab] [  ]\n')
-        f.write('[Recycling: ' + i_re + ' Gt]  [' + str(Data[[9,13],0].sum()) + ']  [(245,165,5)] [ab] [  ]\n')
-        f.write('[Recycling: ' + i_re + ' Gt]  [' + str(Data[[11,15],0].sum()) + ']  [(255,243,1)] [ab] [  ]\n')
+        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[10,14,21],0].sum()) + ']  [(0,126,57)] [ab] [Recycling and reuse: ' + i_re + ' Gt]\n')
+        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[8,12],0].sum()) + ']  [(48,84,150)] [ab] [Recycling and reuse: ' + i_re + ' Gt]\n')
+        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[9,13],0].sum()) + ']  [(245,165,5)] [ab] [Recycling and reuse: ' + i_re + ' Gt]\n')
+        f.write('[EoL Waste: ' + i_eo + ' Gt]  [' + str(Data[[11,15],0].sum()) + ']  [(255,243,1)] [ab] [Recycling and reuse: ' + i_re + ' Gt]\n')
+        f.write('[Recycling and reuse: ' + i_re + ' Gt]  [' + str(Data[[10,14,21],0].sum()) + ']  [(0,126,57)] [ab] [  ]\n')
+        f.write('[Recycling and reuse: ' + i_re + ' Gt]  [' + str(Data[[8,12],0].sum()) + ']  [(48,84,150)] [ab] [  ]\n')
+        f.write('[Recycling and reuse: ' + i_re + ' Gt]  [' + str(Data[[9,13],0].sum()) + ']  [(245,165,5)] [ab] [  ]\n')
+        f.write('[Recycling and reuse: ' + i_re + ' Gt]  [' + str(Data[[11,15],0].sum()) + ']  [(255,243,1)] [ab] [  ]\n')
         f.write('[  ]  [' + str(Data[[10,14,21],0].sum()) + ']  [(0,126,57)] [ab] [   ]\n')
         f.write('[  ]  [' + str(Data[[8,12],0].sum()) + ']  [(48,84,150)] [ab] [   ]\n')
         f.write('[  ]  [' + str(Data[[9,13],0].sum()) + ']  [(245,165,5)] [ab] [   ]\n')
