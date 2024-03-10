@@ -603,7 +603,124 @@ for m in range(0,len(ptitles)):
     
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), 'Cascade' + title +'.png'), dpi=150, bbox_inches='tight')
+        
+    if ptypes[m] == 'Fig_Cascade_CumGHG':
+        # Plot cascade with indicator by scenario
+        #GHG emissions, system-wide;GHG emissions, buildings, use phase;GHG emissions, res+non-res buildings, energy supply;GHG emissions, primary material production
+        Inds    = pinds[m].split(';')
+        selectI = [Inds[0]]
+        selectR = [pregs[m]]
+        selectS = pscens[m].split(';')
+        title_add = '_' + selectR[0]
+        # Select data sheet acc. to flag set:
+        if pflags[m] == 'annual':
+            ddf = ps
+        if pflags[m] == 'cumulative':
+            ddf = pc
+        Data    = np.zeros((len(selectS)))
+        CLabels = []
+        for scenind in range(0,len(selectS)):
+            pst     = ddf[ddf['Indicator'].isin(selectI) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[scenind]])] # Select the specified data and transpose them for plotting
+            pst.set_index('Scenario', inplace=True)
+            unit = pst.iloc[0]['Unit']
+            CData=pst[prange[m]]
+            CLabels.append(CData.axes[0].values[0])
+            Data[scenind] = CData.values / 1000 # drom Mt to Gt           
+        nD      = len(CLabels)
+        CLabels.append('Remainder')
+        CLabels.append('Material production')
+        CLabels.append('Use phase - scope 2')
+        CLabels.append('Use phase - scope 1')
+
+        # get breakdown data
+        bst     = ddf[ddf['Indicator'].isin(Inds[1::]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[0]])] # Select the specified data and transpose them for plotting
+        bst.set_index('Indicator', inplace=True)
+        bst.sort_index(inplace = True)
+        BData   = bst[prange[m]].values/1000
+        rst     = ddf[ddf['Indicator'].isin(Inds[1::]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[-1]])] # Select the specified data and transpose them for plotting
+        rst.set_index('Indicator', inplace=True)
+        rst.sort_index(inplace = True)
+        RData   = rst[prange[m]].values/1000        
+        # Prepare plot
+        ColOrder= [i for i in range(0,nD+1)]
+        MyColorCycle = pylab.cm.Set1(np.arange(0,1,1/(nD+1))) # select colors from the 'Paired' color map.  
+        Left  = Data[0]
+        Right = Data[-1]
+        inc = -100 * (Data[0] - Data[-1])/Data[0]
+        # plot results
+        bw = 0.5
+        
+        XLeft   = -1.2
+        LLeft   = nD+bw
+        XTicks  = [0.25 + i for i in range(0,nD+1)]
+        
+        fig  = plt.figure(figsize=(5,8))
+        ax1  = plt.axes([0.08,0.08,0.85,0.9])
     
+        ProxyHandlesList = []   # For legend     
+        # plot bars
+        ax1.fill_between([0,0+bw], [0,0],[Left,Left],linestyle = '--', facecolor = colors[m].split(';')[0], linewidth = 0.0)
+        ax1.fill_between([1,1+bw], [Data[1],Data[1]],[Left,Left],linestyle = '--', facecolor = colors[m].split(';')[1], linewidth = 0.0)
+        for xca in range(2,nD):
+            ax1.fill_between([xca,xca+bw], [Data[xca],Data[xca]],[Data[xca-1],Data[xca-1]],linestyle = '--', facecolor = colors[m].split(';')[xca], linewidth = 0.0)
+        ax1.fill_between([nD,nD+bw], [0,0],[Data[nD-1],Data[nD-1]],linestyle = '--', facecolor = colors[m].split(';')[nD], linewidth = 0.0)                
+            
+        for fca in range(0,nD+1):
+            ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc = colors[m].split(';')[fca])) # create proxy artist for legend
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc = '#ffffff00', hatch = 'OO'))
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc = '#ffffff00', hatch = '--'))        
+        ProxyHandlesList.append(plt.Rectangle((0, 0), 1, 1, fc = '#ffffff00', hatch = 'xx'))
+        
+        # plot hatching:
+        ax1.fill_between([0,0+bw],   [0,0],[BData[0],BData[0]], linestyle = '--', facecolor = '#ffffff00',  linewidth = 0.0, hatch='xx')
+        ax1.fill_between([0,0+bw],   [BData[0],BData[0]],[BData[0]+BData[2],BData[0]+BData[2]], linestyle = '--', facecolor = '#ffffff00',  linewidth = 0.0, hatch='--')
+        ax1.fill_between([0,0+bw],   [BData[0]+BData[2],BData[0]+BData[2]],[BData.sum(),BData.sum()], linestyle = '--', facecolor = '#ffffff00',  linewidth = 0.0, hatch='OO')
+        
+        ax1.fill_between([nD,nD+bw], [0,0],[RData[0],RData[0]], linestyle = '--', facecolor = '#ffffff00', linewidth = 0.0, hatch='xx')                            
+        ax1.fill_between([nD,nD+bw], [RData[0],RData[0]],[RData[0]+RData[2],RData[0]+RData[2]], linestyle = '--', facecolor = '#ffffff00', linewidth = 0.0, hatch='--')                            
+        ax1.fill_between([nD,nD+bw], [RData[0]+RData[2],RData[0]+RData[2]],[RData.sum(),RData.sum()], linestyle = '--', facecolor = '#ffffff00', linewidth = 0.0, hatch='OO')                            
+        
+        # plot lines:
+        plt.plot([0,LLeft],[Left,Left],linestyle = '-', linewidth = 0.5, color = 'k')
+        for yca in range(1,nD):
+            plt.plot([yca,yca +1.5],[Data[yca],Data[yca]],linestyle = '-', linewidth = 0.5, color = 'k')
+            
+        plt.arrow(XTicks[-1], Data[nD-1],0, Data[0]-Data[nD-1], lw = 0.5, ls = '-', shape = 'full',
+              length_includes_head = True, head_width =0.1, head_length =0.01*Left, ec = 'k', fc = 'k')
+        plt.arrow(XTicks[-1],Data[0],0,Data[nD-1]-Data[0], lw = 0.5, ls = '-', shape = 'full',
+              length_includes_head = True, head_width =0.1, head_length =0.01*Left, ec = 'k', fc = 'k')
+            
+        # plot text and labels
+        regs   = ['R5.2SSA','R5.2LAM','EU_UK','China','India','R5.2ASIA_Other','R5.2MNF','R5.2REF','R5.2OECD_Other','R32USACAN']
+        regss  = ['SSA','LAM','EU_UK','China','India','ASIA_Oth','MNF','REF','OECD_Oth','USA_CAN']
+        regsdf = pc[pc['Indicator'].isin(selectI) & pc['Region'].isin(regs) & pc['Scenario'].isin([selectS[0]])]
+        regsdf.set_index('Region', inplace=True)
+        RegData=regsdf[prange[m]]
+        RegData = RegData.values/1000 
+        PlotRegData = RegData.cumsum()
+        PlotRegData = np.insert(PlotRegData, 0, 0, axis=0)
+        plt.text(0.95, 170, 'Reference values for',fontsize=16,fontweight='bold', color = colors[m].split(';')[5])    
+        plt.text(0.95, 154, 'post 2020 budget:'    ,fontsize=16,fontweight='bold', color = colors[m].split(';')[5])    
+        plt.text(0.95, 138, 'for 1.5 °C: 400 Gt'  ,fontsize=16,fontweight='bold', color = colors[m].split(';')[5])    
+        plt.text(0.95, 122, 'for 2.0 °C: 1150 Gt'   ,fontsize=16,fontweight='bold', color = colors[m].split(';')[5])    
+        for mmreg in range(1,11):
+            ax1.fill_between([-1,-1+bw],[PlotRegData[mmreg-1],PlotRegData[mmreg-1]],[PlotRegData[mmreg],PlotRegData[mmreg]], linestyle = '-', facecolor = '#ccccccff', edgecolor = 'k', linewidth = 1.0) 
+            plt.text(-0.75, PlotRegData[mmreg-1] + 0.4 * (PlotRegData[mmreg] - PlotRegData[mmreg-1]), regss[mmreg-1]   ,fontsize=9,fontweight='bold', color = 'k', horizontalalignment='center')  
+        plt.plot([-1,LLeft],[Left,Left],linestyle = '-', linewidth = 0.5, color = 'k')
+        plt.text(nD-1.5, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
+        title = ptitles[m] + title_add
+        plt.title(title)
+        plt.ylabel(r'Gt of CO$_2$-eq/yr', fontsize = 18)
+        plt.xticks(XTicks)
+        plt.yticks(fontsize =18)
+        ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
+        plt.legend(handles = ProxyHandlesList,labels = CLabels,shadow = False, prop={'size':10},ncol=1, loc = 'lower center') # ,bbox_to_anchor=(1.18, 1)) 
+        #plt.axis([-0.2, 7.7, 0.9*Right, 1.02*Left])
+        plt.axis([XLeft, LLeft+bw/2, 0, 1.02*Left])
+    
+        plt.show()
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), 'Cascade' + title +'.png'), dpi=150, bbox_inches='tight')        
+
 
     if ptypes[m] == 'Fig_Energy_Consumption_Carrier':
         # Custom plot for use phase energy consumption by carrier
