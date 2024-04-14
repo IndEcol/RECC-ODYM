@@ -135,7 +135,7 @@ for m in range(0,len(ptitles)):
             #axs[0].plot(np.arange(2020,2061), stock_data[2,:]/1000, linewidth = 1.3)
             axs[0].plot([2020,2060],[stock_data[1,0]/1000,stock_data[1,0]/1000],linestyle = '--', linewidth = 1, color = 'k')
             axs[0].set_ylim(bottom=0)
-            axs[0].set_ylabel('Billion m²', fontsize = 12)
+            axs[0].set_ylabel('billion m²', fontsize = 12)
             axs[0].set_xlabel('Year', fontsize = 12)
             axs[0].legend(labels = ['LEMD-SSP1-SSP2 range','SSP1','pre 2020 age-cohorts','pre 2020 age-cohorts','2020 stock level'],shadow = False, prop={'size':7},ncol=1, loc = 'upper left')
             axs[0].set_xlim([2020,2060])
@@ -152,7 +152,7 @@ for m in range(0,len(ptitles)):
             axs[1].plot([2-bw/4,2+bw/4],[outflow_d[0], outflow_d[0]],linestyle = '-', linewidth = 0.8, color = 'k')
             axs[1].plot([2-bw/4,2+bw/4],[outflow_d[2], outflow_d[2]],linestyle = '-', linewidth = 0.8, color = 'k')
             axs[1].plot([2,2],[outflow_d[0], outflow_d[2]],linestyle = '-', linewidth = 0.8, color = 'k')
-            axs[1].set_ylabel('Billion m²', fontsize = 12)
+            axs[1].set_ylabel('billion m²', fontsize = 12)
             axs[1].title.set_text('cumulative flows, \n 2020-2050')
             axs[1].legend(handles = ProxyHandlesList2, labels = ['SSP1', 'LEMD-SSP1-\nSSP2 range'],shadow = False, prop={'size':6},ncol=1, loc = 'upper right')
             axs[1].set_xlim([0,3])
@@ -470,10 +470,11 @@ for m in range(0,len(ptitles)):
         fig  = plt.figure(figsize=(8,5))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])   
         bw   = 2    
-        XTextpos=[-0.3,-0.3,-0.3,-0.3,-0.3,-0.3,-0.3,-0.3,7.8,-0.3,]
-        XOffsetC=[0,3,6,9]
-        XOffsetS=[14,17,20,23]
-        XOffsetW=[28,31,34,37]
+        XTextpos=[-0.3,-0.3,-0.3,-0.3,-0.3,-0.3,-0.3,-0.3,8.8,-0.3,]
+        XOffsetC=[0,3,6,9,12]
+        XOffsetS=[17,20,23,26,29]
+        XOffsetW=[34,37,40,43,46]
+        
         # Plot data:
         for mmreg in range(1,11):
             for mscen in range(0,noS):
@@ -481,21 +482,22 @@ for m in range(0,len(ptitles)):
                 ax1.fill_between([XOffsetS[mscen],XOffsetS[mscen]+bw],[PlotRegData[1,mscen,mmreg-1],PlotRegData[1,mscen,mmreg-1]],[PlotRegData[1,mscen,mmreg],PlotRegData[1,mscen,mmreg]], linestyle = '-', facecolor = steel_blue[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
                 ax1.fill_between([XOffsetW[mscen],XOffsetW[mscen]+bw],[PlotRegData[2,mscen,mmreg-1],PlotRegData[2,mscen,mmreg-1]],[PlotRegData[2,mscen,mmreg],PlotRegData[2,mscen,mmreg]], linestyle = '-', facecolor = wood_brown[10-mmreg], edgecolor = 'k', linewidth = 1.0) 
             plt.text(XTextpos[mmreg-1], PlotRegData[0,0,mmreg-1] + 0.4 * (PlotRegData[0,0,mmreg] - PlotRegData[0,0,mmreg-1]), regss[mmreg-1]   ,fontsize=10,fontweight='bold', color = 'k', horizontalalignment='right')  
-        plt.xlim([-5.6,40])       
+        plt.xlim([-6.6,49])       
         plt.xticks([])
         ax1.set_ylim(bottom=0)
         ax1.set_ylim(top=1.2*np.max(PlotRegData))
-        plt.plot([12.5,12.5],[0,1.2*np.max(PlotRegData)],linestyle = '--', linewidth = 0.8, color = 'k')
-        plt.plot([26.5,26.5],[0,1.2*np.max(PlotRegData)],linestyle = '--', linewidth = 0.8, color = 'k')
-        plt.text(1.8, 1.08*np.max(PlotRegData), 'Cement'     ,fontsize=18, fontweight='normal', color = cement_grey[5], horizontalalignment='left')  
-        plt.text(16.5, 1.08*np.max(PlotRegData), 'Steel'     ,fontsize=18, fontweight='normal', color = steel_blue[5], horizontalalignment='left')  
-        plt.text(29, 1.08*np.max(PlotRegData), 'Structural' ,fontsize=18, fontweight='normal', color = wood_brown[5], horizontalalignment='left')  
-        plt.text(31, 0.98*np.max(PlotRegData), 'Wood'      ,fontsize=18, fontweight='normal', color = wood_brown[5], horizontalalignment='left')  
+        plt.plot([15.5,15.5],[0,1.2*np.max(PlotRegData)],linestyle = '--', linewidth = 0.8, color = 'k')
+        plt.plot([32.5,32.5],[0,1.2*np.max(PlotRegData)],linestyle = '--', linewidth = 0.8, color = 'k')
+        plt.text(0.8, 1.08*np.max(PlotRegData),  'Cement'     ,fontsize=18, fontweight='normal', color = cement_grey[5], horizontalalignment='left')  
+        plt.text(21.5, 1.08*np.max(PlotRegData), 'Steel'      ,fontsize=18, fontweight='normal', color = steel_blue[5], horizontalalignment='left')  
+        plt.text(36, 1.08*np.max(PlotRegData),   'Structural' ,fontsize=18, fontweight='normal', color = wood_brown[5], horizontalalignment='left')  
+        plt.text(36, 0.98*np.max(PlotRegData),   'Wood'       ,fontsize=18, fontweight='normal', color = wood_brown[5], horizontalalignment='left')  
         #
-        plt.text(14.3, 0.47*np.max(PlotRegData), selectS[0]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
-        plt.text(17.5, 0.47*np.max(PlotRegData), selectS[1]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
-        plt.text(20.3, 0.47*np.max(PlotRegData), selectS[2]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
-        plt.text(23.3, 0.47*np.max(PlotRegData), selectS[3]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
+        plt.text(17.3, 0.47*np.max(PlotRegData), selectS[0]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
+        plt.text(20.5, 0.47*np.max(PlotRegData), selectS[1]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
+        plt.text(23.3, 0.47*np.max(PlotRegData), selectS[2]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
+        plt.text(26.3, 0.47*np.max(PlotRegData), selectS[3]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
+        plt.text(29.3, 0.47*np.max(PlotRegData), selectS[4]   ,fontsize=15, fontweight='normal', color = 'k', horizontalalignment='left', rotation = 90)  
         plt.title(ptitles[m] + ', cumulative 2020-2050', fontsize = 18)
         plt.ylabel('Gt', fontsize = 15)
         ax1.set_axisbelow(True)
