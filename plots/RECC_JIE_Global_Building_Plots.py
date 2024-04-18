@@ -797,6 +797,104 @@ for m in range(0,len(ptitles)):
         
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title_add +'.png'), dpi=150, bbox_inches='tight')     
+
+    if ptypes[m] == 'FloorSpace_Stock_Type':
+        # Custom plot for breakdown of total floorspace into building types
+        Inds    = pinds[m].split(';')
+        noi     = len(Inds) # number of indicators
+        selectR = [pregs[m]]
+        selectS = pscens[m].split(';')
+        title_add = ptitles[m] + '_' + selectR[0]
+        color_map = colors[m].split(';')
+        ddf     = ps # for time series only
+        if noi == 4: # residential buildings
+            Data    = np.zeros((4,4,46)) # array for 4 scenarios, 4 building types, and 45 years
+            BTypes  = ['informal','single family','multi family','residential tower']
+        if noi == 6: # non-residential buildings
+            Data    = np.zeros((4,6,46)) # array for 4 scenarios, 6 building types, and 45 years
+            BTypes  = ['offices','commercial','education','health','hotels_restaurants','other']
+        for mms in range(0,4): # 4 scenarios
+            for mmx in range(0,noi):
+                pst     = ddf[ddf['Indicator'].isin([Inds[mmx]]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[mms]])] # Select the specified data and transpose them for plotting
+                pst.set_index('Indicator', inplace=True)
+                unit    = pst.iloc[0]['Unit']
+                pst.drop(['Region', 'Scenario', 'Sectors', 'Unit'], axis=1, inplace = True)
+                CLabels = [pst.axes[0].values[i] for i in range(0,len(pst.axes[0].values))]
+                Data[mms,mmx,:] = pst.values/1e3 # in billion m²
+                    
+        x = np.linspace(2015,2060,46)
+        maxflow = np.max(Data.sum(axis=1))
+        
+        # 2x2 stock plot
+        # mpl.style.use('classic')
+        fig = plt.figure()
+        gs = fig.add_gridspec(2, 2, hspace=0, wspace=0)
+        (ax1, ax2), (ax3, ax4) = gs.subplots(sharex='col', sharey='row')
+        #prop_cycle = plt.rcParams['axes.prop_cycle']
+        #colors = prop_cycle.by_key()['color']
+        fig.suptitle(scelab[m] + ', in-use stock, by building type, ' + selectR[0])
+        ax1.stackplot(x, Data[0,:,:], colors = color_map)     # For NoClimPol + LEMD
+        ax1.set_title('LEMD', fontsize = 10)
+        ax2.stackplot(x, Data[1,:,:], colors = color_map)     # For NoClimPol + SSP2
+        ax2.set_title('SSP2', fontsize = 10)
+        ax1.legend(BTypes, loc='upper left', fontsize = 7.2, ncol = 2)        
+        ax3.stackplot(x, Data[2,:,:], colors = color_map)     # For RCP2.6 + LEMD
+        ax4.stackplot(x, Data[3,:,:], colors = color_map)     # For RCP2.6 + SSP2
+        ax1.set_ylim(top=1.05 * maxflow)
+        ax3.set_ylim(top=1.05 * maxflow)
+        ax3.set(xlabel='year', ylabel='RCP2.6, \n billion m²')    
+        ax1.set(ylabel='NoNewClimPol, \n billion m²')    
+        ax4.set(xlabel='year')    
+        
+        plt.show()
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title_add +'.png'), dpi=150, bbox_inches='tight')     
+
+    if ptypes[m] == 'FloorSpace_Stock_EnergyStandard':
+        # Custom plot for breakdown of total floorspace into energy standardy
+        Inds    = pinds[m].split(';')
+        noi     = len(Inds) # number of indicators
+        selectR = [pregs[m]]
+        selectS = pscens[m].split(';')
+        title_add = ptitles[m] + '_' + selectR[0]
+        color_map = colors[m].split(';')
+        ddf     = ps # for time series only
+        Data    = np.zeros((4,4,46)) # array for 4 scenarios, 4 energy standards, and 45 years
+        BTypes  = ['no standard','standard','efficient','zero energy bld']
+        for mms in range(0,4): # 4 scenarios
+            for mmx in range(0,noi):
+                pst     = ddf[ddf['Indicator'].isin([Inds[mmx]]) & ddf['Region'].isin(selectR) & ddf['Scenario'].isin([selectS[mms]])] # Select the specified data and transpose them for plotting
+                pst.set_index('Indicator', inplace=True)
+                unit    = pst.iloc[0]['Unit']
+                pst.drop(['Region', 'Scenario', 'Sectors', 'Unit'], axis=1, inplace = True)
+                CLabels = [pst.axes[0].values[i] for i in range(0,len(pst.axes[0].values))]
+                Data[mms,mmx,:] = pst.values/1e3 # in billion m²
+                    
+        x = np.linspace(2015,2060,46)
+        maxflow = np.max(Data.sum(axis=1))
+        
+        # 2x2 stock plot
+        # mpl.style.use('classic')
+        fig = plt.figure()
+        gs = fig.add_gridspec(2, 2, hspace=0, wspace=0)
+        (ax1, ax2), (ax3, ax4) = gs.subplots(sharex='col', sharey='row')
+        #prop_cycle = plt.rcParams['axes.prop_cycle']
+        #colors = prop_cycle.by_key()['color']
+        fig.suptitle(scelab[m] + ', in-use stock, by energy standard, ' + selectR[0])
+        ax1.stackplot(x, Data[0,:,:], colors = color_map)     # For NoClimPol + LEMD
+        ax1.set_title('LEMD', fontsize = 10)
+        ax2.stackplot(x, Data[1,:,:], colors = color_map)     # For NoClimPol + SSP2
+        ax2.set_title('SSP2', fontsize = 10)
+        ax1.legend(BTypes, loc='upper left', fontsize = 7.2, ncol = 2)        
+        ax3.stackplot(x, Data[2,:,:], colors = color_map)     # For RCP2.6 + LEMD
+        ax4.stackplot(x, Data[3,:,:], colors = color_map)     # For RCP2.6 + SSP2
+        ax1.set_ylim(top=1.05 * maxflow)
+        ax3.set_ylim(top=1.05 * maxflow)
+        ax3.set(xlabel='year', ylabel='RCP2.6, \n billion m²')    
+        ax1.set(ylabel='NoNewClimPol, \n billion m²')    
+        ax4.set(xlabel='year')    
+        
+        plt.show()
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title_add +'.png'), dpi=150, bbox_inches='tight')         
         
     if ptypes[m] == 'GHG_t_2x2':
         # Custom plot for indicator (time series per scenario group)
