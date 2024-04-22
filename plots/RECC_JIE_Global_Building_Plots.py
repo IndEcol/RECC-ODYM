@@ -186,8 +186,7 @@ for m in range(0,len(ptitles)):
             IndData=bd_df[int(ranges[inds])]
             Data[inds,:] = IndData.values
         PlotRegData = Data.cumsum(axis=1) / 1000 # from million to billion
-        PlotRegData = np.insert(PlotRegData, 0, 0, axis=1)
-             
+        PlotRegData = np.insert(PlotRegData, 0, 0, axis=1)             
         
         fig  = plt.figure(figsize=(4,3))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])   
@@ -220,7 +219,7 @@ for m in range(0,len(ptitles)):
         for rr in range(0,len(regions)):
             selectR = regions[rr]
             selectS = pscens[m].split(';')
-            Data_I  = np.zeros((3,8)) # final material consumptionf
+            Data_I  = np.zeros((3,8)) # final material consumption
             Mats    = ['Final consumption of materials: cement','Final consumption of materials: construction grade steel','Final consumption of materials: wood and wood products']
             for mat in range(0,3):
                 for sce in range(0,8):
@@ -1063,7 +1062,7 @@ for m in range(0,len(ptitles)):
         ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#2ca02c'))
         ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#ff7f0e'))
         ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#d62728'))
-        axs.legend(handles = ProxyHandlesList,labels = ['Global average','High carbon Energy+Materials','High carbon Energy+Materials + Full CE','Low carbon Energy+Materials','Low carbon Energy+Materials + Full CE'], shadow = False, prop={'size':9},ncol=1, loc = 'upper left')       
+        axs.legend(handles = ProxyHandlesList,labels = ['Global average','High carbon Energy+Materials','High carbon Energy+Materials + Full CE','Low carbon Energy+Materials','Low carbon Energy+Materials + Full CE'], shadow = False, prop={'size':8.3},ncol=1, loc = 'upper left')       
         
         axs.set_xlim(left   = 0.9)
         axs.set_xlim(right  = 2.4)
@@ -1157,8 +1156,8 @@ for m in range(0,len(ptitles)):
         ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#2ca02c'))
         ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#ff7f0e'))
         ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#d62728'))
-        axs.legend(handles = ProxyHandlesList,labels = ['Global total','High carbon Energy+Materials','High carbon Energy+Materials + Full CE','Low carbon Energy+Materials','Low carbon Energy+Materials + Full CE'], shadow = False, prop={'size':9},ncol=1, loc = 'upper left')       
-                
+        axs.legend(handles = ProxyHandlesList,labels = ['Global total','High carbon Energy+Materials','High carbon Energy+Materials, wood-intensive','Low carbon Energy+Materials, Full CE','Low carbon Energy+Materials + Full CE + Wood'], shadow = False, prop={'size':8.3},ncol=1, loc = 'upper left')       
+        
         axs.set_xlim(left   = 0.9)
         axs.set_xlim(right  = 2.4)
         #axs.set_ylim(bottom = axyl[0])
@@ -1176,7 +1175,7 @@ for m in range(0,len(ptitles)):
         plt.xticks([])
         
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '.png'), dpi=150, bbox_inches='tight')        
-        
+      
         
     if ptypes[m] == 'LEMDInd_pc':
         # Compile table for LEMD indicators per capita
@@ -1252,7 +1251,7 @@ for m in range(0,len(ptitles)):
         ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#2ca02c'))
         ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#ff7f0e'))
         ProxyHandlesList.append(axs.scatter(0,PSTS[-1,0], color = '#d62728'))
-        axs.legend(handles = ProxyHandlesList,labels = ['Global total','High carbon Energy+Materials','High carbon Energy+Materials + Full CE','Low carbon Energy+Materials','Low carbon Energy+Materials + Full CE'], shadow = False, prop={'size':9},ncol=1, loc = 'upper left')       
+        axs.legend(handles = ProxyHandlesList,labels = ['Global total','High carbon Energy+Materials','High carbon Energy+Materials, wood-intensive','Low carbon Energy+Materials, Full CE','Low carbon Energy+Materials + Full CE + Wood'], shadow = False, prop={'size':8.3},ncol=1, loc = 'upper left')       
                 
         axs.set_xlim(left   = 0.9)
         axs.set_xlim(right  = 2.4)

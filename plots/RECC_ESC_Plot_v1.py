@@ -292,6 +292,11 @@ for c in range(0,len(ctitles)):
         plt.show()
         title = ctitles[c]
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title + '_' + selectR + '.png'), dpi=150, bbox_inches='tight')
+        
+        # export to table
+        esc_data_resh = np.einsum('abc->bac',esc_data).reshape(46,50)
+        dfexp = pd.DataFrame(esc_data_resh)
+        #dfexp.to_excel(os.path.join(RECC_Paths.results_path,'ESC_Data_'+ selectR +'.xlsx'),index=False)  
 
 
     if ctypes[c] == 'version_3_blds': # Energy service cascade_RMI for buildings
