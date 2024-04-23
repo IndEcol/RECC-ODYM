@@ -711,7 +711,7 @@ for m in range(0,len(ptitles)):
         plt.text(nD-1.5, 0.94 *Left, ("%3.0f" % inc) + ' %',fontsize=18,fontweight='bold')          
         title = ptitles[m] + title_add
         plt.title(title)
-        plt.ylabel(r'Gt of CO$_2$-eq/yr', fontsize = 18)
+        plt.ylabel(r'Gt of CO$_2$-eq', fontsize = 18)
         plt.xticks(XTicks)
         plt.yticks(fontsize =18)
         ax1.set_xticklabels([], rotation =90, fontsize = 21, fontweight = 'normal')
@@ -796,6 +796,7 @@ for m in range(0,len(ptitles)):
         
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), title_add +'.png'), dpi=150, bbox_inches='tight')     
+
 
     if ptypes[m] == 'FloorSpace_Stock_Type':
         # Custom plot for breakdown of total floorspace into building types
@@ -977,7 +978,7 @@ for m in range(0,len(ptitles)):
                 DataP[mmii,:] = psa.values[0,2::]             
                         
             maxInd = np.max(DataP)
-                
+            
             x = np.linspace(2016,2060,45)
             ProxyHandlesList = []   # For legend
             #colorsf = [,,'#2ca02c',,]
@@ -1329,7 +1330,7 @@ for m in range(0,len(ptitles)):
         plt.plot([2014,2070],[0,0],linestyle = '-', linewidth = 0.5, color = 'k')
         
         plt.title(ptitles[m] + '_' + Regio, fontsize = 18)
-        plt.ylabel(r'Mt of CO$_2$-eq.', fontsize = 18)
+        plt.ylabel(r'Mt of CO$_2$-eq./yr', fontsize = 18)
         plt.xlabel('Year', fontsize = 18)
         plt.xticks(fontsize=17)
         plt.yticks(fontsize=17)
