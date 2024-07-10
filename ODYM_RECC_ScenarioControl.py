@@ -21,11 +21,11 @@ import RECC_Paths # Import path file
 import ODYM_RECC_Main
 
 #ScenarioSetting, sheet name of RECC_ModelConfig_List.xlsx to be selected:
-ScenarioSetting = 'Test'
+#ScenarioSetting = 'Test'
 #ScenarioSetting = 'Buildings_Global_Config_list'
 #ScenarioSetting = 'Buildings_Global_EDITS'
 #ScenarioSetting = 'Glob_BLd_MediumWood'
-#ScenarioSetting = 'CRAFT_Coupling_Config_list'
+ScenarioSetting = 'CRAFT_Coupling_Config_list'
 #ScenarioSetting = 'pav_reb_Config_list_all'
 
 # open scenario sheet
