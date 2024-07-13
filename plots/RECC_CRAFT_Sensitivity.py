@@ -125,10 +125,10 @@ for m in range(0,len(ptitles)):
             for pj in range(0,cornsceno):
                 # see details here: https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.errorbar.html
                 xerr = np.zeros((2,1))
-                xerr_left  = cornerdata[pj] - sensdata[pi,pj,0]
-                xerr_right = sensdata[pi,pj,1] - cornerdata[pj]
-                xerr[0,0] = np.maximum(0,xerr_left)
-                xerr[1,0] = np.maximum(0,xerr_right)
+                x_min = min(cornerdata[pj], sensdata[pi,pj,0], sensdata[pi,pj,1])
+                x_max = max(cornerdata[pj], sensdata[pi,pj,0], sensdata[pi,pj,1])
+                xerr[0,0] = cornerdata[pj] - x_min
+                xerr[1,0] = x_max - cornerdata[pj]
                 axs[pi].errorbar(cornerdata[pj],pj, xerr=xerr, capsize=7, ecolor='black', ls='', lw=3, capthick=3, fmt='none')
         axs[4].set_xlabel('Mt C', fontsize = 12)                    
         plt.show()
