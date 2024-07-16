@@ -78,7 +78,7 @@ pc = pd.read_excel(fn, sheet_name='Results_Cumulative', index_col=0) # plot shee
 regions = ['R5.2SSA','R5.2LAM','EU_UK','China','India','R5.2ASIA_Other','R5.2MNF','R5.2REF','R5.2OECD_Other','R32USACAN','Global']
 
 for m in range(0,len(ptitles)):
-    if ptypes[m] == 'RECC_CRAFT_Sensitivity_1':
+    if ptypes[m] == 'RECC_CRAFT_Sensitivity_1': # cumulative indicators
         senscaseno   = 5 # number of sensitivity plots
         corner_scens = ['SSP2_Base','SSP2_Wood','LEMD_FullCE','LEMD_FullCE_Wood']
         sens_scens   = [[['SSP2_Base_LowPop','SSP2_Wood_LowPop','LEMD_FullCE_LowPop','LEMD_FullCE_Wood_LowPop'],
@@ -100,12 +100,12 @@ for m in range(0,len(ptitles)):
         # fetch data
         for cs in range(0,cornsceno):
             pst    = pc[pc['Indicator'].isin([pinds[m]]) & pc['Region'].isin([pregs[m]]) & pc['Scenario'].isin([corner_scens[cs]])] # Select the specified data and compile them for plotting        
-            cornerdata[cs] = pst.iloc[0]['Cum. 2020-2050 (incl.)']/1000 # Gt of C    
+            cornerdata[cs] = pst.iloc[0][[prange[m]]]/1000 # Gt of C    
         for sc in range(0,senscaseno):
             for cs in range(0,cornsceno):
                 for hl in range(0,2):
                     pst    = pc[pc['Indicator'].isin([pinds[m]]) & pc['Region'].isin([pregs[m]]) & pc['Scenario'].isin([sens_scens[sc][hl][cs]])] # Select the specified data and compile them for plotting        
-                    sensdata[sc,cs,hl] = pst.iloc[0]['Cum. 2020-2050 (incl.)']/1000 # Gt of C    
+                    sensdata[sc,cs,hl] = pst.iloc[0][[prange[m]]]/1000 # Gt of C    
                     
                     
         fig, axs = plt.subplots(nrows=5, ncols=1 , figsize=(4, 10), sharex=True)        
@@ -130,12 +130,69 @@ for m in range(0,len(ptitles)):
                 xerr[0,0] = cornerdata[pj] - x_min
                 xerr[1,0] = x_max - cornerdata[pj]
                 axs[pi].errorbar(cornerdata[pj],pj, xerr=xerr, capsize=7, ecolor='black', ls='', lw=3, capthick=3, fmt='none')
-        axs[4].set_xlabel('Mt C', fontsize = 12)                    
+        axs[4].set_xlabel(pflags[m], fontsize = 12)                    
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] +'.png'), dpi=150, bbox_inches='tight')
                          
              
+    if ptypes[m] == 'RECC_CRAFT_Sensitivity_2': # annual indicator
+        senscaseno   = 5 # number of sensitivity plots
+        corner_scens = ['SSP2_Base','SSP2_Wood','LEMD_FullCE','LEMD_FullCE_Wood']
+        sens_scens   = [[['SSP2_Base_LowPop','SSP2_Wood_LowPop','LEMD_FullCE_LowPop','LEMD_FullCE_Wood_LowPop'],
+                         ['SSP2_Base_HighPop','SSP2_Wood_HighPop','LEMD_FullCE_HighPop','LEMD_FullCE_Wood_HighPop']],
+                        [['SSP2_Base_LowYield','SSP2_Wood_LowYield','LEMD_FullCE_LowYield','LEMD_FullCE_Wood_LowYield'],
+                         ['SSP2_Base_HighYield','SSP2_Wood_HighYield','LEMD_FullCE_HighYield','LEMD_FullCE_Wood_HighYield']],
+                        [['SSP2_Base_NoCascade','SSP2_Wood_NoCascade','LEMD_FullCE_NoCascade','LEMD_FullCE_Wood_NoCascade'],
+                         ['SSP2_Base_MoreCascade','SSP2_Wood_MoreCascade','LEMD_FullCE_MoreCascade','LEMD_FullCE_Wood_MoreCascade']],
+                        [['SSP2_Base','SSP2_Wood','LEMD_FullCE','LEMD_FullCE_Wood'],
+                         ['SSP2_Base_LateCE','SSP2_Wood_LateCE','LEMD_FullCE_LateCE','LEMD_FullCE_Wood_LateCE']],
+                        [['SSP2_Base','SSP2_Wood','LEMD_FullCE','LEMD_FullCE_Wood'],
+                         ['SSP2_Base_FullCE','SSP2_Wood_FullCE','LEMD_Base','LEMD_Wood']]]
+        cornsceno    = len(corner_scens) # number of corner scenarios
+        # indicator: pinds[m]
+        # region: pregs[m]
+        cornerdata   = np.zeros((cornsceno)) # corner scenario data
+        sensdata     = np.zeros((senscaseno,cornsceno,2)) # sensitivity cases x corner scenrios x high-low
+        scelabs      = scelab[m].split(';')
+        # fetch data
+        for cs in range(0,cornsceno):
+            pst    = ps[ps['Indicator'].isin([pinds[m]]) & ps['Region'].isin([pregs[m]]) & ps['Scenario'].isin([corner_scens[cs]])] # Select the specified data and compile them for plotting        
+            cornerdata[cs] = pst.iloc[0][[prange[m]]]/1000 # Gt of C    
+        for sc in range(0,senscaseno):
+            for cs in range(0,cornsceno):
+                for hl in range(0,2):
+                    pst    = ps[ps['Indicator'].isin([pinds[m]]) & ps['Region'].isin([pregs[m]]) & ps['Scenario'].isin([sens_scens[sc][hl][cs]])] # Select the specified data and compile them for plotting        
+                    sensdata[sc,cs,hl] = pst.iloc[0][[prange[m]]]/1000 # Gt of C    
                     
+                    
+        fig, axs = plt.subplots(nrows=5, ncols=1 , figsize=(4, 10), sharex=True)        
+        plt.subplots_adjust(wspace=0, hspace=0)
+        #fig.tight_layout(rect=[0, 0.03, 1, 0.85])
+        fig.suptitle(indlab[m] + ', ' + pregs[m], fontsize=13)
+        # plot corner scenarios
+        for pi in range(0,senscaseno):
+            for pj in range(0,cornsceno):
+                axs[pi].barh(pj,cornerdata[pj], color = 'skyblue')
+            axs[pi].set_ylim([-0.5,5])
+            axs[pi].set_yticks([0,1,2,3])
+            axs[pi].set_yticklabels(corner_scens, rotation =0, fontsize = 8, fontweight = 'normal')
+            axs[pi].text(5, 4, scelabs[pi], fontsize=13, fontweight='normal', rotation = 0) 
+        # plot sensitivity ranges
+        for pi in range(0,senscaseno):
+            for pj in range(0,cornsceno):
+                # see details here: https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.errorbar.html
+                xerr = np.zeros((2,1))
+                x_min = min(cornerdata[pj], sensdata[pi,pj,0], sensdata[pi,pj,1])
+                x_max = max(cornerdata[pj], sensdata[pi,pj,0], sensdata[pi,pj,1])
+                xerr[0,0] = cornerdata[pj] - x_min
+                xerr[1,0] = x_max - cornerdata[pj]
+                axs[pi].errorbar(cornerdata[pj],pj, xerr=xerr, capsize=7, ecolor='black', ls='', lw=3, capthick=3, fmt='none')
+        axs[4].set_xlabel(pflags[m], fontsize = 12)                    
+        plt.show()
+        fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] +'.png'), dpi=150, bbox_inches='tight')
+                         
+             
+                         
 #
 #
 #
