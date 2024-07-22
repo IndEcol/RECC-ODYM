@@ -77,6 +77,9 @@ pc = pd.read_excel(fn, sheet_name='Results_Cumulative', index_col=0) # plot shee
 
 regions = ['R5.2SSA','R5.2LAM','EU_UK','China','India','R5.2ASIA_Other','R5.2MNF','R5.2REF','R5.2OECD_Other','R32USACAN','Global']
 
+# prepare Excel export:
+book = openpyxl.Workbook() 
+
 for m in range(0,len(ptitles)):
     if ptypes[m] == 'RECC_CRAFT_Sensitivity_1': # cumulative indicators
         senscaseno   = 5 # number of sensitivity plots
@@ -133,7 +136,21 @@ for m in range(0,len(ptitles)):
         axs[4].set_xlabel(pflags[m], fontsize = 12)                    
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] +'.png'), dpi=150, bbox_inches='tight')
-                         
+        #xlsx export
+        ws = book.create_sheet(ptitles[m][0:20])
+        ws.cell(row=1, column=1).value = indlab[m] + ', ' + pregs[m] # Title
+        ws.cell(row=1, column=2).value = pflags[m]
+        ws.cell(row=3, column=1).value = 'Scenario'
+        for msce in range(0,4):
+            ws.cell(row=msce+4, column=1).value = corner_scens[msce]     
+        ws.cell(row=3, column=2).value = 'Base value of scenario'
+        for msce in range(0,4):
+            ws.cell(row=msce+4, column=2).value = cornerdata[msce]
+        for msca in range(0,5):
+            ws.cell(row=3, column=4+3*msca).value = scelabs[msca]
+            for mscb in range(0,4):
+                for mscc in range(0,2):
+                    ws.cell(row=mscb+4, column=4+3*msca+mscc).value = sensdata[msca,mscb,mscc]
              
     if ptypes[m] == 'RECC_CRAFT_Sensitivity_2': # annual indicator
         senscaseno   = 5 # number of sensitivity plots
@@ -190,8 +207,24 @@ for m in range(0,len(ptitles)):
         axs[4].set_xlabel(pflags[m], fontsize = 12)                    
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] +'.png'), dpi=150, bbox_inches='tight')
-                         
-             
+        #xlsx export
+        ws = book.create_sheet(ptitles[m][0:20])
+        ws.cell(row=1, column=1).value = indlab[m] + ', ' + pregs[m] # Title
+        ws.cell(row=1, column=2).value = pflags[m]
+        ws.cell(row=3, column=1).value = 'Scenario'
+        for msce in range(0,4):
+            ws.cell(row=msce+4, column=1).value = corner_scens[msce]     
+        ws.cell(row=3, column=2).value = 'Base value of scenario'
+        for msce in range(0,4):
+            ws.cell(row=msce+4, column=2).value = cornerdata[msce]
+        for msca in range(0,5):
+            ws.cell(row=3, column=4+3*msca).value = scelabs[msca]
+            for mscb in range(0,4):
+                for mscc in range(0,2):
+                    ws.cell(row=mscb+4, column=4+3*msca+mscc).value = sensdata[msca,mscb,mscc]
+                                      
+# Save plot data to xlsx:
+book.save('RECC_CRAFT_Sensitivity.xlsx')                
                          
 #
 #
