@@ -975,7 +975,7 @@ for m in range(0,len(ptitles)):
             pst.drop(['Region', 'Sectors', 'Unit'], axis=1, inplace = True)
             for mmii in range(0,len(selectS)):
                 psa = pst[pst['Scenario'].isin([selectS[mmii]])]
-                DataP[mmii,:] = psa.values[0,2::]             
+                DataP[mmii,:] = psa.values[0,2::]         
                         
             maxInd = np.max(DataP)
             
@@ -994,9 +994,11 @@ for m in range(0,len(ptitles)):
                 ProxyHandlesList.append(Line2D(np.arange(2016,2061), np.arange(2016,2061), color = colorsf[mrange]))
             plt.xlabel('Year', fontsize = 18)
             plt.ylabel(unit, fontsize = 18)
+            plt.xticks(fontsize=14)
+            plt.yticks(fontsize=14)
             axs.set_ylim(bottom=0)
             axs.set_xlim([2017, 2061])
-            plt.title(Inds[0] + ', ' + selectR, fontsize = 18)
+            plt.title(Inds[0] + ', ' + selectR, fontsize = 16)
             axs.legend(handles = ProxyHandlesList,labels = labelsc, shadow = False, prop={'size':8},ncol=2, loc = 'lower left')
             fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + title_add +'_Combined.png'), dpi=150, bbox_inches='tight')
 
@@ -1286,14 +1288,14 @@ for m in range(0,len(ptitles)):
         for indi in range(0,7):        
             pst     = ps[ps['Indicator'].isin([Inds[indi]]) & ps['Region'].isin([Regio]) & ps['Scenario'].isin([selectS[0]])] # Select the specified data and transpose them for plotting
             pst.set_index('Indicator', inplace=True)
-            Data1[indi,:] = pst.values[0,4::]
+            Data1[indi,:] = pst.values[0,4::]/1000
             pst     = ps[ps['Indicator'].isin([Inds[indi]]) & ps['Region'].isin([Regio]) & ps['Scenario'].isin([selectS[1]])] # Select the specified data and transpose them for plotting
             pst.set_index('Indicator', inplace=True)
-            Data2[indi,:] = pst.values[0,4::]            
+            Data2[indi,:] = pst.values[0,4::]/1000            
         Data1CS = Data1.cumsum(axis=0)
         Data2CS = Data2.cumsum(axis=0)
 
-        fig  = plt.figure(figsize=(8,5))
+        fig  = plt.figure(figsize=(6.5,5))
         ax1  = plt.axes([0.08,0.08,0.85,0.9])
         
         ProxyHandlesList = []   # For legend     
@@ -1329,19 +1331,19 @@ for m in range(0,len(ptitles)):
         plt.plot([2061.5,2061.5],[axyl[0],axyl[1]],linestyle = '--', linewidth = 0.8, color = 'k')
         plt.plot([2014,2070],[0,0],linestyle = '-', linewidth = 0.5, color = 'k')
         
-        plt.title(ptitles[m] + '_' + Regio, fontsize = 18)
-        plt.ylabel(r'Mt of CO$_2$-eq./yr', fontsize = 18)
+        plt.title(ptitles[m] + '_' + Regio, fontsize = 16)
+        plt.ylabel(r'Gt of CO$_2$-eq./yr', fontsize = 18)
         plt.xlabel('Year', fontsize = 18)
-        plt.xticks(fontsize=17)
-        plt.yticks(fontsize=17)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         plt.legend(handles = reversed(ProxyHandlesList),labels = reversed(Area), shadow = False, prop={'size':11.5},ncol=1, loc = 'upper right')# ,bbox_to_anchor=(1.91, 1)) 
         ax1.set_xlim([2017, 2070])
         ax1.set_ylim(axyl)
         plt.xticks([2020,2030,2040,2050,2060,2065.5])
-        ax1.set_xticklabels(['2020','2030','2040','2050','2060','2060'], rotation = 0, fontsize = 17, fontweight = 'normal', rotation_mode="default")
-        plt.text(2040, 0.5 * axyl[0], selectS[0]     ,fontsize=16, fontweight='normal', color = 'k', horizontalalignment='left')  
-        plt.text(2059, 0.5 * axyl[0], selectS[1]     ,fontsize=16, fontweight='normal', color = 'k', horizontalalignment='left')  
-        plt.text(2018, 0.9 * axyl[0], '*) assuming forestry with constant C pool at landscape level'     ,fontsize=14, fontweight='normal', color = 'k', horizontalalignment='left')  
+        ax1.set_xticklabels(['2020','2030','2040','2050','2060','2060'], rotation = 0, fontsize = 14, fontweight = 'normal', rotation_mode="default")
+        plt.text(2040, 0.5 * axyl[0], selectS[0]     ,fontsize=14, fontweight='normal', color = 'k',  horizontalalignment='left')  
+        plt.text(2059, 0.5 * axyl[0], selectS[1]     ,fontsize=12, fontweight='normal', color = 'k',  horizontalalignment='left')  
+        plt.text(2018, 0.9 * axyl[0], '*) assuming forestry with constant C pool at landscape level' ,fontsize=12, fontweight='normal', color = 'k', horizontalalignment='left')  
         plt.show()
         fig.savefig(os.path.join(os.path.join(RECC_Paths.export_path,outpath), ptitles[m] + '_' + Regio + '.png'), dpi=150, bbox_inches='tight')   
 
