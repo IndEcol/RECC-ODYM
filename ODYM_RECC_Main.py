@@ -209,7 +209,9 @@ def main():
     Mylog.info('Read model data and parameters.')
     
     ParFileName = os.path.join(RECC_Paths.data_path,'RECC_ParameterDict_' + ScriptConfig['RegionalScope'] + '.dat')
-    try: # Load Pickle parameter dict to save processing time
+    ParFileName_name = 'RECC_ParameterDict_' + ScriptConfig['RegionalScope'] + '.dat'
+    #try: # Load Pickle parameter dict to save processing time
+    if ParFileName_name in os.listdir(RECC_Paths.data_path):
         ParFileObject = open(ParFileName,'rb')  
         ParameterDict = pickle.load(ParFileObject)
         Mylog.info('Read model data and parameters from pickled file with pickle file /parameter reading sequence UUID ' + ParameterDict['Checkkey'])
@@ -252,7 +254,8 @@ def main():
         else: #if no new parameter data was read
             Mylog.info('Model data and parameters were read from pickled file with pickle file /parameter reading sequence UUID ' + ParameterDict['Checkkey'])
         ParFileObject.close()      
-    except:
+    #except:
+    else:
         msf.check_dataset(RECC_Paths.data_path,PL_Names,PL_Version,PL_SubFolder,Mylog)
         ParameterDict = {}
         mo_start = 0 # set mo for re-reading a certain parameter
