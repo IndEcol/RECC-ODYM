@@ -2089,7 +2089,9 @@ for mS in range(2,NS): #SSP2 only
                 Mylog.error('Number of regions selected in config exceeds the number of regions available in industry sector inflow file. Check 1F_RECC_FinalProducts_industry dimensions.')
                 raise Exception('Region index mismatch for industry sector inflow calculation.')'''
             # TODO 2025-13-11 mg: the inflows have to be made available for the regions to be selected in r dimension 
-            
+            #import outflows param file
+            i_outflow_ind = RECC_System.ParameterDict['1_F_RECC_OutflowProducts_industry'].Values[:,:,:,:,:]   ### dimensions: rSRgt of TotalFutureOutflow_UsePhase_ind
+
             # set lifetime parameter
             # First, Simply replicate lifetimes for all age-cohorts 
             Par_RECC_ProductLifetime_ind = np.einsum('cr,I->Irc',np.ones((Nc,Nr)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_industry'].Values)
