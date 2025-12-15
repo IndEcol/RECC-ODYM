@@ -2084,32 +2084,25 @@ for mS in range(2,NS): #SSP2 only
             
             # 2025-13-11 mg: changed eleven regions Nl to to individual region Nr
             SF_Array                    = np.zeros((Nc,Nc,NI,Nr)) # survival functions, by year, age-cohort, good, and region. PDFs are stored externally because recreating them with scipy.stats is slow.
-            i_Inflow_ind = RECC_System.ParameterDict['1_F_RECC_FinalProducts_industry'].Values[:,:,:,:,:]   ### dimensions: rSRgt of TotalFutureInflow_UsePhase_ind
+            i_Inflow_ind = RECC_System.ParameterDict['1_F_RECC_FinalProducts_industry'].Values[:,:,:,:,:]   ### dimensions: rSRgt #1_F_RECC_FinalProducts_industry_Germany_REMod #standard file used: 1_F_RECC_FinalProducts_industry
             '''if RECC_System.ParameterDict['1_F_RECC_FinalProducts_industry'].Values[:,:,:,:,:].shape[0] < len(Sector_ind_regions_indx):
                 Mylog.error('Number of regions selected in config exceeds the number of regions available in industry sector inflow file. Check 1F_RECC_FinalProducts_industry dimensions.')
                 raise Exception('Region index mismatch for industry sector inflow calculation.')'''
             #import outflows param file from energy system model of choice
             i_Outflow_ind = RECC_System.ParameterDict['1_F_Outflow_RECC_FinalProducts_industry'].Values[:,:,:,:,:]  ### dimensions: rSRIt
             #replicate age-cohort dimension
-            i_Outflow_ind = np.einsum('rSRIt,c->rSRItc',i_Outflow_ind,np.ones(Nc))
-            for r in range(0, Nr):
-                for I in range(0, NI):
-                    for t in range(0, Nt):
-                        for c in range(0, Nc):
-                            lifetime = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_industry'].Values[I]
-                            outflow_year = t
-                            age_cohort = outflow_year - int(lifetime)
-                            if age_cohort >=0 and age_cohort < Nc:
-                                i_Outflow_ind[r,mS,mR,I,t,c] += i_Outflow_ind[r,mS,mR,I,t,age_cohort]
-                            else:
-                                raise Exception('Age-cohort index mismatch for industry sector outflow calculation.')
-
-            # outflow year minus fixed lifetime equals age-cohort, so we can build age-cohort specific outflow arrays from this data
-            #loop over goods to extract respective lifetimes, loop over outflows and extract year of outflow, calculate age-cohort = outflow year - lifetime, assign outflow to respective age-cohort in new array
-                                          
+            i_Outflow_ind_target = np.zeros((Nr,NS,NR,NI,Nt,Nc))
+            Stock_Detail_UsePhase_I_ = np.zeros((Nr,NS,NR,NI,Nc,Nc))
+            for r in range(0,Nr):
+                for I in range(0,NI):
+                    lifetime = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_industry'].Values[I]
+                    for t in range(0,Nt):
+                        if i_Outflow_ind[r,mS,mR,I,t] > 0:
+                            age_cohort = int(SwitchTime - 1 + t - lifetime) #determines the age-cohort of the outflowing stock in year t
+                            i_Outflow_ind_target[r,mS,mR,I,t,age_cohort]= i_Outflow_ind[r,mS,mR,I,t]
 
             # set lifetime parameter
-            # First, Simply replicate lifetimes for all age-cohorts 
+            # First, Simply replicate lifetimes for all age-cohorts
             Par_RECC_ProductLifetime_ind = np.einsum('cr,I->Irc',np.ones((Nc,Nr)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_industry'].Values)
             if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True': # for future age-cohorts t = c
                 Par_RECC_ProductLifetime_ind[:,:,SwitchTime -1::] = np.einsum('Irt,Irt->Irt',Par_RECC_ProductLifetime_ind[:,:,SwitchTime -1::],1 + np.einsum('Ir,t->Irt',RECC_System.ParameterDict['6_PR_LifeTimeExtension_industry'].Values[:,:,mS],RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[mR,0,:,mS]))
@@ -2127,8 +2120,9 @@ for mS in range(2,NS): #SSP2 only
                 for r in range(0, Nr):
                             LifeTimes = Par_RECC_ProductLifetime_ind[I, r, :]
                         
-                            lt = {'Type'  : 'Fixed',
-                                  'Mean'  : LifeTimes}
+                            lt = {'Type'  : 'Normal',
+                                  'Mean'  : LifeTimes,
+                                  'StdDev': 0.3 * LifeTimes}
             # Compute inflow-driven model
                             RECC_dsm_ind                         = dsm.DynamicStockModel(time_dsm , i = i_Inflow_ind[r,mS,mR,I,:].copy()  , lt = lt)
                             SF_Array[:, :, I, r]                 = dsm.DynamicStockModel(time_dsm , i = Inflow  , lt = lt).compute_sf().copy()  # The lt parameter is not used, the sf array is handed over directly in the next step.   
@@ -2137,17 +2131,17 @@ for mS in range(2,NS): #SSP2 only
                             
                             RECC_dsm_ind.sf                      = SF_Array[:, :, I, r].copy()
                             RECC_dsm_ind_s_c[r,mS,mR,I,:,:]      = RECC_dsm_ind.compute_s_c_inflow_driven()
-                            RECC_dsm_ind_s_c_o_c[r,mS,mR,I,:,:]  = RECC_dsm_ind.compute_o_c_from_s_c() #TODO 2025-20-11 mg: replace with param outflow file, matching dimensions (Nr,NS,NR,NI,Nc,Nc) #data will first be without age cohort -> calculate cohort with t-remaining lifetime (ensure integer)
-                            Outflow_Detail_UsePhase_I[0,:,I,r]   = 0 # no flow calculation in first year
+                            RECC_dsm_ind_s_c_o_c[r,mS,mR,I,:,:]  = RECC_dsm_ind.compute_o_c_from_s_c()
                             RECC_dsm_ind_o[r,mS,mR,I,:]          = RECC_dsm_ind.compute_outflow_total()
  
-                            Stock_Detail_UsePhase_I[:,:,I,r]     = RECC_dsm_ind_s_c[r,mS,mR,I,SwitchTime-1::,:]
-                            Outflow_Detail_UsePhase_I[:,:,I,r]   = i_Outflow_ind[r,mS,mR,I,SwitchTime-1::,:] 
+                            Stock_Detail_UsePhase_I[:,:,I,r]     = RECC_dsm_ind_s_c[r,mS,mR,I,SwitchTime-1::,:] #TODO 2025-04-12 mg: replace stock calculation with inflows and outflows from energy system model
+                            Outflow_Detail_UsePhase_I[:,:,I,r]   = RECC_dsm_ind_s_c_o_c[r,mS,mR,I,SwitchTime-1::,:] #old version inflow driven --> use: "RECC_dsm_ind_s_c_o_c[r,mS,mR,I,SwitchTime-1::,:]" #new version --> use: "i_Outflow_ind_target[r,mS,mR,I,:,:]"
+                            Outflow_Detail_UsePhase_I[0,:,I,r]   = 0 # no flow calculation in first year
                             Inflow_Detail_UsePhase_I[:,I,r]      = i_Inflow_ind[r,mS,mR,I,SwitchTime-1::] # index structure: tIr
                             Inflow_Detail_UsePhase_I[0,I,r]      = 0 # no flow calculation in first year
         
         
-            TotalStockCurves_UsePhase_I[:,:,:] = Stock_Detail_UsePhase_I[:,:,:,:].sum(axis=1) 
+            TotalStockCurves_UsePhase_I[:,:,:] = Stock_Detail_UsePhase_I[:,:,:,:].sum(axis=1)
                             
         # Here so far: Units: Electricity: GW. for stocks, X/yr for flows.
             StockCurves_Totl[:,Sector_ind_loc,mS,mR] = TotalStockCurves_UsePhase_I[:,:,:].sum(axis=1).sum(axis=1).copy()
