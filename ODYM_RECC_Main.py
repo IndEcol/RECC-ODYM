@@ -1267,8 +1267,7 @@ ExitFlags = {} # Exit flags for individual model runs
 # Select and loop over scenarios
 #for mS in range(0,NS):
 for mS in range(2,NS): #SSP2 only
-    for mR in range(1,NR):
-    #for mR in range(1,NR): #RCP2.6 only
+    for mR in range(1,NR): #RCP2.6 only
 
         SName = IndexTable.loc['Scenario'].Classification.Items[mS]
         RName = IndexTable.loc['Scenario_RCP'].Classification.Items[mR]
@@ -2083,42 +2082,47 @@ for mS in range(2,NS): #SSP2 only
             # 1) Determine total stock and apply stock-driven model
             
             SF_Array                    = np.zeros((Nc,Nc,NI,Nr)) # survival functions, by year, age-cohort, good, and region. PDFs are stored externally because recreating them with scipy.stats is slow.
-            i_Inflow_ind = RECC_System.ParameterDict['1_F_RECC_FinalProducts_industry_Germany_REMod'].Values[:,:,:,:,:]   ### dimensions: rSRgt #1_F_RECC_FinalProducts_industry_Germany_REMod #standard file used: 1_F_RECC_FinalProducts_industry
-            if i_Inflow_ind.shape[0] < len(Sector_ind_regions_indx):
+            inflow_ind = RECC_System.ParameterDict['1_F_RECC_FinalProducts_industry_Germany_REMod'].Values[:,:,:,:,:]   ### dimensions: rSRIc #1_F_RECC_FinalProducts_industry_Germany_REMod #standard file used: 1_F_RECC_FinalProducts_industry
+            if inflow_ind.shape[0] < len(Sector_ind_regions_indx):
                 Mylog.error('Number of regions selected in config exceeds the number of regions available in industry sector inflow file. Check 1F_RECC_FinalProducts_industry dimensions.')
                 raise Exception('Region index mismatch for industry sector inflow calculation.')
-            #import outflows param file from energy system model of choice
+            
             outflow_ind = RECC_System.ParameterDict['1_F_Outflow_RECC_FinalProducts_industry_Germany_REMod'].Values[:,:,:,:,:]  ### dimensions: rSRIt #pick file according to energy system model used #1_F_Outflow_RECC_FinalProducts_industry_Germany_REMod
-            #import stocks param file from energy system model of choice
-            stock_ind = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Stock_Industry_Germany_REMod'].Values[:,:,:,:,:]  ### dimensions: rSRIt
-            #replicate age-cohort dimension
+
+            #replicate age-cohort dimension for outflow and stock arrays
             outflow_ind_by_cohort = np.zeros((Nr,NS,NR,NI,Nt,Nc))
             stock_ind_by_cohort = np.zeros((Nr,NS,NR,NI,Nt,Nc))
+            TotalStockCurves_UsePhase_I = np.zeros((Nt,NI,Nr))
 
+            #calculate outflow and stock by age-cohort
             for r in range(0,Nr):
                 for I in range(0,NI):
                     lifetime = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_industry'].Values[I]
                     for t in range(0,Nt):
                         if outflow_ind[r,mS,mR,I,t] > 0:
                             age_cohort = int(SwitchTime - 1 + t - lifetime) #determines the age-cohort of the outflowing stock in year t (SwitchTime-1 = 2015; t=year in which outflow occcurs; lifetime=fixed --> such that it can be used to determine age-cohort)
-                            Mylog.info(f"r: {r}, I: {I}, lifetime I: {lifetime}, t: {t}, age cohort: {age_cohort}, SwitchTime+t: {SwitchTime + t}")
                             outflow_ind_by_cohort[r,mS,mR,I,t,age_cohort]= outflow_ind[r,mS,mR,I,t]
-                            #for c in range(0,Nc):
-                            #if age_cohort < (SwitchTime + t):
-                            stock_ind_by_cohort[r,mS,mR,I,int(t-lifetime):int(t+lifetime),age_cohort]= outflow_ind[r,mS,mR,I,t]
-                            Mylog.info(f"r: {r}, I: {I}, lifetime I: {lifetime}, t: {t}, age cohort: {age_cohort}, outflow: {outflow_ind[r,mS,mR,I,t]}, stock_total: {stock_ind[r,mS,mR,I,t]}, stock_ind_by_cohort: {stock_ind_by_cohort[r,mS,mR,I,t,age_cohort]}")
-                            if age_cohort < (SwitchTime + t):
-                                Mylog.info("age_cohort < (SwitchTime + t): TRUE")
-                            else:
-                                Mylog.info("age_cohort < (SwitchTime + t): FALSE")
-                            #stock_ind_sum = stock_ind_by_cohort[r,mS,mR,I,t,:].sum()
-                            # Verify mass balance for stocks:
-                            '''if stock_ind_by_cohort[r,mS,mR,I,t,:].sum() != stock_ind[r,mS,mR,I,t]:
-                                Mylog.error(f"Mass balance error for industry sector in region {r}, scenario {mS,mR}, technology type {I}, year {t}: Outflow exceeds available stock in age-cohorts.")
-                                raise Exception('Mass balance error in industry sector stock calculation.')'''
-    
+                            if age_cohort <= (SwitchTime -1):
+                                startingtime = 0 #ensures that t only ranges from 0 (2015) to 46 (2060)
+                            else: startingtime = int(age_cohort - (SwitchTime -1))
+                            stock_ind_by_cohort[r,mS,mR,I,startingtime:t,age_cohort]= outflow_ind[r,mS,mR,I,t]
+            # TODO 20205-19-12 mg: implement mass balance check for stocks (define certain range!)
 
-            # set lifetime parameter
+            Stock_Detail_UsePhase_I[:,:,:,:]     = np.einsum('rItc->tcIr',stock_ind_by_cohort[:,mS,mR,:,:,:])
+            Outflow_Detail_UsePhase_I[:,:,:,:]   = np.einsum('rItc->tcIr',outflow_ind_by_cohort[:,mS,mR,:,:,:])
+            Outflow_Detail_UsePhase_I[0,:,:,:]   = 0 # no flow calculation in first year
+            Inflow_Detail_UsePhase_I[:,:,:]      = np.einsum('rIc->cIr',inflow_ind[:,mS,mR,:,SwitchTime-1::])
+            Inflow_Detail_UsePhase_I[0,:,:]      = 0 # no flow calculation in first year
+
+            TotalStockCurves_UsePhase_I[:,:,:] = Stock_Detail_UsePhase_I[:,:,:,:].sum(axis=1)
+
+            StockCurves_Totl[:,Sector_ind_loc,mS,mR] = TotalStockCurves_UsePhase_I[:,:,:].sum(axis=1).sum(axis=1).copy()
+            StockCurves_Prod[:,Sector_ind_rge,mS,mR] = TotalStockCurves_UsePhase_I[:,:,:].sum(axis=2).copy()
+            Inflow_Prod[:,Sector_ind_rge,mS,mR]      = np.einsum('tIr->tI',Inflow_Detail_UsePhase_I).copy()
+            Outflow_Prod[:,Sector_ind_rge,mS,mR]     = np.einsum('tcIr->tI',Outflow_Detail_UsePhase_I).copy()
+            Outflow_Prod_r[:,:,Sector_ind_rge,mS,mR] = np.einsum('tcpr->trp',Outflow_Detail_UsePhase_I).copy()
+
+            '''# set lifetime parameter
             # First, Simply replicate lifetimes for all age-cohorts
             Par_RECC_ProductLifetime_ind = np.einsum('cr,I->Irc',np.ones((Nc,Nr)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_industry'].Values)
             if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True': # for future age-cohorts t = c
@@ -2140,7 +2144,7 @@ for mS in range(2,NS): #SSP2 only
                             lt = {'Type'  : 'Fixed',
                                   'Mean'  : LifeTimes}
             # Compute inflow-driven model
-                            RECC_dsm_ind                         = dsm.DynamicStockModel(time_dsm , i = i_Inflow_ind[r,mS,mR,I,:].copy()  , lt = lt)
+                            RECC_dsm_ind                         = dsm.DynamicStockModel(time_dsm , i = inflow_ind[r,mS,mR,I,:].copy()  , lt = lt)
                             SF_Array[:, :, I, r]                 = dsm.DynamicStockModel(time_dsm , i = Inflow  , lt = lt).compute_sf().copy()  # The lt parameter is not used, the sf array is handed over directly in the next step.   
                             np.fill_diagonal(SF_Array[:, :, I, r],1) # no outflows from current year, this would break the mass balance in the calculation routine below, as the element composition of the current year is not yet known.
                             # Those parts of the stock remain in use instead.
@@ -2150,10 +2154,10 @@ for mS in range(2,NS): #SSP2 only
                             RECC_dsm_ind_s_c_o_c[r,mS,mR,I,:,:]  = RECC_dsm_ind.compute_o_c_from_s_c()
                             RECC_dsm_ind_o[r,mS,mR,I,:]          = RECC_dsm_ind.compute_outflow_total()
  
-                            Stock_Detail_UsePhase_I[:,:,I,r]     = RECC_dsm_ind_s_c[r,mS,mR,I,SwitchTime-1::,:] #TODO 2025-04-12 mg: replace stock calculation with inflows and outflows from energy system model
-                            Outflow_Detail_UsePhase_I[:,:,I,r]   = outflow_ind_by_cohort[r,mS,mR,I,:,:] #old version inflow driven --> use: "RECC_dsm_ind_s_c_o_c[r,mS,mR,I,SwitchTime-1::,:]" #new version --> use: "outflow_ind_by_cohort[r,mS,mR,I,:,:]"
+                            Stock_Detail_UsePhase_I[:,:,I,r]     = RECC_dsm_ind_s_c[r,mS,mR,I,SwitchTime-1::,:]
+                            Outflow_Detail_UsePhase_I[:,:,I,r]   = RECC_dsm_ind_s_c_o_c[r,mS,mR,I,SwitchTime-1::,:] 
                             Outflow_Detail_UsePhase_I[0,:,I,r]   = 0 # no flow calculation in first year
-                            Inflow_Detail_UsePhase_I[:,I,r]      = i_Inflow_ind[r,mS,mR,I,SwitchTime-1::] # index structure: tIr
+                            Inflow_Detail_UsePhase_I[:,I,r]      = inflow_ind[r,mS,mR,I,SwitchTime-1::] # index structure: tIr
                             Inflow_Detail_UsePhase_I[0,I,r]      = 0 # no flow calculation in first year
         
         
@@ -2164,9 +2168,7 @@ for mS in range(2,NS): #SSP2 only
             StockCurves_Prod[:,Sector_ind_rge,mS,mR] = TotalStockCurves_UsePhase_I[:,:,:].sum(axis=2).copy()
             Inflow_Prod[:,Sector_ind_rge,mS,mR]      = np.einsum('tIr->tI',Inflow_Detail_UsePhase_I).copy()
             Outflow_Prod[:,Sector_ind_rge,mS,mR]     = np.einsum('tcIr->tI',Outflow_Detail_UsePhase_I).copy()
-            Outflow_Prod_r[:,:,Sector_ind_rge,mS,mR] = np.einsum('tcpr->trp',Outflow_Detail_UsePhase_I).copy()
-                      
-           
+            Outflow_Prod_r[:,:,Sector_ind_rge,mS,mR] = np.einsum('tcpr->trp',Outflow_Detail_UsePhase_I).copy()'''
             
         # Sector: Appliances, global coverage, will be calculated separately and waste will be added to wast mgt. inflow for 1st region.
         if 'app' in SectorList:            
@@ -2436,14 +2438,14 @@ for mS in range(2,NS): #SSP2 only
             # Check_nrb = (RECC_System.FlowDict['F_6_7'].Values[1::,0,Sector_nrb_rge,:,0] - F_6_7_new[1::,0,Sector_nrb_rge,:,0] - F_6_7_ren[1::,:,0,Sector_nrb_rge,:,0].sum(axis=2)) # must be 0.
             RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_nrb_rge,:,0]   = np.einsum('Ntrm->Ntrm',F_6_7_new[:,:,Sector_nrb_rge,:,0]) + np.einsum('Ntcrm->Ntrm',F_6_7_ren[:,:,:,Sector_nrb_rge,:,0])
                         
-        if 'ind' in SectorList: # TODO: 2025-14-11 mg: check units for ind -> multiplied by 1000 to convert kt into tons and to be consistent with other sectors which convert to tons as well
+        if 'ind' in SectorList:
             # convert product stocks and flows to material stocks and flows, only for chemical element position 'all':
             # Stock elemental composition, historic for each element and for future years: 'all' elements only
             RECC_System.StockDict['S_7'].Values[:,:,:,Sector_ind_rge,:,:] = \
-            np.einsum('tcrIme,tcIr->tcrIme',Par_3_MC_Stock_ByElement_Nr[:,:,:,Sector_ind_rge,:,:],Stock_Detail_UsePhase_I)*1000   # Indices='t,c,r,I,m,e'
+            np.einsum('tcrIme,tcIr->tcrIme',Par_3_MC_Stock_ByElement_Nr[:,:,:,Sector_ind_rge,:,:],Stock_Detail_UsePhase_I)/1000   # Indices='t,c,r,I,m,e' # division by /1000 to reach desried reporting of Mt
             # Outflow, 'all' elements only:
             RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_ind_rge,:,0] = \
-            np.einsum('Itcrm,tcIr->Itcrm',Par_3_MC_Stock_ByElement_Nr[:,:,:,Sector_ind_rge,:,0],Outflow_Detail_UsePhase_I)*1000 # all elements, Indices='t,c,r,I,m'
+            np.einsum('Itcrm,tcIr->Itcrm',Par_3_MC_Stock_ByElement_Nr[:,:,:,Sector_ind_rge,:,0],Outflow_Detail_UsePhase_I)/1000 # all elements, Indices='t,c,r,I,m'
             # Inflow as mass balance, to account for renovation material inflows to other age-cohorts than the current one (t=c). # TODO: 2025-17-11 mg: why calculating the np.diff and why not also considering the elemental composition?
             RECC_System.FlowDict['F_6_7'].Values[1::,:,Sector_ind_rge,:,0]   = \
             np.einsum('Itcrm->Itrm',np.diff(RECC_System.StockDict['S_7'].Values[:,:,:,Sector_ind_rge,:,0],1,axis=1)) + np.einsum('Itcrm->Itrm',RECC_System.FlowDict['F_7_8'].Values[1::,:,:,Sector_ind_rge,:,0])
@@ -2456,7 +2458,7 @@ for mS in range(2,NS): #SSP2 only
         # 1_Nl_No) Inflow, outflow and stock first year for Nl and No regional aggregation and Sector I and a
         #TODO 2025-25-11 mg: delete Nl sector 
         RECC_System.FlowDict['F_6_7_Nl'].Values[0,:,Sector_ind_rge_reg,:,:]   = \
-        np.einsum('Ilme,Il ->Ilme',Par_3_MC_Stock_ByElement_Nl[SwitchTime-1,:,Sector_ind_rge_reg,:,:],Inflow_Detail_UsePhase_I[0,:,:])/1000 # all elements, Indices='t,l,I,m,e'  # TODO: 2025-18-11 mg: why /1000 if values are in kilotons?
+        np.einsum('Ilme,Il ->Ilme',Par_3_MC_Stock_ByElement_Nl[SwitchTime-1,:,Sector_ind_rge_reg,:,:],Inflow_Detail_UsePhase_I[0,:,:])/1000 # all elements, Indices='t,l,I,m,e'  # division by /1000 to reach desried reporting of Mt
         RECC_System.FlowDict['F_6_7_No'].Values[0,:,Sector_app_rge_reg,:,:]   = \
         np.einsum('aome,ao->aome',Par_3_MC_Stock_ByElement_No[SwitchTime-1,:,Sector_app_rge_reg,:,:],Inflow_Detail_UsePhase_a[0,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'  
         if 'nrbg' in SectorList:
@@ -3964,7 +3966,7 @@ if 'nrb' in SectorList:
 
 # Additional reporting of stocks and stock changes at good resolution:
 #Product stock per region and good
-#TODO 2025-01-12 mg: add for industry and check units at the end, if MW or GW!
+#TODO 2025-01-12 mg: add for industry
 for mr in range(0,Nr):
     for mg in range(0,Ng):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,mg,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
