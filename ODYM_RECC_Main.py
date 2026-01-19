@@ -36,6 +36,10 @@ and apply to sum of primary and secondary material production
     in total (Engineered Material) consumption by (Demand Sector), F_6_7(part)/F_6_7*100;
     percentage share of flow of recycled (Engineered Material) in flow of total 
     (Engineered Material) from process 6 to process 7"
+    
+2026-01-19, ch: in waste mgmt reporting: subtract mass of concrete flows (for aspect m), 
+    otherwise double counting because mass of concrete already covered by sum of 
+    concrete aggregates and cement contained in concrete
 """
 
 
@@ -1255,6 +1259,7 @@ ExitFlags = {} # Exit flags for individual model runs
 #for mS in range(0,NS):
 for mS in range(2,NS): #SSP2 only
     for mR in range(0,NR):
+    #for mR in range(0,1): #baseline only
     #for mR in range(1,NR): #RCP2.6 only
 
         SName = IndexTable.loc['Scenario'].Classification.Items[mS]
@@ -1567,6 +1572,10 @@ for mS in range(2,NS): #SSP2 only
         #Material_Losses_EoL_recovery_tm = np.zeros((Nt,Nm)) # For CIRCOMOD reporting, material losses from EoL goods during EoL recovery stage, F_8_9 (part), Mt/yr
         #Material_Losses_Remelting_tm = np.zeros((Nt,Nm)) # For CIRCOMOD reporting, material losses from Remelting, F_10_9 (part), Mt/yr --> reporting for m does not really make sense here
         EI_Products_UsePhase_nonresbuildings_t_uf = np.zeros((Nc,NN,NV,Nn,Nr,Nt))  # 2025-07-23, ch: for reporting of useful energy EI change in nrb to feed information into TIMES
+        
+        #2026-01-19, ch: container for reporting of material losses, excluding double counting of concrete and concrete aggregates + cement
+        F_9_0_excl_concrete         = np.zeros((Nt,Ne))
+        dS_0_excl_concrete          = np.zeros((Nt,Ne))
         
         # Sector: Passenger vehicles
         if 'pav' in SectorList:
@@ -2703,12 +2712,24 @@ for mS in range(2,NS): #SSP2 only
             SysVar_WoodWasteIncineration[t,:,:,:,mS,mR] += np.einsum('r,rwe->rwe',1 - Par_RECC_WoodWaste_Cascading[t,Woodwaste_loc,Wood_loc,Woodwastemgt_loc,:],RECC_System.FlowDict['F_10_9w'].Values[t,:,:,:]) # 2025-06-10: use Woodwastemgt_loc instead of Woodwaste_loc
             # SysVar_WoodWasteIncineration contains carbon flows whose related CO2 emissions are already accounted for as use phase direct emissions. Calculate to determine system-wide C release after wood use.
             
-            # 14) Calculate waste mgt. losses.
+            # 14) Calculate waste mgt. losses. #2026-01-19, ch: double counting of concrete and concrete aggregates + cement required here for consistent mass balance
             RECC_System.FlowDict['F_9_0'].Values[t,:]          = np.einsum('rgme->e',RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:])    - np.einsum('rwe->e',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]) \
                                                                + np.einsum('lLme->e',RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:]) - np.einsum('lwe->e',RECC_System.FlowDict['F_9_10_Nl'].Values[t,:,:,:]) \
                                                                + np.einsum('oOme->e',RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:]) - np.einsum('owe->e',RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:]) \
                                                                + np.einsum('rwe->e',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:])      - np.einsum('ome->e',RECC_System.FlowDict['F_9_12'].Values[t,:,:,:]) \
                                                                + np.einsum('rwe->e',SysVar_WoodWasteIncineration[t,:,:,:,mS,mR])
+            #2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+            # No double counting in aspect w, because cement and concrete aggregates not considered seperately in EoL recovery (parameter 4_PY_EoL_RecoveryRate)
+            F_9_0_excl_concrete[t,:]                           = np.einsum('rgme->e',RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:]) - np.einsum('rge->e',RECC_System.FlowDict['F_8_9'].Values[t,:,:,Concrete_loc,:])  \
+                                                               - np.einsum('rwe->e',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]) \
+                                                               + np.einsum('lLme->e',RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:]) - np.einsum('lLe->e',RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,Concrete_loc,:]) \
+                                                               - np.einsum('lwe->e',RECC_System.FlowDict['F_9_10_Nl'].Values[t,:,:,:]) \
+                                                               + np.einsum('oOme->e',RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:]) - np.einsum('oOe->e',RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,Concrete_loc,:]) \
+                                                               - np.einsum('owe->e',RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:]) \
+                                                               + np.einsum('rwe->e',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:])    \
+                                                               - (np.einsum('ome->e',RECC_System.FlowDict['F_9_12'].Values[t,:,:,:]) - np.einsum('oe->e',RECC_System.FlowDict['F_9_12'].Values[t,:,Concrete_loc,:]))  \
+                                                               + np.einsum('rwe->e',SysVar_WoodWasteIncineration[t,:,:,:,mS,mR])
+            
             
             # 15) Calculate stock changes
             RECC_System.StockDict['dS_7'].Values[t,:,:,:,:,:]     = RECC_System.StockDict['S_7'].Values[t,:,:,:,:,:]    - RECC_System.StockDict['S_7'].Values[t-1,:,:,:,:,:]
@@ -2719,6 +2740,11 @@ for mS in range(2,NS): #SSP2 only
             RECC_System.StockDict['dS_10w'].Values[t,:,:,:]       = RECC_System.StockDict['S_10w'].Values[t,t,:,:,:]    - RECC_System.StockDict['S_10w'].Values[t-1,t-1,:,:,:]
             RECC_System.StockDict['dS_12'].Values[t,:,:,:]        = RECC_System.StockDict['S_12'].Values[t,:,:,:]       - RECC_System.StockDict['S_12'].Values[t-1,:,:,:]
             RECC_System.StockDict['dS_0'].Values[t,:]             = RECC_System.FlowDict['F_9_0'].Values[t,:]           + np.einsum('rme->e',RECC_System.FlowDict['F_12_0'].Values[t,:,:,:]) + np.einsum('crgme->e',RECC_System.FlowDict['F_8_0'].Values[t,:,:,:,:,:]) - np.einsum('me->e',RECC_System.FlowDict['F_0_3'].Values[t,:,:])
+            #2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+            dS_0_excl_concrete[t,:]                               = F_9_0_excl_concrete[t,:] \
+                                                                    + np.einsum('rme->e',RECC_System.FlowDict['F_12_0'].Values[t,:,:,:]) - np.einsum('re->e',RECC_System.FlowDict['F_12_0'].Values[t,:,Concrete_loc,:]) \
+                                                                    + np.einsum('crgme->e',RECC_System.FlowDict['F_8_0'].Values[t,:,:,:,:,:]) - np.einsum('crge->e',RECC_System.FlowDict['F_8_0'].Values[t,:,:,:,Concrete_loc,:])\
+                                                                    - (np.einsum('me->e',RECC_System.FlowDict['F_0_3'].Values[t,:,:]) - np.einsum('e->e',RECC_System.FlowDict['F_0_3'].Values[t,Concrete_loc,:]))
             
         # Diagnostics:
         # Tbd.
@@ -3209,17 +3235,23 @@ for mS in range(2,NS): #SSP2 only
         if 'reb' in SectorList:
             ResBuildng_EnergyCons[:,:,:,mS,mR]      = np.einsum('VtBnr->tBr',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchTime-1::,:,Service_Reb,:,:,mS,mR])
         GWP_bio_Credit[:,mS,mR]                     = SysVar_GHGEms_GWP_bio[0,:].copy()
-        # Product flows
-        EoL_Products_for_WasteMgt[:,:,mS,mR]        = np.einsum('trgm->tg', RECC_System.FlowDict['F_8_9'].Values[:,:,:,:,0]).copy()
-        Outflow_Products_Usephase_all[:,:,mS,mR]    = np.einsum('tcrgm->tg',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() #2025-01-21, ch: misleading name! Unit is Mt/yr, not units of goods
+        # Product flows (2026-01-19, ch: misleading names. This is total mass per product, not number of products)
+        #2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+        EoL_Products_for_WasteMgt[:,:,mS,mR]        = np.einsum('trgm->tg', RECC_System.FlowDict['F_8_9'].Values[:,:,:,:,0]).copy() - np.einsum('trg->tg', RECC_System.FlowDict['F_8_9'].Values[:,:,:,Concrete_loc,0]).copy()
+        #2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+        Outflow_Products_Usephase_all[:,:,mS,mR]    = np.einsum('tcrgm->tg',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() - np.einsum('tcrg->tg',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,Concrete_loc,0]).copy() #2025-01-21, ch: misleading name! Unit is Mt/yr, not units of goods
         if 'ind' in SectorList:
-            EoL_Products_for_WasteMgt[:,Sector_11reg_rge,mS,mR]        = np.einsum('tlLm->tL', RECC_System.FlowDict['F_8_9_Nl'].Values[:,:,:,:,0]).copy()
-            Outflow_Products_Usephase_all[:,Sector_11reg_rge,mS,mR]    = np.einsum('tclLm->tL',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy()   
+            #2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+            EoL_Products_for_WasteMgt[:,Sector_11reg_rge,mS,mR]        = np.einsum('tlLm->tL', RECC_System.FlowDict['F_8_9_Nl'].Values[:,:,:,:,0]).copy() - np.einsum('tlL->tL', RECC_System.FlowDict['F_8_9_Nl'].Values[:,:,:,Concrete_loc,0]).copy()
+            Outflow_Products_Usephase_all[:,Sector_11reg_rge,mS,mR]    = np.einsum('tclLm->tL',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy() - np.einsum('tclL->tL',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,Concrete_loc,0]).copy()  
         if 'app' in SectorList or 'nrbg' in SectorList:
-            EoL_Products_for_WasteMgt[:,Sector_1reg_rge,mS,mR]         = np.einsum('toOm->tO', RECC_System.FlowDict['F_8_9_No'].Values[:,:,:,:,0]).copy()
-            Outflow_Products_Usephase_all[:,Sector_1reg_rge,mS,mR]     = np.einsum('tcoOm->tO',RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy()               
+            #2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+            EoL_Products_for_WasteMgt[:,Sector_1reg_rge,mS,mR]         = np.einsum('toOm->tO', RECC_System.FlowDict['F_8_9_No'].Values[:,:,:,:,0]).copy() - np.einsum('toO->tO', RECC_System.FlowDict['F_8_9_No'].Values[:,:,:,Concrete_loc,0]).copy()
+            Outflow_Products_Usephase_all[:,Sector_1reg_rge,mS,mR]     = np.einsum('tcoOm->tO',RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy() - np.einsum('tcoO->tO',RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,Concrete_loc,0]).copy()              
         Outflow_Materials_Usephase_all[:,:,mS,mR]   = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() + np.einsum('tclLm->tm',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy() + np.einsum('tcoOm->tm',RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy()
-        WasteMgtLosses_To_Landfill[:,:,mS,mR]       = RECC_System.FlowDict['F_9_0'].Values.copy()
+        #2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+        #WasteMgtLosses_To_Landfill[:,:,mS,mR]       = RECC_System.FlowDict['F_9_0'].Values.copy()
+        WasteMgtLosses_To_Landfill[:,:,mS,mR]       = F_9_0_excl_concrete.copy() #2026-01-19: replace system flow by reporting flow
         StockCurves_Mat[:,:,mS,mR]                  = np.einsum('tcrgm->tm',RECC_System.StockDict['S_7'].Values[:,:,:,:,:,0]).copy() + np.einsum('tclLm->tm',RECC_System.StockDict['S_7_Nl'].Values[:,:,:,:,:,0]).copy() + np.einsum('tcoOm->tm',RECC_System.StockDict['S_7_No'].Values[:,:,:,:,:,0]).copy()
         StockCurves_Mat_rge[:,:,:,mS,mR]            = np.einsum('tcrgm->tgm',RECC_System.StockDict['S_7'].Values[:,:,:,:,:,0]).copy()
         
@@ -3611,8 +3643,9 @@ newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,12,:,:].sum(ax
 for m in range(0,Nw):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Scrap_Outflow[:,m,:,:],newrowoffset,len(ColLabels),'Postconsumer scrap: ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[m],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 # EoL Products to waste mgt.
-for mg in range(0,Ng):
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,EoL_Products_for_WasteMgt[:,mg,:,:],newrowoffset,len(ColLabels),'EoL Products to waste mgt., ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_8_9 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+for mg in range(0,Ng): #2026-01-19, ch: misleading name! Unit is Mt/yr, not units of goods
+    #newrowoffset = msf.xlsxExportAdd_tAB(ws2,EoL_Products_for_WasteMgt[:,mg,:,:],newrowoffset,len(ColLabels),'EoL Products to waste mgt., ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_8_9 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,EoL_Products_for_WasteMgt[:,mg,:,:],newrowoffset,len(ColLabels),'EoL total mass of products to waste mgt., ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Mt/yr',ScriptConfig['RegionalScope'],'F_8_9 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 # Outflow of products from use phase        
 for mg in range(0,Ng): #2025-01-21, ch: misleading name! Unit is Mt/yr, not units of goods
     #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Products_Usephase_all[:,mg,:,:],newrowoffset,len(ColLabels),'Outflow of products from use phase, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
