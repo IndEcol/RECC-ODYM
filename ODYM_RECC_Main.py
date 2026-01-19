@@ -780,7 +780,8 @@ if 'tis' in SectorList: #2026-01
     # Split concrete into cement and aggregates:
     ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,Cement_loc,:,:,:,:]   = ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,Cement_loc,:,:,:,:] + ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc] * ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,Concrete_loc,:,:,:,:].copy()
     ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,ConcrAgg_loc,:,:,:,:] = (1 - ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]) * ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,Concrete_loc,:,:,:,:].copy()
-    ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,Concrete_loc,:,:,:,:] = 0
+    # 2026-01-19, ch: keep values for Concrete 
+    #ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,Concrete_loc,:,:,:,:] = 0 
 
         
 # 3) Currently not in use.
@@ -2263,7 +2264,7 @@ for mS in range(2,NS): #SSP2 only
             #for t in range (0,Nt):
             for t in range (1,Nt):    # for year t = 0 (2015) use historic stock, no in/outflow/dS yet
                 dS_rKtc[:,:,t,SwitchTime-1+t] = inflow_tis_rKc[:,:,SwitchTime-1+t] # add inflows for year 2016-2060
-            dS_rKtc[:,:,1::,:] -= np.einsum('rKmtc->rKtc',outflow_tis_rKmtc[:,:,:,1::,:])    # subtract 2016-2060 outflows
+            dS_rKtc[:,:,1::,:] -= np.einsum('rKmtc->rKtc',outflow_tis_rKmtc[:,:,:,1::,:])    # subtract 2016-2060 outflows; ConcrAgg and Cement = 0 here
             
             # add initial stock
             Stock_Detail_UsePhase_K[0,:,:,:]     = TotalStock_UsePhase_Hist_cKr.copy() 
@@ -2495,7 +2496,7 @@ for mS in range(2,NS): #SSP2 only
             # Split concrete into cement and aggregates:
             outflow_tis_rKmtc[:,:,Cement_loc,:,:] = outflow_tis_rKmtc[:,:,Cement_loc,:,:].copy() + outflow_tis_rKmtc[:,:,Concrete_loc,:,:].copy() * ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]
             outflow_tis_rKmtc[:,:,ConcrAgg_loc,:,:] = outflow_tis_rKmtc[:,:,Concrete_loc,:,:].copy() * (1-ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc])
-            outflow_tis_rKmtc[:,:,Concrete_loc,:,:] = 0
+            #outflow_tis_rKmtc[:,:,Concrete_loc,:,:] = 0             # 2026-01-19, ch: keep values for concrete 
             # Add aspect 'elements': Outflow, 'all' elements only:
             outflow_tis_rKmtce = np.einsum('rKmtc,cme->rKmtce',outflow_tis_rKmtc,Par_Element_Composition_of_Materials_m) # add historic element composition; element composition needs to be updated for future age-cohorts, is done below after material cycle computation
             RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,0] = np.einsum('rKmtc->Ktcrm',outflow_tis_rKmtce[:,:,:,:,:,0])/1000 # 'all' elements only; unit Mt
@@ -2825,7 +2826,7 @@ for mS in range(2,NS): #SSP2 only
             Par_3_MC_Stock_ByElement_No[CohortOffset,:,:,:,:]  = np.einsum('mOo,me->oOme',Par_RECC_MC_No[CohortOffset,:,:,:,mS],Par_Element_Composition_of_Materials_c[t,:,:]) # cOome                    
             
             # 11) Calculate manufacturing scrap 
-            RECC_System.FlowDict['F_5_10'].Values[t,0,:,:]     = np.einsum('gme,mwg->we',Manufacturing_Input_gme_final,Par_FabYieldLoss[:,:,:,t,0]) 
+            RECC_System.FlowDict['F_5_10'].Values[t,0,:,:]     = np.einsum('gme,mwg->we',Manufacturing_Input_gme_final,Par_FabYieldLoss[:,:,:,t,0]) # yield loss only considered for concrete, not concrete aggregates
             # Fabrication scrap, to be recycled next year:
             RECC_System.StockDict['S_10'].Values[t,t,:,:,:]    = RECC_System.FlowDict['F_5_10'].Values[t,:,:,:].copy()
             # Remove wood waste, which is treated separately:
