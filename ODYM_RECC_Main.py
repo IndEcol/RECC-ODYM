@@ -46,14 +46,16 @@ and apply to sum of primary and secondary material production
         Add tis to Par_RECC_MC_Nr
         Add age-cohort dependent element composition to outflows
         Add future material and element composition of stock based on inflow and outflow material and element composition
+        Add reuse for materials in tis products
         
         
     ToDos: 
         Revise lifetime assumptions (which is largely maintenance material exchange for EU countries),
             (e.g., for urban paved roads mean lifetime only around 10-13 years in IMAGE-Materials results)
-        Add tis products to '4_PY_EoL_RecoveryRate', '4_PY_Manufacturing', 6_PR_EoL_RR_Improvement, 
+        Add tis products to: 
         (to 6_PR_FabricationYieldImprovement ?),
-        Add missing materials + downcycling option of CDW into aggregates (other than in concrete) 
+        Add missing materials + downcycling option of CDW into aggregates (other than in concrete):
+            separate waste fractions for CDW, concrete etc?
 
     Issues: 
         Any CE strategy changes affecting inflow material composition (e.g., cement content reduction)
@@ -807,6 +809,8 @@ if 'reb' in SectorList:
 #ParameterDict['6_PR_ReUse_nonresBld'].Values                = np.einsum('mN,r->mNr',ParameterDict['6_PR_ReUse_nonresBld'].Values[:,:,0],np.ones(Nr))
 if 'nrb' in SectorList:
     ParameterDict['6_PR_ReUse_nonresBld'].Values                = np.einsum('mNt,r->mNrt',ParameterDict['6_PR_ReUse_nonresBld'].Values[:,:,0,:],np.ones(Nr)) #2025-06-04, ch: make reuse parameter for buildings time dependent to allow for start year reuse share >0
+if 'tis' in SectorList: #2026-01 add tis reuse
+    ParameterDict['6_PR_ReUse_Tis'].Values                = np.einsum('mKt,r->mKrt',ParameterDict['6_PR_ReUse_Tis'].Values[:,:,0,:],np.ones(Nr)) 
 if 'pav' in SectorList:
     ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values = np.einsum('pS,r->prS',ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values[:,0,:],np.ones(Nr))
 ParameterDict['6_PR_EoL_RR_Improvement'].Values             = np.einsum('gmwW,r->grmwW',ParameterDict['6_PR_EoL_RR_Improvement'].Values[:,0,:,:,:],np.ones(Nr))
@@ -853,7 +857,8 @@ if ScriptConfig['Include_REStrategy_ReUse'] == 'False':
     #ParameterDict['6_PR_ReUse_nonresBld'].Values = np.zeros(ParameterDict['6_PR_ReUse_nonresBld'].Values.shape) # set to zero, which corresponds to current levels.
     if 'nrb' in SectorList:
         ParameterDict['6_PR_ReUse_nonresBld'].Values = np.einsum('mNr,t->mNrt',ParameterDict['6_PR_ReUse_nonresBld'].Values[:,:,:,1],np.ones(Nt)) # stay at current levels, which are > 0. #2025-06-04, ch: make reuse parameter for buildings time dependent to allow for start year reuse share >0
-# TODO: #2026-01 add baseline reuse for tis
+    if 'tis' in SectorList: #2026-01 add tis reuse
+        ParameterDict['6_PR_ReUse_Tis'].Values = np.einsum('mKr,t->mKrt',ParameterDict['6_PR_ReUse_Tis'].Values[:,:,:,1],np.ones(Nt)) # stay at current levels, which are > 0. 
     
 # 11) MODEL CALIBRATION
 # Calibrate vehicle kilometrage: No longer used! VKM is now calibrated in scenario target table process to deliver correct pC stock number for 2015.
@@ -1308,8 +1313,8 @@ ExitFlags = {} # Exit flags for individual model runs
 # Select and loop over scenarios
 #for mS in range(0,NS):
 for mS in range(2,NS): #SSP2 only
-    #for mR in range(0,NR):
-    for mR in range(0,1): #Baseline only
+    for mR in range(0,NR):
+    #for mR in range(0,1): #Baseline only
 
         SName = IndexTable.loc['Scenario'].Classification.Items[mS]
         RName = IndexTable.loc['Scenario_RCP'].Classification.Items[mR]
@@ -2265,6 +2270,7 @@ for mS in range(2,NS): #SSP2 only
             for t in range (1,Nt):    # for year t = 0 (2015) use historic stock, no in/outflow/dS yet
                 dS_rKtc[:,:,t,SwitchTime-1+t] = inflow_tis_rKc[:,:,SwitchTime-1+t] # add inflows for year 2016-2060
             dS_rKtc[:,:,1::,:] -= np.einsum('rKmtc->rKtc',outflow_tis_rKmtc[:,:,:,1::,:])    # subtract 2016-2060 outflows; ConcrAgg and Cement = 0 here
+            #plt.plot(np.arange(2015,2061,1),np.einsum('rKtc->tK',dS_rKtc))
             
             # add initial stock
             Stock_Detail_UsePhase_K[0,:,:,:]     = TotalStock_UsePhase_Hist_cKr.copy() 
@@ -2272,6 +2278,7 @@ for mS in range(2,NS): #SSP2 only
             for t in range (1,Nt):
                 Stock_Detail_UsePhase_K[t,:,:,:] =  Stock_Detail_UsePhase_K[t-1,:,:,:] \
                     + np.einsum('rKc->cKr',dS_rKtc[:,:,t,:]).copy()
+            #plt.plot(np.arange(2015,2061,1),np.einsum('tcKr->tK',Stock_Detail_UsePhase_K))
             
             Outflow_Detail_UsePhase_K[1::,:,:,:] = np.einsum('rKmtc->tcKr',outflow_tis_rKmtc[:,:,:,1::,:]).copy() 
             Inflow_Detail_UsePhase_K[1::,:,:]    = np.einsum('rKc->cKr',inflow_tis_rKc[:,:,SwitchTime::]).copy()
@@ -2430,8 +2437,8 @@ for mS in range(2,NS): #SSP2 only
             ReUseFactor_tmBrS = np.einsum('mBrt,S->tmBrS',RECC_System.ParameterDict['6_PR_ReUse_Bld'].Values,np.ones((NS))) #2025-06-04, ch: temporal scale up already included in parameter file, no change over S
         if 'nrb' in SectorList:
             ReUseFactor_tmNrS = np.einsum('mNrt,S->tmNrS',RECC_System.ParameterDict['6_PR_ReUse_nonresBld'].Values,np.ones((NS))) #2025-06-04, ch: temporal scale up already included in parameter file, no change over S
-        
-        #TODO #2026-01: add reuse factor for tis products/materials
+        if 'tis' in SectorList: #2026-01 add tis reuse
+            ReUseFactor_tmKrS = np.einsum('mKrt,S->tmKrS',RECC_System.ParameterDict['6_PR_ReUse_Tis'].Values,np.ones((NS))) #2025-06-04, ch: temporal scale up already included in parameter file, no change over S
         
         Mylog.info('Translate total flows into individual materials and elements, for 2015 and historic age-cohorts.')
         if 'pav' in SectorList:
@@ -2491,6 +2498,8 @@ for mS in range(2,NS): #SSP2 only
             for mmt in range(0,Nt):
                 F_6_7_new[mmt,:,Sector_tis_rge,:,0] = np.einsum('Kr,Krm->Krm',Inflow_Detail_UsePhase_K[mmt,:,:],Par_3_MC_Stock_ByElement_Nr[mmt,SwitchTime+mmt-1,:,Sector_tis_rge,:,0])/1000
             RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_tis_rge,:,0]   = np.einsum('Ktrm->Ktrm',F_6_7_new[:,:,Sector_tis_rge,:,0])
+            #plt.plot(np.arange(2015,2061,1),np.einsum('Ktrm->tK',RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_tis_rge,:,0]))
+            #plt.plot(np.arange(2015,2061,1),np.einsum('Ktrm->tm',RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_tis_rge,:,0]))
             # Outflow, 'all' elements only:
             # prepare tis material outflow data: split concrete into cement and concrete aggregates; add 'element' aspect
             # Split concrete into cement and aggregates:
@@ -2500,6 +2509,8 @@ for mS in range(2,NS): #SSP2 only
             # Add aspect 'elements': Outflow, 'all' elements only:
             outflow_tis_rKmtce = np.einsum('rKmtc,cme->rKmtce',outflow_tis_rKmtc,Par_Element_Composition_of_Materials_m) # add historic element composition; element composition needs to be updated for future age-cohorts, is done below after material cycle computation
             RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,0] = np.einsum('rKmtc->Ktcrm',outflow_tis_rKmtce[:,:,:,:,:,0])/1000 # 'all' elements only; unit Mt
+            #plt.plot(np.arange(2015,2061,1),np.einsum('Ktcrm->tK',RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,0]))
+            #plt.plot(np.arange(2015,2061,1),np.einsum('Ktcrm->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,0]))
             # Stock: material composition based on 2015 stock MC + RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:] - actual tis material outflows 
             # Add historic stock material compostion 
             RECC_System.StockDict['S_7'].Values[0,:,:,Sector_tis_rge,:,:] = \
@@ -2586,6 +2597,8 @@ for mS in range(2,NS): #SSP2 only
             if 'tis' in SectorList:                
                 RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_tis_rge,:,:] = \
                     np.einsum('rKmc,cme->Kcrme',outflow_tis_rKmtc[:,:,:,t,0:CohortOffset],Par_Element_Composition_of_Materials_m[0:CohortOffset,:,:])/1000 # All elements; unit Mt
+            #plt.plot(np.arange(2015,2061,1),np.einsum('tcrKme->tK',RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,:]))
+            #plt.plot(np.arange(2015,2061,1),np.einsum('tcrKme->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,:]))
             # old version, using material compostion of stock as proxy for outflow - this does not represent IMAGE tis material outflows correctly! Do not use
             '''
             for t in tqdm(range(1,Nt), unit=' years'):  # 1: 2016
@@ -2608,7 +2621,6 @@ for mS in range(2,NS): #SSP2 only
             # RECC_System.FlowDict['F_8_0'].Values = MatContent * ObsStockFormation. Currently 0, already defined.
                         
             # 2) Consider re-use of materials in product groups (via components), as ReUseFactor(m,g,r,R,t) * RECC_System.FlowDict['F_7_8'].Values(t,c,r,g,m,e)
-            # TODO: #2026-01 add tis sector in case reuse considered for tis 
             # Distribute material for re-use onto product groups
             if 'pav' in SectorList:
                 ReUsePotential_Materials_t_m_Veh = np.einsum('mpr,pcrm->m',ReUseFactor_tmprS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_pav_rge,:,0]) # in Mt
@@ -2619,6 +2631,9 @@ for mS in range(2,NS): #SSP2 only
             if 'nrb' in SectorList:
                 ReUsePotential_Materials_t_m_NRB = np.einsum('mNr,Ncrm->m',ReUseFactor_tmNrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_nrb_rge,:,0]) # in Mt
                 ReUse_EoL_Pot_t_m_all[t,:]       += ReUsePotential_Materials_t_m_NRB
+            if 'tis' in SectorList: #2026-01 add tis reuse
+                ReUsePotential_Materials_t_m_Tis = np.einsum('mKr,Kcrm->m',ReUseFactor_tmKrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_tis_rge,:,0]) # in Mt
+                ReUse_EoL_Pot_t_m_all[t,:]       += ReUsePotential_Materials_t_m_Tis
             # in the future, re-use will be a region-to-region parameter depicting, e.g., the export of used vehicles from the EU to Africa.
             # check whether inflow is big enough for potential to be used, correct otherwise:
             for mmm in range(0,Nm):
@@ -2637,6 +2652,10 @@ for mS in range(2,NS): #SSP2 only
                     if RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_nrb_rge,mmm,0].sum() < ReUsePotential_Materials_t_m_NRB[mmm]: # if re-use potential is larger than new inflow:
                         if ReUsePotential_Materials_t_m_NRB[mmm] > 0:
                             ReUsePotential_Materials_t_m_NRB[mmm] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_nrb_rge,mmm,0].sum()
+                if 'tis' in SectorList: #2026-01 add tis reuse
+                    if RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,mmm,0].sum() < ReUsePotential_Materials_t_m_Tis[mmm]: # if re-use potential is larger than new inflow:
+                        if ReUsePotential_Materials_t_m_Tis[mmm] > 0:
+                            ReUsePotential_Materials_t_m_Tis[mmm] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,mmm,0].sum()
                 
             # Vehicles
             if 'pav' in SectorList:
@@ -2662,7 +2681,17 @@ for mS in range(2,NS): #SSP2 only
                 RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,Sector_nrb_rge,:,:] = \
                 np.einsum('cme,Ncrm->Ncrme', Par_Element_Composition_of_Materials_u[0:CohortOffset,:,:],\
                 np.einsum('m,Ncrm->Ncrm',ReUsePotential_Materials_t_m_NRB,MassShareNRB))  # All elements.
-            
+            if 'tis' in SectorList: #2026-01 add tis reuse
+                Divisor = np.einsum('m,crK->Kcrm', \
+                    np.einsum('Kcrm->m',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_tis_rge,:,0]), \
+                    np.ones((CohortOffset,Nr,NK)))
+                MassShareTis = np.divide(RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_tis_rge,:,0], \
+                    Divisor, out=np.zeros_like(Divisor), where=Divisor!=0) # index: Kcrm
+                # share of combination crg in total mass of m in outflow 7_8
+                RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,Sector_tis_rge,:,:] = \
+                np.einsum('cme,Kcrm->Kcrme', Par_Element_Composition_of_Materials_u[0:CohortOffset,:,:],\
+                np.einsum('m,Kcrm->Kcrm',ReUsePotential_Materials_t_m_Tis,MassShareTis))  # All elements.
+                    
             # reused material mapped to final consumption region and good, proportional to final consumption breakdown into products and regions.
             # can be replaced by region-by-region reuse parameter.             
             Divisor = np.einsum('m,rg->rgm',np.einsum('rgm->m',RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0]),np.ones((Nr,Ng)))
@@ -2894,6 +2923,7 @@ for mS in range(2,NS): #SSP2 only
                 Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_tis_rge,:,:]   = np.einsum('me,Kmr->Krme',Par_Element_Composition_of_Materials_c[t,:,:],Par_RECC_MC_Nr[CohortOffset,:,Sector_tis_rge,:,mS,mR,t])
                 RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:]   = \
                 np.einsum('Krme,Kr->Krme',Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_tis_rge,:,:],Inflow_Detail_UsePhase_K[t,:,:])/1000 # all elements, Indices='t,r,K,m,e'
+                #plt.plot(np.arange(2015,2061,1),np.einsum('trKme->tm',RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_tis_rge,:,:]))
                 # Material composition of tis stock based on 2015 stock MC + RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:] - actual tis material outflows
                 RECC_System.StockDict['S_7'].Values[t,:,:,Sector_tis_rge,:,:] = RECC_System.StockDict['S_7'].Values[t-1,:,:,Sector_tis_rge,:,:] # copy last year's stock; for t0 RECC_System.StockDict['S_7'] created above
                 RECC_System.StockDict['S_7'].Values[t,SwitchTime-1+t,:,Sector_tis_rge,:,:] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:] # add inflow as new age-cohort, now with all elements
@@ -2901,7 +2931,7 @@ for mS in range(2,NS): #SSP2 only
                 # old, do not use
                 #RECC_System.StockDict['S_7'].Values[t,0:CohortOffset+1,:,Sector_tis_rge,:,:] = \
                 #np.einsum('Kcrme,cKr->Kcrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset+1,:,Sector_tis_rge,:,:],Stock_Detail_UsePhase_K[t,0:CohortOffset+1,:,:])/1000 # All elements.
-            
+            #plt.plot(np.arange(2015,2061,1),np.einsum('tcrKme->tm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_tis_rge,:,:]))
                 
             RECC_System.FlowDict['F_6_7_Nl'].Values[t,:,:,:,:]   = \
             np.einsum('lIme,Il->lIme',Par_3_MC_Stock_ByElement_Nl[CohortOffset,:,:,:,:],Inflow_Detail_UsePhase_I[t,:,:])/1000 # all elements, Indices='t,l,I,m,e'                
