@@ -2081,25 +2081,26 @@ for mS in range(2,NS): #SSP2 only
             Mylog.info('Calculate inflows and outflows for use phase, industry.')
 
             # 1) Import stock and flows from ESM of choice
-            inflow_ESM = RECC_System.ParameterDict['1_F_RECC_FinalProducts_industry_Germany_REMod'].Values[:,:,:,:,:]   ### dimensions: rSRIc #1_F_RECC_FinalProducts_industry_Germany_REMod #standard file used: 1_F_RECC_FinalProducts_industry
+            inflow_ESM = RECC_System.ParameterDict['1_F_RECC_FinalProduct_Inflows_Industry_from_TIMES'].Values[:,:,:,:,:]   ### dimensions: rSRIc #1_F_RECC_FinalProducts_industry_Germany_REMod; #1_F_RECC_FinalProduct_Inflows_Industry_from_TIMES #standard file used: 1_F_RECC_FinalProducts_industry
             if inflow_ESM.shape[0] < len(Sector_ind_regions_indx):
                 Mylog.error('Number of regions selected in config exceeds the number of regions available in industry sector inflow file. Check 1F_RECC_FinalProducts_industry dimensions.')
                 raise Exception('Region index mismatch for industry sector inflow calculation.') 
-            outflow_ESM = RECC_System.ParameterDict['1_F_Outflow_RECC_FinalProducts_industry_Germany_REMod'].Values[:,:,:,:,:]  ### dimensions: rSRIt #pick file according to energy system model used #1_F_Outflow_RECC_FinalProducts_industry_Germany_REMod
-            stock_ESM = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Stock_Industry_Germany_REMod'].Values[:,:,:,:]  ### dimensions: rSRIt #pick file according to energy system model used
+            stock_ESM = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Stock_Industry_from_TIMES'].Values[:,:,:,:]  ### dimensions: rSRIt #pick file according to energy system model used #2_S_RECC_FinalProducts_Stock_Industry_from_TIMES; #2_S_RECC_FinalProducts_Stock_Industry_Germany_REMod
             
             #replicate age-cohort dimension for outflow and stock arrays
             outflow_ind_by_cohort = np.zeros((Nr,NS,NR,NI,Nt,Nc))
             outflow_based_on_balance = np.zeros((Nr,NS,NR,NI,Nt))
             stock_ind_by_cohort = np.zeros((Nr,NS,NR,NI,Nt,Nc))
             TotalStockCurves_UsePhase_I = np.zeros((Nt,NI,Nr))
-            sum_inflows_adjustments=0
-            
+            test_value = np.zeros((Nr,NS,NR,NI,Nc)) #for testing purposes only
+
             #determine stock by age-cohort based on inflows and stock data from ESM
             for r in range(0,Nr):
+                sum_inflows_adjustments_region = 0
                 for I in range(0,NI):
-                    lifetime = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_industry_REMod'].Values[I] #TODO, mg, 16.01.2026: to be adapted as lifetimes change over time at least for REMod
-                    for t in range(0,Nt): #t=45
+                    lifetime = int(RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_industry_REMod'].Values[I]) #TODO, mg, 16.01.2026: to be adapted as lifetimes change over time at least for REMod
+                    sum_inflows_adjustments_technology=0
+                    for t in range(0,Nt):
                         if t == 0:
                             outflow_based_on_balance[r,mS,mR,I,t] = 0 #change to determine also outflow in year 2015 by importing historic outflow data from 2014, if available?
                         else:
@@ -2108,26 +2109,46 @@ for mS in range(2,NS): #SSP2 only
                                 Mylog.info('Negative outflow detected {} in industry sector for region {}, technology {}, year {} based on stock balance calculation.\
                                             \nStock_ESM(t-1): {}, Inflow_ESM(t): {}, Stock_ESM(t): {}'.format(outflow_based_on_balance[r,mS,mR,I,t],r,I,t,stock_ESM[r,mS,mR,I,t-1]\
                                                                                                               ,inflow_ESM[r,mS,mR,I,SwitchTime-1+t], stock_ESM[r,mS,mR,I,t]))
+                                increase_inflow_technology = abs(outflow_based_on_balance[r,mS,mR,I,t])
                                 inflow_ESM[r,mS,mR,I,SwitchTime-1+t] += abs(outflow_based_on_balance[r,mS,mR,I,t])
-                                sum_inflows_adjustments += inflow_ESM[r,mS,mR,I,SwitchTime-1+t]
+                                sum_inflows_adjustments_technology += increase_inflow_technology
+                                sum_inflows_adjustments_region += increase_inflow_technology
                                 outflow_based_on_balance[r,mS,mR,I,t] = stock_ESM[r,mS,mR,I,t-1] + inflow_ESM[r,mS,mR,I,SwitchTime-1+t] - stock_ESM[r,mS,mR,I,t]
-                                Mylog.info('Negative outflow adjusted to {} in industry sector for region {}, technology {}, year {} by increasing inflows'.format(outflow_based_on_balance[r,mS,mR,I,t],r,I,t))
+                                Mylog.info('Negative outflow adjusted to {}GW in industry sector for region {}, technology {}, year {} by increasing inflows by {}GW'.format(outflow_based_on_balance[r,mS,mR,I,t],r,I,t,increase_inflow_technology))
                                 if outflow_based_on_balance[r,mS,mR,I,t] < 0:
                                     Mylog.error('Adjustment of negative outflows was unsuccessfull!')
+
+                            if t <= Nt - 1 - lifetime: #this if clause checks whether there are future outflows that have a corresponding inflow in year t # "t <= Nt-1-lifetime" ensure that we do not exceed year 2060/model year 45 (last year with available data)
+                                check_potential_future_outflow = stock_ESM[r,mS,mR,I,t-1+lifetime] + inflow_ESM[r,mS,mR,I,SwitchTime-1+t+lifetime] - stock_ESM[r,mS,mR,I,t+lifetime] #if (t - lifetime) >=0 else 0
+                                if check_potential_future_outflow > inflow_ESM[r,mS,mR,I,SwitchTime-1+t]: #wenn zukünftiger outflow (t+lifetime) größer ist als der inflow in jahr (t), dann muss entweder der inflow in jahr (t) erhöht werden oder dieser outflow einem historischem stock year zugeordent werden?
+                                    inflow_ESM[r,mS,mR,I,SwitchTime-1+t] = check_potential_future_outflow
+                                    outflow_based_on_balance[r,mS,mR,I,t] = stock_ESM[r,mS,mR,I,t-1] + inflow_ESM[r,mS,mR,I,SwitchTime-1+t] - stock_ESM[r,mS,mR,I,t-1]
+                                    if t >= lifetime+1 and outflow_based_on_balance[r,mS,mR,I,t] != inflow_ESM[r,mS,mR,I,SwitchTime-1+t-lifetime]:#t >= lifetime+1 ensures that adjustment for past flows only happens when one lifetime-peroid happened, otherwise comparison would be made with histroic inflows, which are zero
+                                        inflow_ESM[r,mS,mR,I,SwitchTime-1+t-lifetime] = outflow_based_on_balance[r,mS,mR,I,t]
+                                        outflow_based_on_balance[r,mS,mR,I,t-lifetime] = stock_ESM[r,mS,mR,I,t-1-lifetime] + inflow_ESM[r,mS,mR,I,SwitchTime-1+t-lifetime] - stock_ESM[r,mS,mR,I,t-lifetime]
+                                elif check_potential_future_outflow < inflow_ESM[r,mS,mR,I,SwitchTime-1+t]:
+                                    compute_diff = inflow_ESM[r,mS,mR,I,SwitchTime-1+t] - check_potential_future_outflow
+                                    inflow_ESM[r,mS,mR,I,SwitchTime-1+t+lifetime] += compute_diff #outflow in year t+lifetime will automatically be adjusted later when mass balance for year t+lifetime is checked (as at the very beginning of this code snippet). outflow_based_on_balance[r,mS,mR,I,t] = stock_ESM[r,mS,mR,I,t-1] + inflow_ESM[r,mS,mR,I,SwitchTime-1+t] - stock_ESM[r,mS,mR,I,t]
+                                    test_value[r,mS,mR,I,SwitchTime-1+t+lifetime] = inflow_ESM[r,mS,mR,I,SwitchTime-1+t+lifetime] + compute_diff                                       
                             if t == Nt-1:
-                                Mylog.info('Total inflows have been increased by {}GW'.format(sum_inflows_adjustments))
+                                Mylog.info('Total inflows have been increased by {}GW'.format(sum_inflows_adjustments_technology))
+                        #age-cohort assignment
                         age_cohort = int(SwitchTime - 1 + t - lifetime) #115+45-20=140
                         outflow_ind_by_cohort[r,mS,mR,I,t,age_cohort] = outflow_based_on_balance[r,mS,mR,I,t]
                         if age_cohort <= (SwitchTime -1):
                             startingtime = 0 #ensures that t only ranges from 0 (2015) to 46 (2060)
                         else: startingtime = int(age_cohort - (SwitchTime -1)) #25
                         stock_ind_by_cohort[r,mS,mR,I,startingtime:t,age_cohort]= outflow_based_on_balance[r,mS,mR,I,t] #historic stock through outflows til switchtime, then from switchtim on use inflows, substract outflows from
+                        
                         if t > Nt - 1 - lifetime: #then inflows have no corresponding outflows, thus from there on add up inflows #will this lead to excess stock( due to early retirements)
                            age_cohort = int(SwitchTime - 1 + t)
                            end_time = int(t + lifetime)
                            if end_time > Nt:
                                 end_time = Nt
-                           stock_ind_by_cohort[r,mS,mR,I,t:end_time,age_cohort] += inflow_ESM[r,mS,mR,I,SwitchTime-1+t] 
+                           stock_ind_by_cohort[r,mS,mR,I,t:end_time,age_cohort] += inflow_ESM[r,mS,mR,I,SwitchTime-1+t]
+                    
+                    if I == NI-1:
+                        Mylog.info('Total inflows (all technologies) in region {} have been increased by {}GW'.format(r,sum_inflows_adjustments_region))
             
             #stock balance comparison and ajustment #stock balance check only works if exact same level of technology detail is used in RECC and ESM and same lifetimes are being used
             stock_ind_by_cohort_sum = np.einsum('rSRItc->rSRIt', stock_ind_by_cohort)
@@ -2140,13 +2161,12 @@ for mS in range(2,NS): #SSP2 only
                         if stock_difference < -0.01:
                             Mylog.info('Cumulative stock exceeds ESM stock in industry sector for region {}, technology {}, year {}: {} GW'.format(r,I,t,abs(stock_difference)))
 
-            #erst 2015 historic stock bestimmen, aus outflow und lifetime wie bisher, dann 2) diesen 2015 stock als Startwert nehmen, + inflow - outflow --> 3) vergleichen mit stock vom ESM
-
+            #2) Assign stocks and flows by cohort to conatainers
             Stock_Detail_UsePhase_I[:,:,:,:]     = np.einsum('rItc->tcIr',stock_ind_by_cohort[:,mS,mR,:,:,:])
             Outflow_Detail_UsePhase_I[:,:,:,:]   = np.einsum('rItc->tcIr',outflow_ind_by_cohort[:,mS,mR,:,:,:])
-            Outflow_Detail_UsePhase_I[0,:,:,:]   = 0 # no flow calculation in first year
+            #Outflow_Detail_UsePhase_I[0,:,:,:]   = 0 # no flow calculation in first year
             Inflow_Detail_UsePhase_I[:,:,:]      = np.einsum('rIc->cIr',inflow_ESM[:,mS,mR,:,SwitchTime-1::])
-            Inflow_Detail_UsePhase_I[0,:,:]      = 0 # no flow calculation in first year
+            #Inflow_Detail_UsePhase_I[0,:,:]      = 0 # no flow calculation in first year
 
             TotalStockCurves_UsePhase_I[:,:,:] = Stock_Detail_UsePhase_I[:,:,:,:].sum(axis=1)
 
