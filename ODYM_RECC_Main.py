@@ -2092,7 +2092,6 @@ for mS in range(2,NS): #SSP2 only
             outflow_based_on_balance = np.zeros((Nr,NS,NR,NI,Nt))
             stock_ind_by_cohort = np.zeros((Nr,NS,NR,NI,Nt,Nc))
             TotalStockCurves_UsePhase_I = np.zeros((Nt,NI,Nr))
-            test_value = np.zeros((Nr,NS,NR,NI,Nc)) #for testing purposes only
 
             #determine stock by age-cohort based on inflows and stock data from ESM
             for r in range(0,Nr):
@@ -2102,7 +2101,7 @@ for mS in range(2,NS): #SSP2 only
                     sum_inflows_adjustments_technology=0
                     for t in range(0,Nt):
                         if t == 0:
-                            outflow_based_on_balance[r,mS,mR,I,t] = 0 #change to determine also outflow in year 2015 by importing historic outflow data from 2014, if available?
+                            outflow_based_on_balance[r,mS,mR,I,t] = 0
                         else:
                             outflow_based_on_balance[r,mS,mR,I,t] = stock_ESM[r,mS,mR,I,t-1] + inflow_ESM[r,mS,mR,I,SwitchTime-1+t] - stock_ESM[r,mS,mR,I,t]
                             if outflow_based_on_balance[r,mS,mR,I,t] < 0:
@@ -2129,15 +2128,14 @@ for mS in range(2,NS): #SSP2 only
                                 elif check_potential_future_outflow < inflow_ESM[r,mS,mR,I,SwitchTime-1+t]:
                                     compute_diff = inflow_ESM[r,mS,mR,I,SwitchTime-1+t] - check_potential_future_outflow
                                     inflow_ESM[r,mS,mR,I,SwitchTime-1+t+lifetime] += compute_diff #outflow in year t+lifetime will automatically be adjusted later when mass balance for year t+lifetime is checked (as at the very beginning of this code snippet). outflow_based_on_balance[r,mS,mR,I,t] = stock_ESM[r,mS,mR,I,t-1] + inflow_ESM[r,mS,mR,I,SwitchTime-1+t] - stock_ESM[r,mS,mR,I,t]
-                                    test_value[r,mS,mR,I,SwitchTime-1+t+lifetime] = inflow_ESM[r,mS,mR,I,SwitchTime-1+t+lifetime] + compute_diff                                       
                             if t == Nt-1:
                                 Mylog.info('Total inflows have been increased by {}GW'.format(sum_inflows_adjustments_technology))
-                        #age-cohort assignment
-                        age_cohort = int(SwitchTime - 1 + t - lifetime) #115+45-20=140
+                        
+                        age_cohort = int(SwitchTime - 1 + t - lifetime) 
                         outflow_ind_by_cohort[r,mS,mR,I,t,age_cohort] = outflow_based_on_balance[r,mS,mR,I,t]
                         if age_cohort <= (SwitchTime -1):
                             startingtime = 0 #ensures that t only ranges from 0 (2015) to 46 (2060)
-                        else: startingtime = int(age_cohort - (SwitchTime -1)) #25
+                        else: startingtime = int(age_cohort - (SwitchTime -1))
                         stock_ind_by_cohort[r,mS,mR,I,startingtime:t,age_cohort]= outflow_based_on_balance[r,mS,mR,I,t] #historic stock through outflows til switchtime, then from switchtim on use inflows, substract outflows from
                         
                         if t > Nt - 1 - lifetime: #then inflows have no corresponding outflows, thus from there on add up inflows #will this lead to excess stock( due to early retirements)
@@ -2146,10 +2144,14 @@ for mS in range(2,NS): #SSP2 only
                            if end_time > Nt:
                                 end_time = Nt
                            stock_ind_by_cohort[r,mS,mR,I,t:end_time,age_cohort] += inflow_ESM[r,mS,mR,I,SwitchTime-1+t]
-                    
+                    #assign 2015 stock to historic inflow if no outflow happened during model time (e.g., old hydropower plants which do not leave the stock altough they actually should due to lifetime < Nt)
+                    if np.all(outflow_ind_by_cohort[r,mS,mR,I,:,:].sum(axis=1) == 0):
+                        inflow_ESM[r,mS,mR,I,80] = stock_ESM[r,mS,mR,I,0] 
+                        stock_ind_by_cohort[r,mS,mR,I,:,80] += stock_ESM[r,mS,mR,I,0]
+                        #TODO 30/01/2026, mg: implement check if RECC stock equals ESM stock, especially the case where stock just gets decommissioned
                     if I == NI-1:
                         Mylog.info('Total inflows (all technologies) in region {} have been increased by {}GW'.format(r,sum_inflows_adjustments_region))
-            
+                                    
             #stock balance comparison and ajustment #stock balance check only works if exact same level of technology detail is used in RECC and ESM and same lifetimes are being used
             stock_ind_by_cohort_sum = np.einsum('rSRItc->rSRIt', stock_ind_by_cohort)
             for r in range(0,Nr):
@@ -2625,15 +2627,15 @@ for mS in range(2,NS): #SSP2 only
             
             # 3) calculate inflow waste mgt as EoL products - obsolete stock formation - re-use
             RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:]           = np.einsum('crgme->rgme',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,:,:,:]    - RECC_System.FlowDict['F_8_0'].Values[t,0:CohortOffset,:,:,:,:]    - RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,:,:,:])
-            if len(Sector_11reg_rge) > 0:
-                RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:]    = np.einsum('clLme->lLme',RECC_System.FlowDict['F_7_8_Nl'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_0_Nl'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_17_Nl'].Values[t,0:CohortOffset,:,:,:,:])
+            '''if len(Sector_11reg_rge) > 0:
+                RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:]    = np.einsum('clLme->lLme',RECC_System.FlowDict['F_7_8_Nl'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_0_Nl'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_17_Nl'].Values[t,0:CohortOffset,:,:,:,:])'''
             if len(Sector_1reg_rge) > 0:
                 RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:]    = np.einsum('coOme->oOme',RECC_System.FlowDict['F_7_8_No'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_0_No'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_17_No'].Values[t,0:CohortOffset,:,:,:,:])
             
             # 4) EoL products to postconsumer scrap: trwe. Add Waste mgt. losses.
             RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]            = np.einsum('rmgw,rgme->rwe',Par_RECC_EoL_RR[t,:,:,:,:],RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:])    
-            if len(Sector_11reg_rge) > 0:                    
-                RECC_System.FlowDict['F_9_10_Nl'].Values[t,:,:,:]     = np.einsum('lmLw,lLme->lwe',Par_RECC_EoL_RR_Nl[t,:,:,:,:],RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:])    
+            '''if len(Sector_11reg_rge) > 0:                    
+                RECC_System.FlowDict['F_9_10_Nl'].Values[t,:,:,:]     = np.einsum('lmLw,lLme->lwe',Par_RECC_EoL_RR_Nl[t,:,:,:,:],RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:])    '''
             if len(Sector_1reg_rge) > 0:            
                 RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:]     = np.einsum('omOw,oOme->owe',Par_RECC_EoL_RR_No[t,:,:,:,:],RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:])    
             # 2025-07 for CIRCOMOD reporting: Material Losses - EoL recovery losses
@@ -2641,8 +2643,8 @@ for mS in range(2,NS): #SSP2 only
             
             # 5) Add re-use flow to inflow and calculate manufacturing output as final consumption - re-use, in Mt/yr, all elements, trgme, element composition not yet known.
             RECC_System.FlowDict['F_5_6'].Values[t,0,:,:,0]                   = np.einsum('rgm->gm',RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0])    - np.einsum('crgm->gm',RECC_System.FlowDict['F_17_6'].Values[t,:,:,:,:,0])     # global total
-            if len(Sector_11reg_rge) > 0:            
-                RECC_System.FlowDict['F_5_6'].Values[t,0,Sector_11reg_rge,:,0]    = np.einsum('lLm->Lm',RECC_System.FlowDict['F_6_7_Nl'].Values[t,:,:,:,0]) - np.einsum('clLm->Lm',RECC_System.FlowDict['F_17_6_Nl'].Values[t,:,:,:,:,0])  # global total
+            '''if len(Sector_11reg_rge) > 0:            
+                RECC_System.FlowDict['F_5_6'].Values[t,0,Sector_11reg_rge,:,0]    = np.einsum('lLm->Lm',RECC_System.FlowDict['F_6_7_Nl'].Values[t,:,:,:,0]) - np.einsum('clLm->Lm',RECC_System.FlowDict['F_17_6_Nl'].Values[t,:,:,:,:,0])  # global total'''
             if len(Sector_1reg_rge) > 0:            
                 RECC_System.FlowDict['F_5_6'].Values[t,0,Sector_1reg_rge,:,0]     = np.einsum('oOm->Om',RECC_System.FlowDict['F_6_7_No'].Values[t,:,:,:,0]) - np.einsum('coOm->Om',RECC_System.FlowDict['F_17_6_No'].Values[t,:,:,:,:,0])  # global total
             Manufacturing_Output[t,:,:,mS,mR]                                 = RECC_System.FlowDict['F_5_6'].Values[t,0,:,:,0].copy()
