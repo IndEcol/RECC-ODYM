@@ -2700,37 +2700,42 @@ for mS in range(2,NS): #SSP2 only
             '''
         """
 
-                
-        # 1_Nl_No) Inflow, outflow and stock first year for Nl and No regional aggregation and Sector I and a
-        RECC_System.FlowDict['F_6_7_Nl'].Values[0,:,Sector_ind_rge_reg,:,:]   = \
-        np.einsum('Ilme,Il ->Ilme',Par_3_MC_Stock_ByElement_Nl[SwitchTime-1,:,Sector_ind_rge_reg,:,:],Inflow_Detail_UsePhase_I[0,:,:])/1000 # all elements, Indices='t,l,I,m,e'  
-        RECC_System.FlowDict['F_6_7_No'].Values[0,:,Sector_app_rge_reg,:,:]   = \
-        np.einsum('aome,ao->aome',Par_3_MC_Stock_ByElement_No[SwitchTime-1,:,Sector_app_rge_reg,:,:],Inflow_Detail_UsePhase_a[0,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'  
+        if 'ind' in SectorList:        
+            # 1_Nl_No) Inflow, outflow and stock first year for Nl and No regional aggregation and Sector I and a
+            RECC_System.FlowDict['F_6_7_Nl'].Values[0,:,Sector_ind_rge_reg,:,:]   = \
+            np.einsum('Ilme,Il ->Ilme',Par_3_MC_Stock_ByElement_Nl[SwitchTime-1,:,Sector_ind_rge_reg,:,:],Inflow_Detail_UsePhase_I[0,:,:])/1000 # all elements, Indices='t,l,I,m,e'  
+        if 'app' in SectorList:
+            RECC_System.FlowDict['F_6_7_No'].Values[0,:,Sector_app_rge_reg,:,:]   = \
+            np.einsum('aome,ao->aome',Par_3_MC_Stock_ByElement_No[SwitchTime-1,:,Sector_app_rge_reg,:,:],Inflow_Detail_UsePhase_a[0,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'  
         if 'nrbg' in SectorList:
             RECC_System.FlowDict['F_6_7_No'].Values[0,:,Sector_nrbg_rge_reg,:,:]   = \
             np.einsum('Nome,No->Nome',Par_3_MC_Stock_ByElement_No[SwitchTime-1,:,Sector_nrbg_rge_reg,:,:],Inflow_Detail_UsePhase_Ng[0,:,:])/1000 # all elements, Indices='t,o,N,m,e'  
-    
-        RECC_System.FlowDict['F_7_8_Nl'].Values[0,0:SwitchTime,:,Sector_ind_rge_reg,:,:] = \
-        np.einsum('clIme,cpl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:SwitchTime,:,Sector_ind_rge_reg,:,:],Outflow_Detail_UsePhase_I[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,l,I,m,e'
-        RECC_System.FlowDict['F_7_8_No'].Values[0,0:SwitchTime,:,Sector_app_rge_reg,:,:] = \
-        np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:SwitchTime,:,Sector_app_rge_reg,:,:],Outflow_Detail_UsePhase_a[0,0:SwitchTime,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'
+        if 'ind' in SectorList: 
+            RECC_System.FlowDict['F_7_8_Nl'].Values[0,0:SwitchTime,:,Sector_ind_rge_reg,:,:] = \
+            np.einsum('clIme,cpl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:SwitchTime,:,Sector_ind_rge_reg,:,:],Outflow_Detail_UsePhase_I[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,l,I,m,e'
+        if 'app' in SectorList: 
+            RECC_System.FlowDict['F_7_8_No'].Values[0,0:SwitchTime,:,Sector_app_rge_reg,:,:] = \
+            np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:SwitchTime,:,Sector_app_rge_reg,:,:],Outflow_Detail_UsePhase_a[0,0:SwitchTime,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'
         if 'nrbg' in SectorList:
             RECC_System.FlowDict['F_7_8_No'].Values[0,0:SwitchTime,:,Sector_nrbg_rge_reg,:,:] = \
             np.einsum('coNme,cNo->Ncome',Par_3_MC_Stock_ByElement_No[0:SwitchTime,:,Sector_nrbg_rge_reg,:,:],Outflow_Detail_UsePhase_Ng[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,o,N,m,e'
-    
-        RECC_System.StockDict['S_7_Nl'].Values[0,0:SwitchTime,:,Sector_ind_rge_reg,:,:] = \
-        np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:SwitchTime,:,Sector_ind_rge_reg,:,:],Stock_Detail_UsePhase_I[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,l,p,m,e'
-        RECC_System.StockDict['S_7_No'].Values[0,0:SwitchTime,:,Sector_app_rge_reg,:,:] = \
-        np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:SwitchTime,:,Sector_app_rge_reg,:,:],Stock_Detail_UsePhase_a[0,0:SwitchTime,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'
+        if 'ind' in SectorList: 
+            RECC_System.StockDict['S_7_Nl'].Values[0,0:SwitchTime,:,Sector_ind_rge_reg,:,:] = \
+            np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:SwitchTime,:,Sector_ind_rge_reg,:,:],Stock_Detail_UsePhase_I[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,l,p,m,e'
+        if 'app' in SectorList: 
+            RECC_System.StockDict['S_7_No'].Values[0,0:SwitchTime,:,Sector_app_rge_reg,:,:] = \
+            np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:SwitchTime,:,Sector_app_rge_reg,:,:],Stock_Detail_UsePhase_a[0,0:SwitchTime,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'
         if 'nrbg' in SectorList:
             RECC_System.StockDict['S_7_No'].Values[0,0:SwitchTime,:,Sector_nrbg_rge_reg,:,:] = \
             np.einsum('coNme,cNo->Ncome',Par_3_MC_Stock_ByElement_No[0:SwitchTime,:,Sector_nrbg_rge_reg,:,:],Stock_Detail_UsePhase_Ng[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,o,N,m,e'
 
         # 2) Inflow, future years, all elements only
-        RECC_System.FlowDict['F_6_7_Nl'].Values[1::,:,Sector_ind_rge_reg,:,0]   = \
-        np.einsum('Itlm,tIl->Itlm',Par_3_MC_Stock_ByElement_Nl[SwitchTime::,:,Sector_ind_rge_reg,:,0],Inflow_Detail_UsePhase_I[1::,:,:])/1000 # all elements, Indices='t,l,I,m'  
-        RECC_System.FlowDict['F_6_7_No'].Values[1::,:,Sector_app_rge_reg,:,0]   = \
-        np.einsum('atom,tao->atom',Par_3_MC_Stock_ByElement_No[SwitchTime::,:,Sector_app_rge_reg,:,0],Inflow_Detail_UsePhase_a[1::,:,:])/1000000000000 # all elements, Indices='t,o,a,m'  
+        if 'ind' in SectorList: 
+            RECC_System.FlowDict['F_6_7_Nl'].Values[1::,:,Sector_ind_rge_reg,:,0]   = \
+            np.einsum('Itlm,tIl->Itlm',Par_3_MC_Stock_ByElement_Nl[SwitchTime::,:,Sector_ind_rge_reg,:,0],Inflow_Detail_UsePhase_I[1::,:,:])/1000 # all elements, Indices='t,l,I,m'  
+        if 'app' in SectorList: 
+            RECC_System.FlowDict['F_6_7_No'].Values[1::,:,Sector_app_rge_reg,:,0]   = \
+            np.einsum('atom,tao->atom',Par_3_MC_Stock_ByElement_No[SwitchTime::,:,Sector_app_rge_reg,:,0],Inflow_Detail_UsePhase_a[1::,:,:])/1000000000000 # all elements, Indices='t,o,a,m'  
         if 'nrbg' in SectorList:
             RECC_System.FlowDict['F_6_7_No'].Values[1::,:,Sector_nrbg_rge_reg,:,0]   = \
             np.einsum('Ntom,tNo->Ntom',Par_3_MC_Stock_ByElement_No[SwitchTime::,:,Sector_nrbg_rge_reg,:,0],Inflow_Detail_UsePhase_Ng[1::,:,:])/1000 # all elements, Indices='t,o,N,m'              
@@ -2790,10 +2795,12 @@ for mS in range(2,NS): #SSP2 only
 
 
             # 1_Nl_No)
-            RECC_System.FlowDict['F_7_8_Nl'].Values[t,0:CohortOffset,:,Sector_ind_rge_reg,:,:] = \
-            np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:CohortOffset,:,Sector_ind_rge_reg,:,:],Outflow_Detail_UsePhase_I[t,0:CohortOffset,:,:])/1000 # All elements.
-            RECC_System.FlowDict['F_7_8_No'].Values[t,0:CohortOffset,:,Sector_app_rge_reg,:,:] = \
-            np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:CohortOffset,:,Sector_app_rge_reg,:,:],Outflow_Detail_UsePhase_a[t,0:CohortOffset,:,:])/1000000000000 # All elements.
+            if 'ind' in SectorList: 
+                RECC_System.FlowDict['F_7_8_Nl'].Values[t,0:CohortOffset,:,Sector_ind_rge_reg,:,:] = \
+                np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:CohortOffset,:,Sector_ind_rge_reg,:,:],Outflow_Detail_UsePhase_I[t,0:CohortOffset,:,:])/1000 # All elements.
+            if 'app' in SectorList:
+                RECC_System.FlowDict['F_7_8_No'].Values[t,0:CohortOffset,:,Sector_app_rge_reg,:,:] = \
+                np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:CohortOffset,:,Sector_app_rge_reg,:,:],Outflow_Detail_UsePhase_a[t,0:CohortOffset,:,:])/1000000000000 # All elements.
             if 'nrbg' in SectorList:
                 RECC_System.FlowDict['F_7_8_No'].Values[t,0:CohortOffset,:,Sector_nrbg_rge_reg,:,:] = \
                 np.einsum('coNme,cNo->Ncome',Par_3_MC_Stock_ByElement_No[0:CohortOffset,:,Sector_nrbg_rge_reg,:,:],Outflow_Detail_UsePhase_Ng[t,0:CohortOffset,:,:])/1000 # All elements.
@@ -3159,19 +3166,23 @@ for mS in range(2,NS): #SSP2 only
                 #np.einsum('Kcrme,cKr->Kcrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset+1,:,Sector_tis_rge,:,:],Stock_Detail_UsePhase_K[t,0:CohortOffset+1,:,:])/1000 # All elements.
             #plt.plot(np.arange(2015,2061,1),np.einsum('tcrKme->tm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_tis_rge,:,:]))
             """    
-            RECC_System.FlowDict['F_6_7_Nl'].Values[t,:,:,:,:]   = \
-            np.einsum('lIme,Il->lIme',Par_3_MC_Stock_ByElement_Nl[CohortOffset,:,:,:,:],Inflow_Detail_UsePhase_I[t,:,:])/1000 # all elements, Indices='t,l,I,m,e'                
-            RECC_System.FlowDict['F_6_7_No'].Values[t,:,Sector_app_rge_reg,:,:]   = \
-            np.einsum('aome,ao->aome',Par_3_MC_Stock_ByElement_No[CohortOffset,:,Sector_app_rge_reg,:,:], Inflow_Detail_UsePhase_a[t,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'                
+            
+            if 'ind' in SectorList:
+                RECC_System.FlowDict['F_6_7_Nl'].Values[t,:,:,:,:]   = \
+                np.einsum('lIme,Il->lIme',Par_3_MC_Stock_ByElement_Nl[CohortOffset,:,:,:,:],Inflow_Detail_UsePhase_I[t,:,:])/1000 # all elements, Indices='t,l,I,m,e'                
+            if 'app' in SectorList:
+                RECC_System.FlowDict['F_6_7_No'].Values[t,:,Sector_app_rge_reg,:,:]   = \
+                np.einsum('aome,ao->aome',Par_3_MC_Stock_ByElement_No[CohortOffset,:,Sector_app_rge_reg,:,:], Inflow_Detail_UsePhase_a[t,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'                
             
             if 'nrbg' in SectorList: # results for global region o are on position 0 of r index.
                 RECC_System.FlowDict['F_6_7_No'].Values[t,:,Sector_nrbg_rge_reg,:,:]   = \
                 np.einsum('Nome,No->Nome',Par_3_MC_Stock_ByElement_No[CohortOffset,:,Sector_nrbg_rge_reg,:,:],Inflow_Detail_UsePhase_Ng[t,:,:])/1000 # all elements, Indices='t,o,N,m,e'                
-                
-            RECC_System.StockDict['S_7_Nl'].Values[t,0:CohortOffset +1,:,Sector_ind_rge_reg,:,:] = \
-            np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:CohortOffset +1,:,Sector_ind_rge_reg,:,:],Stock_Detail_UsePhase_I[t,0:CohortOffset +1,:,:])/1000 # All elements. In Mt
-            RECC_System.StockDict['S_7_No'].Values[t,0:CohortOffset +1,:,Sector_app_rge_reg,:,:] = \
-            np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:CohortOffset +1,:,Sector_app_rge_reg,:,:],Stock_Detail_UsePhase_a[t,0:CohortOffset +1,:,:])/1000000000000 # All elements.In Mt
+            if 'ind' in SectorList:    
+                RECC_System.StockDict['S_7_Nl'].Values[t,0:CohortOffset +1,:,Sector_ind_rge_reg,:,:] = \
+                np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:CohortOffset +1,:,Sector_ind_rge_reg,:,:],Stock_Detail_UsePhase_I[t,0:CohortOffset +1,:,:])/1000 # All elements. In Mt
+            if 'app' in SectorList:
+                RECC_System.StockDict['S_7_No'].Values[t,0:CohortOffset +1,:,Sector_app_rge_reg,:,:] = \
+                np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:CohortOffset +1,:,Sector_app_rge_reg,:,:],Stock_Detail_UsePhase_a[t,0:CohortOffset +1,:,:])/1000000000000 # All elements.In Mt
             if 'nrbg' in SectorList: # results for global region o are on position 0 of r index.
                 RECC_System.StockDict['S_7_No'].Values[t,0:CohortOffset +1,:,Sector_nrbg_rge_reg,:,:] = \
                 np.einsum('coNme,cNo->Ncome',Par_3_MC_Stock_ByElement_No[0:CohortOffset +1,:,Sector_nrbg_rge_reg,:,:],Stock_Detail_UsePhase_Ng[t,0:CohortOffset +1,:,:])/1000 # All elements.In Mt
