@@ -89,10 +89,7 @@ and apply to sum of primary and secondary material production
             
 2026-02-11, ch: merge RECC-CE_v0.0_PowerSector into RECC-CE_v0.0:
     Industry sector now for region r
-    Import of energy system model results for product stock and flows (with age-cohorts asigned in pre-processing)                       
-        
-    
-  
+    Import of energy system model results for product stock and flows (with age-cohorts asigned in pre-processing)  
 """
 
 
@@ -162,7 +159,7 @@ import odym.classes as msc # import the ODYM class file
 import odym.functions as msf  # import the ODYM function file
 #importlib.reload(msf)
 import odym.dynamic_stock_model as dsm # import the dynamic stock model library
-
+'''
 
 Name_Script        = Model_Configsheet.cell(6,4).value
 if Name_Script != 'ODYM_RECC_Main':  # Name of this script must equal the specified name in the Excel config file
@@ -3959,8 +3956,7 @@ but partially outside of RECC_System.')
         if 'tis' in SectorList: #2026-01-27 add tis F_7_8
             Outflow_Materials_Usephase_all[:,:,mS,mR] = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy()\
                 + np.einsum('trKm->tm',tis_RECC_System_Flow_F_7_8_trKme[:,:,:,:,0]).copy()\
-                + np.einsum('tcoOm->tm', RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy()
-                '''+ np.einsum('tclLm->tm', RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy() \''''
+                + np.einsum('tcoOm->tm', RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy()  # + np.einsum('tclLm->tm', RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy()
         else:
             Outflow_Materials_Usephase_all[:,:,mS,mR] = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() \
                 + np.einsum('tclLm->tm', RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy() \
