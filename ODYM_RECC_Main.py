@@ -3948,7 +3948,8 @@ but partially outside of RECC_System.')
         '''if 'ind' in SectorList:
             # 2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
             EoL_Products_for_WasteMgt[:,Sector_11reg_rge,mS,mR]        = np.einsum('tlLm->tL',RECC_System.FlowDict['F_8_9_Nl'].Values[:,:,:,:,0]).copy() - np.einsum('tlL->tL',RECC_System.FlowDict['F_8_9_Nl'].Values[:,:,:,Concrete_loc,0]).copy()
-            Outflow_Products_Usephase_all[:,Sector_11reg_rge,mS,mR]    = np.einsum('tclLm->tL',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy()''' - np.einsum('tclL->tL', RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,Concrete_loc,0]).copy()
+            Outflow_Products_Usephase_all[:,Sector_11reg_rge,mS,mR]    = np.einsum('tclLm->tL',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy() - np.einsum('tclL->tL', RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,Concrete_loc,0]).copy()
+        '''
         if 'app' in SectorList or 'nrbg' in SectorList:
             # 2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
             EoL_Products_for_WasteMgt[:,Sector_1reg_rge,mS,mR]         = np.einsum('toOm->tO',RECC_System.FlowDict['F_8_9_No'].Values[:,:,:,:,0]).copy() - np.einsum('toO->tO',RECC_System.FlowDict['F_8_9_No'].Values[:,:,:,Concrete_loc,0]).copy()
