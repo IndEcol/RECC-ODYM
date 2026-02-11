@@ -2078,6 +2078,7 @@ for mS in range(2,NS): #SSP2 only
             
         # Sector: Industry, SSP_32 regions
         if 'ind' in SectorList:
+            
             Mylog.info('Calculate inflows and outflows for use phase, industry.')
 
             # 1) Import stock and flows from ESM of choice
@@ -2092,7 +2093,7 @@ for mS in range(2,NS): #SSP2 only
             outflow_based_on_balance = np.zeros((Nr,NS,NR,NI,Nt))
             stock_ind_by_cohort = np.zeros((Nr,NS,NR,NI,Nt,Nc))
             TotalStockCurves_UsePhase_I = np.zeros((Nt,NI,Nr))
-
+           
             #determine stock by age-cohort based on inflows and stock data from ESM
             for r in range(0,Nr):
                 sum_inflows_adjustments_region = 0
@@ -2100,8 +2101,9 @@ for mS in range(2,NS): #SSP2 only
                     lifetime = int(RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_industry_REMod'].Values[I]) #TODO, mg, 16.01.2026: to be adapted as lifetimes change over time at least for REMod
                     sum_inflows_adjustments_technology=0
                     for t in range(0,Nt):
-                        if t == 0:
+                        if t == 0: #no flow calculations in 2015
                             outflow_based_on_balance[r,mS,mR,I,t] = 0
+                            inflow_ESM[r,mS,mR,I,SwitchTime-1] = 0
                         else:
                             outflow_based_on_balance[r,mS,mR,I,t] = stock_ESM[r,mS,mR,I,t-1] + inflow_ESM[r,mS,mR,I,SwitchTime-1+t] - stock_ESM[r,mS,mR,I,t]
                             if outflow_based_on_balance[r,mS,mR,I,t] < 0:
@@ -2119,7 +2121,7 @@ for mS in range(2,NS): #SSP2 only
 
                             if t <= Nt - 1 - lifetime: #this if clause checks whether there are future outflows that have a corresponding inflow in year t # "t <= Nt-1-lifetime" ensure that we do not exceed year 2060/model year 45 (last year with available data)
                                 check_potential_future_outflow = stock_ESM[r,mS,mR,I,t-1+lifetime] + inflow_ESM[r,mS,mR,I,SwitchTime-1+t+lifetime] - stock_ESM[r,mS,mR,I,t+lifetime] #if (t - lifetime) >=0 else 0
-                                if check_potential_future_outflow > inflow_ESM[r,mS,mR,I,SwitchTime-1+t]: #TODO, 31.01.26 mg: change comparison to "">="? #wenn zukünftiger outflow (t+lifetime) größer ist als der inflow in jahr (t), dann muss entweder der inflow in jahr (t) erhöht werden oder dieser outflow einem historischem stock year zugeordent werden?
+                                if check_potential_future_outflow > inflow_ESM[r,mS,mR,I,SwitchTime-1+t]: #TODO 05.02.26, mg: implement such that for it also works for very small lifetimes (e.g., check all future outflows along this fixed lifetime chain and their respective flows in (Nt/lifetime)*lifetime) TODO, 31.01.26 mg: change comparison to "">="? #wenn zukünftiger outflow (t+lifetime) größer ist als der inflow in jahr (t), dann muss entweder der inflow in jahr (t) erhöht werden oder dieser outflow einem historischem stock year zugeordent werden?
                                     inflow_ESM[r,mS,mR,I,SwitchTime-1+t] = check_potential_future_outflow
                                     outflow_based_on_balance[r,mS,mR,I,t] = stock_ESM[r,mS,mR,I,t-1] + inflow_ESM[r,mS,mR,I,SwitchTime-1+t] - stock_ESM[r,mS,mR,I,t-1]
                                     if t >= lifetime+1 and outflow_based_on_balance[r,mS,mR,I,t] != inflow_ESM[r,mS,mR,I,SwitchTime-1+t-lifetime]:#t >= lifetime+1 ensures that adjustment for past flows only happens when one lifetime-peroid happened, otherwise comparison would be made with histroic inflows, which are zero
@@ -2131,7 +2133,7 @@ for mS in range(2,NS): #SSP2 only
                             if t == Nt-1:
                                 Mylog.info('Total inflows have been increased by {}GW'.format(sum_inflows_adjustments_technology))
                         
-                        age_cohort = int(SwitchTime - 1 + t - lifetime) 
+                        age_cohort = int(SwitchTime - 1 + t - lifetime)
                         outflow_ind_by_cohort[r,mS,mR,I,t,age_cohort] = outflow_based_on_balance[r,mS,mR,I,t]
                         if age_cohort <= (SwitchTime -1):
                             startingtime = 0 #ensures that t only ranges from 0 (2015) to 46 (2060)
@@ -2144,6 +2146,7 @@ for mS in range(2,NS): #SSP2 only
                            if end_time > Nt:
                                 end_time = Nt
                            stock_ind_by_cohort[r,mS,mR,I,t:end_time,age_cohort] += inflow_ESM[r,mS,mR,I,SwitchTime-1+t]
+
                     #assign 2015 stock to historic inflow if no outflow happened during model time (e.g., old hydropower plants which do not leave the stock altough they actually should due to lifetime < Nt)
                     if np.all(outflow_ind_by_cohort[r,mS,mR,I,:,:].sum(axis=1) == 0):
                         inflow_ESM[r,mS,mR,I,80] = stock_ESM[r,mS,mR,I,0] 
@@ -2166,9 +2169,7 @@ for mS in range(2,NS): #SSP2 only
             #2) Assign stocks and flows by cohort to conatainers
             Stock_Detail_UsePhase_I[:,:,:,:]     = np.einsum('rItc->tcIr',stock_ind_by_cohort[:,mS,mR,:,:,:])
             Outflow_Detail_UsePhase_I[:,:,:,:]   = np.einsum('rItc->tcIr',outflow_ind_by_cohort[:,mS,mR,:,:,:])
-            #Outflow_Detail_UsePhase_I[0,:,:,:]   = 0 # no flow calculation in first year
-            Inflow_Detail_UsePhase_I[:,:,:]      = np.einsum('rIc->cIr',inflow_ESM[:,mS,mR,:,SwitchTime-1::])
-            Inflow_Detail_UsePhase_I[0,:,:]      = 0 # no flow calculation in first year
+            Inflow_Detail_UsePhase_I[:,:,:]      = np.einsum('rIc->cIr',inflow_ESM[:,mS,mR,:,SwitchTime-1::]) 
 
             TotalStockCurves_UsePhase_I[:,:,:] = Stock_Detail_UsePhase_I[:,:,:,:].sum(axis=1)
 
@@ -4241,7 +4242,7 @@ pd_res.to_excel(pd_xlsx_writer, sheet_name="EF_Residuals")
 #     index = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items)
 #pd_ecc.to_excel(pd_xlsx_writer, sheet_name="en_carr_contrib_electr") 
 
-''' 2025-07, exclude plots for testing purposes
+'''#2025-07, exclude plots for testing purposes
 ##############################
 # PLOT
 MyColorCycle = pylab.cm.Paired(np.arange(0,1,0.2))
@@ -4622,8 +4623,8 @@ for m in range(2,NS): # only SSP2
         # comment out to save disk space in archive:
         fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
         Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-        Figurecounter += 1
-'''    
+        Figurecounter += 1'''
+    
 
 ### 5.2) Export to Excel
 Mylog.info('### 5.2 - Export to Excel')
