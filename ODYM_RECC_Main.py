@@ -686,7 +686,8 @@ if 'pav' in SectorList: #20260201: add patch-1 by huimei-li
                     ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,nnr,:,nnS] = np.einsum('s,t->st',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,nnr,0,nnS],np.ones((Nt)))
     else: # no lightweighting trough UsingLessMaterialByDesign.
         # for regions not selected above (high-income regions): Set downsizing to 2016 levels.
-        ParameterDict['3_SHA_DownSizing_Vehicles'].Values = np.einsum('srS,t->srtS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,:,0,:],np.ones((Nt)))
+        #ParameterDict['3_SHA_DownSizing_Vehicles'].Values = np.einsum('srS,t->srtS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,:,0,:],np.ones((Nt)))
+        ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,:,6:,:] = ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,:,5:6,:] #2026-02-14, hmli, circomod: With downsizing turned off, all values after 2021 (t >= 6) are set to the values of 2020 (t=5).
         for nnr in range(0,Nr):
             for nnS in range(0,NS):
                 if ParameterDict['8_FLAG_VehicleDownsizingDirection'].Values[nnr,nnS] == 1:
