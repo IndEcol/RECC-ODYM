@@ -1265,6 +1265,7 @@ dynGWP_WoodCycle                     = np.zeros((NS,NR)) # dynGWP100 of wood use
 
 Material_Inflow                  = np.zeros((Nt,Ng,Nm,NS,NR))
 Scrap_Outflow                    = np.zeros((Nt,Nw,NS,NR))
+Collected_Scrap_F_9_10_trgmwSR   = np.zeros((Nt,Nr,Ng,Nm,Nw,NS,NR)) #2026-02-19
 PrimaryProduction                = np.zeros((Nt,Nm,NS,NR))
 SecondaryProduct                 = np.zeros((Nt,Nm,NS,NR))
 SecondaryExport                  = np.zeros((Nt,Nm,NS,NR))
@@ -2376,108 +2377,6 @@ for mS in range(2,NS): #SSP2 only
             StockCurves_Prod_pr[:,:,Sector_tis_rge,mS,mR]   = np.einsum('tKrm->trK',Stock_Detail_UsePhase_K_tKrm).copy() # 2025-01-20, ch CIRCOMOD reporting
         
 
-        """#2026-01-27
-        #2026-01
-        # Sector: transport infrastructure from IMAGE-Materials (tis); import product/material stocks and flows directly from processed IMAGE-Materials results
-        # Annual in- and outflows, and stocks available for 1980-2060; no age-cohort information of outflows available (use generic lifetime from 3_LT_RECC_ProductLifetime_IMAGE_TranspInf)
-        if 'tis' in SectorList:
-            Mylog.info('Import inflows, outflows and stocks for use phase, transport infrastructure IMAGE-Materials.')
-            
-            # import inflows; unit kt
-            inflow_tis_rKc = RECC_System.ParameterDict['1_F_RECC_FinalProducts_IMAGE_TranspInf'].Values[:,mS,mR,:,:]   ### dimensions: rSRKc 
-            # import outflows; unit kt
-            #outflow_tis_rSRKt = RECC_System.ParameterDict['1_F_Outflow_RECC_FinalProducts_IMAGE_TranspInf'].Values[:,:,:,:,:]  ### dimensions: rSRKt 
-            outflow_tis_rKmt = RECC_System.ParameterDict['1_F_Outflow_RECC_FinalProducts_IMAGE_TranspInf'].Values[:,mS,mR,:,:,:]  ### dimensions: rSRKmt 
-            # import historic stock at end of 2015 by age-cohort; unit kt
-            TotalStock_UsePhase_Hist_cKr = RECC_System.ParameterDict['2_S_RECC_FinalProducts_2015_IMAGE_TranspInf'].Values[0,:,:,:] ### dimensions: cKr (time t not needed, is 2015)
-
-            # add generic age-cohort information based on fixed lifetime assumption to outflows
-            outflow_tis_rKmtc = np.zeros((Nr,NK,Nm,Nt,Nc))
-            for r in range(0,Nr):
-                for K in range(0,NK):
-                    LT_K = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_IMAGE_TranspInf'].Values[K]
-                    #for t in range (0,Nt):
-                    for t in range (1,Nt): # for year t = 0 (2015) use historic stock later; set outflow here to zero
-                        if np.einsum('m->',outflow_tis_rKmt[r,K,:,t]) > 0:
-                            age_cohort = int(SwitchTime - 1 + t - LT_K) #determines the age-cohort of the outflowing stock in year t (SwitchTime-1 = 2015; t=year in which outflow occcurs; lifetime=fixed --> such that it can be used to determine age-cohort)
-                            outflow_tis_rKmtc[r,K,:,t,age_cohort]= outflow_tis_rKmt[r,K,:,t]
-            # and calculate stock change 
-            dS_rKtc = np.zeros((Nr,NK,Nt,Nc)) # stock change dS
-            #for t in range (0,Nt):
-            for t in range (1,Nt):    # for year t = 0 (2015) use historic stock, no in/outflow/dS yet
-                dS_rKtc[:,:,t,SwitchTime-1+t] = inflow_tis_rKc[:,:,SwitchTime-1+t] # add inflows for year 2016-2060
-            dS_rKtc[:,:,1::,:] -= np.einsum('rKmtc->rKtc',outflow_tis_rKmtc[:,:,:,1::,:])    # subtract 2016-2060 outflows; ConcrAgg and Cement = 0 here
-            #plt.plot(np.arange(2015,2061,1),np.einsum('rKtc->tK',dS_rKtc))
-            
-            # add initial stock
-            Stock_Detail_UsePhase_K[0,:,:,:]     = TotalStock_UsePhase_Hist_cKr.copy() 
-            # calculate future stock by forwarding last year's stock and adding stock change
-            for t in range (1,Nt):
-                Stock_Detail_UsePhase_K[t,:,:,:] =  Stock_Detail_UsePhase_K[t-1,:,:,:] \
-                    + np.einsum('rKc->cKr',dS_rKtc[:,:,t,:]).copy()
-            #plt.plot(np.arange(2015,2061,1),np.einsum('tcKr->tK',Stock_Detail_UsePhase_K))
-            
-            Outflow_Detail_UsePhase_K[1::,:,:,:] = np.einsum('rKmtc->tcKr',outflow_tis_rKmtc[:,:,:,1::,:]).copy() 
-            Inflow_Detail_UsePhase_K[1::,:,:]    = np.einsum('rKc->cKr',inflow_tis_rKc[:,:,SwitchTime::]).copy()
-            
-            #StockCurves_Totl[:,Sector_reb_loc,mS,mR] = TotalStockCurves_UsePhase_B.sum(axis =1).copy()
-            StockCurves_Prod[:,Sector_tis_rge,mS,mR] = np.einsum('tcKr->tK',Stock_Detail_UsePhase_K).copy()
-            #pCStocksCurves[:,Sector_reb_loc,:,mS,mR] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_act'].Values[mS,:,Sector_reb_loc,:].copy()
-            #Population[:,:,mS,mR]                    = RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]
-            Inflow_Prod[:,Sector_tis_rge,mS,mR]      = np.einsum('tKr->tK',Inflow_Detail_UsePhase_K).copy()
-            Inflow_Prod_r[:,:,Sector_tis_rge,mS,mR]  = np.einsum('tKr->trK',Inflow_Detail_UsePhase_K).copy()
-            Outflow_Prod[:,Sector_tis_rge,mS,mR]     = np.einsum('tcKr->tK',Outflow_Detail_UsePhase_K).copy()
-            Outflow_Prod_r[:,:,Sector_tis_rge,mS,mR] = np.einsum('tcpr->trp',Outflow_Detail_UsePhase_K).copy()
-            StockCurves_Prod_pr[:,:,Sector_tis_rge,mS,mR]   = np.einsum('tcKr->trK',Stock_Detail_UsePhase_K).copy() # 2025-01-20, ch CIRCOMOD reporting
-        
-            '''
-            # import inflows; unit kt
-            inflow_tis_rSRKc = RECC_System.ParameterDict['1_F_RECC_FinalProducts_IMAGE_TranspInf'].Values[:,:,:,:,:]   ### dimensions: rSRKc 
-            # import outflows; unit kt
-            #outflow_tis_rSRKt = RECC_System.ParameterDict['1_F_Outflow_RECC_FinalProducts_IMAGE_TranspInf'].Values[:,:,:,:,:]  ### dimensions: rSRKt 
-            outflow_tis_rSRKmt = RECC_System.ParameterDict['1_F_Outflow_RECC_FinalProducts_IMAGE_TranspInf'].Values[:,:,:,:,:,:]  ### dimensions: rSRKt 
-            # import historic stock at end of 2015 by age-cohort; unit kt
-            TotalStock_UsePhase_Hist_cKr = RECC_System.ParameterDict['2_S_RECC_FinalProducts_2015_IMAGE_TranspInf'].Values[0,:,:,:] ### dimensions: cKr (time t not needed, is 2015)
-
-            # add generic age-cohort information based on fixed lifetime assumption to outflows
-            outflow_tis_rSRKmtc = np.zeros((Nr,NS,NR,NK,Nm,Nt,Nc))
-            for r in range(0,Nr):
-                for K in range(0,NK):
-                    LT_K = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_IMAGE_TranspInf'].Values[K]
-                    #for t in range (0,Nt):
-                    for t in range (0,Nt): # for year t = 0 (2015) use historic stock later, however, to for completness include here
-                        if np.einsum('m->',outflow_tis_rSRKmt[r,mS,mR,K,:,t]) > 0:
-                            age_cohort = int(SwitchTime - 1 + t - LT_K) #determines the age-cohort of the outflowing stock in year t (SwitchTime-1 = 2015; t=year in which outflow occcurs; lifetime=fixed --> such that it can be used to determine age-cohort)
-                            outflow_tis_rSRKmtc[r,mS,mR,K,:,t,age_cohort]= outflow_tis_rSRKmt[r,mS,mR,K,:,t]
-            # and calculate stock change 
-            dS_rSRKtc = np.zeros((Nr,NS,NR,NK,Nt,Nc)) # stock change dS
-            #for t in range (0,Nt):
-            for t in range (1,Nt):    # for year t = 0 (2015) use historic stock, no in/outflow/dS yet
-                dS_rSRKtc[:,mS,mR,:,t,SwitchTime-1+t] = inflow_tis_rSRKc[:,mS,mR,:,SwitchTime-1+t] # add inflows for year 2016-2060
-            dS_rSRKtc[:,mS,mR,:,1::,:] -= np.einsum('rKmtc->rKtc',outflow_tis_rSRKmtc[:,mS,mR,:,:,1::,:])    # subtract 2016-2060 outflows
-            
-            # add initial stock
-            Stock_Detail_UsePhase_K[0,:,:,:]     = TotalStock_UsePhase_Hist_cKr.copy() 
-            # calculate future stock by forwarding last year's stock and adding stock change
-            for t in range (1,Nt):
-                Stock_Detail_UsePhase_K[t,:,:,:] =  Stock_Detail_UsePhase_K[t-1,:,:,:] \
-                    + np.einsum('rKc->cKr',dS_rSRKtc[:,mS,mR,:,t,:]).copy()
-            
-            Outflow_Detail_UsePhase_K[1::,:,:,:] = np.einsum('rKmtc->tcKr',outflow_tis_rSRKmtc[:,mS,mR,:,:,1::,:]).copy() 
-            Inflow_Detail_UsePhase_K[1::,:,:]    = np.einsum('rKc->cKr',inflow_tis_rSRKc[:,mS,mR,:,SwitchTime::]).copy()
-            
-            #StockCurves_Totl[:,Sector_reb_loc,mS,mR] = TotalStockCurves_UsePhase_B.sum(axis =1).copy()
-            StockCurves_Prod[:,Sector_tis_rge,mS,mR] = np.einsum('tcKr->tK',Stock_Detail_UsePhase_K).copy()
-            #pCStocksCurves[:,Sector_reb_loc,:,mS,mR] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_act'].Values[mS,:,Sector_reb_loc,:].copy()
-            #Population[:,:,mS,mR]                    = RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]
-            Inflow_Prod[:,Sector_tis_rge,mS,mR]      = np.einsum('tKr->tK',Inflow_Detail_UsePhase_K).copy()
-            Inflow_Prod_r[:,:,Sector_tis_rge,mS,mR]  = np.einsum('tKr->trK',Inflow_Detail_UsePhase_K).copy()
-            Outflow_Prod[:,Sector_tis_rge,mS,mR]     = np.einsum('tcKr->tK',Outflow_Detail_UsePhase_K).copy()
-            Outflow_Prod_r[:,:,Sector_tis_rge,mS,mR] = np.einsum('tcpr->trp',Outflow_Detail_UsePhase_K).copy()
-            StockCurves_Prod_pr[:,:,Sector_tis_rge,mS,mR]   = np.einsum('tcKr->trK',Stock_Detail_UsePhase_K).copy() # 2025-01-20, ch CIRCOMOD reporting
-            '''
-        """
-
         # Archive 2015 pC stock values for future curves:
         pC_FutureStock_2015             = np.zeros((NS,NG,Nr))
         # b) from scenario curves:
@@ -2642,12 +2541,11 @@ for mS in range(2,NS): #SSP2 only
             np.einsum('Itcrm,tcIr->Itcrm',Par_3_MC_Stock_ByElement_Nr[:,:,:,Sector_ind_rge,:,0],Outflow_Detail_UsePhase_I)/1000 # all elements, Indices='t,c,r,I,m'
             # Inflow as mass balance, to account for renovation material inflows to other age-cohorts than the current one (t=c). # TODO: 2025-17-11 mg: why calculating the np.diff and why not also considering the elemental composition?
             RECC_System.FlowDict['F_6_7'].Values[1::,:,Sector_ind_rge,:,0]   = \
-            np.einsum('Itcrm->Itrm',np.diff(RECC_System.StockDict['S_7'].Values[:,:,:,Sector_ind_rge,:,0],1,axis=1)) + np.einsum('Itcrm->Itrm',RECC_System.FlowDict['F_7_8'].Values[1::,:,:,Sector_ind_rge,:,0])
+            np.einsum('Itcrm->Itrm',np.diff(RECC_System.StockDict['S_7'].Values[:,:,:,Sector_ind_rge,:,0],1,axis=1)) + np.einsum('Itcrm->Itrm',RECC_System.FlowDict['F_7_8'].Values[1::,:,:,Sector_ind_rge,:,0])    
             # inflow of materials in new products, for checking:
-            for mmt in range(0,Nt):
-                F_6_7_new[mmt,:,Sector_ind_rge,:,0] = np.einsum('Ir,Irm->Irm',Inflow_Detail_UsePhase_I[mmt,:,:],Par_3_MC_Stock_ByElement_Nr[mmt,SwitchTime+mmt-1,:,Sector_ind_rge,:,0])*1000
-            # Check_ind = (RECC_System.FlowDict['F_6_7'].Values[1::,0,Sector_ind_rge,:,0] - F_6_7_new[1::,0,Sector_ind_rge,:,0]).sum() # must be 0.
-
+            #for mmt in range(0,Nt):
+            #    F_6_7_new[mmt,:,Sector_ind_rge,:,0] = np.einsum('Ir,Irm->Irm',Inflow_Detail_UsePhase_I[mmt,:,:],Par_3_MC_Stock_ByElement_Nr[mmt,SwitchTime+mmt-1,:,Sector_ind_rge,:,0])/1000
+            #Check_ind = (RECC_System.FlowDict['F_6_7'].Values[1::,0,Sector_ind_rge,:,0] - F_6_7_new[1::,0,Sector_ind_rge,:,0]).sum() # must be 0.
         #2026-01-27 tis imported material flows and stock
         if 'tis' in SectorList:
             # convert product stocks and flows to material stocks and flows, only for chemical element position 'all':
@@ -2694,54 +2592,6 @@ for mS in range(2,NS): #SSP2 only
                 tis_RECC_System_Stock_S_7_trKme[t,:,:,:,0] = tis_RECC_System_Stock_S_7_trKme[t-1,:,:,:,0] # copy last year's stock
                 tis_RECC_System_Stock_S_7_trKme[t,:,:,:,0] += np.einsum('Krm->rKm',RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,0]) # add inflow
                 tis_RECC_System_Stock_S_7_trKme[t,:,:,:,0] -= tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,0]
-                  
-        
-        """
-        #2026-01: add tis sector
-        # here outflow material composition based on imported IMAGE material outflows 
-        if 'tis' in SectorList:
-            # convert product stocks and flows to material stocks and flows, only for chemical element position 'all':
-            # Stock elemental composition, historic for each element and for future years: 'all' elements only
-            # inflow of materials in new products
-            for mmt in range(0,Nt):
-                F_6_7_new[mmt,:,Sector_tis_rge,:,0] = np.einsum('Kr,Krm->Krm',Inflow_Detail_UsePhase_K[mmt,:,:],Par_3_MC_Stock_ByElement_Nr[mmt,SwitchTime+mmt-1,:,Sector_tis_rge,:,0])/1000
-            RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_tis_rge,:,0]   = np.einsum('Ktrm->Ktrm',F_6_7_new[:,:,Sector_tis_rge,:,0])
-            #plt.plot(np.arange(2015,2061,1),np.einsum('Ktrm->tK',RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_tis_rge,:,0]))
-            #plt.plot(np.arange(2015,2061,1),np.einsum('Ktrm->tm',RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_tis_rge,:,0]))
-            # Outflow, 'all' elements only:
-            # prepare tis material outflow data: split concrete into cement and concrete aggregates; add 'element' aspect
-            # Split concrete into cement and aggregates:
-            outflow_tis_rKmtc[:,:,Cement_loc,:,:] = outflow_tis_rKmtc[:,:,Cement_loc,:,:].copy() + outflow_tis_rKmtc[:,:,Concrete_loc,:,:].copy() * ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]
-            outflow_tis_rKmtc[:,:,ConcrAgg_loc,:,:] = outflow_tis_rKmtc[:,:,Concrete_loc,:,:].copy() * (1-ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc])
-            #outflow_tis_rKmtc[:,:,Concrete_loc,:,:] = 0             # 2026-01-19, ch: keep values for concrete 
-            # Add aspect 'elements': Outflow, 'all' elements only:
-            outflow_tis_rKmtce = np.einsum('rKmtc,cme->rKmtce',outflow_tis_rKmtc,Par_Element_Composition_of_Materials_m) # add historic element composition; element composition needs to be updated for future age-cohorts, is done below after material cycle computation
-            RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,0] = np.einsum('rKmtc->Ktcrm',outflow_tis_rKmtce[:,:,:,:,:,0])/1000 # 'all' elements only; unit Mt
-            #plt.plot(np.arange(2015,2061,1),np.einsum('Ktcrm->tK',RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,0]))
-            #plt.plot(np.arange(2015,2061,1),np.einsum('Ktcrm->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,0]))
-            # Stock: material composition based on 2015 stock MC + RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:] - actual tis material outflows 
-            # Add historic stock material compostion 
-            RECC_System.StockDict['S_7'].Values[0,:,:,Sector_tis_rge,:,:] = \
-            np.einsum('Kcrme,cKr->Kcrme',Par_3_MC_Stock_ByElement_Nr[0,:,:,Sector_tis_rge,:,:],Stock_Detail_UsePhase_K[0,:,:,:])/1000   # Indices='t,c,r,K,m,e'; unit Mt
-            #np.einsum('crKme,cKr->crKme',Par_3_MC_Stock_ByElement_Nr[0,:,:,Sector_tis_rge,:,:],Stock_Detail_UsePhase_K[0,:,:,:])/1000   # Indices='t,c,r,K,m,e'; unit Mt
-            # Add future year material composition based on RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:] - actual tis material outflows; 'all' elements only
-            for t in range(1,Nt):
-                RECC_System.StockDict['S_7'].Values[t,:,:,Sector_tis_rge,:,0] = RECC_System.StockDict['S_7'].Values[t-1,:,:,Sector_tis_rge,:,0] # copy last year's stock
-                RECC_System.StockDict['S_7'].Values[t,SwitchTime-1+t,:,Sector_tis_rge,:,0] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,0] # add inflow as new age-cohort
-                RECC_System.StockDict['S_7'].Values[t,:,:,Sector_tis_rge,:,0] -= RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_tis_rge,:,0] # subtract outflow
-                
-            
-            # old version, with stock and outflow based on inflow MC
-            '''
-            RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,0] = \
-            np.einsum('Ktcrm,tcKr->Ktcrm',Par_3_MC_Stock_ByElement_Nr[:,:,:,Sector_tis_rge,:,0],Outflow_Detail_UsePhase_K)/1000 # all elements, Indices='t,c,r,K,m'
-            RECC_System.StockDict['S_7'].Values[:,:,:,Sector_tis_rge,:,:] = \
-            np.einsum('tcrKme,tcKr->tcrKme',Par_3_MC_Stock_ByElement_Nr[:,:,:,Sector_tis_rge,:,:],Stock_Detail_UsePhase_K)/1000   # Indices='t,c,r,K,m,e'            
-            #for comparison, store old RECC_System.StockDict['S_7'].Values[:,:,:,Sector_tis_rge,:,:] and RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,0] values
-            S7tisold = RECC_System.StockDict['S_7'].Values[:,:,:,Sector_tis_rge,:,:]
-            F78tisold = RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,0]
-            '''
-        """
         
         # 1_Nl_No) Inflow, outflow and stock first year for Nl and No regional aggregation and Sector I and a            
         ''' # remove eleven region industry representation
@@ -2829,24 +2679,6 @@ for mS in range(2,NS): #SSP2 only
                 #tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,:] = np.einsum('Krm,me->rKme', \
                     #Outflow_Detail_UsePhase_K_tKrm[t,:,:,:], \
                     #Par_Element_Composition_of_Materials_m[CohortOffset-1,:,:])/1000 # All elements; as proxy use material-element composition of previous year inflow; unit Mt
-             
-            """#2026-01-27
-            #2026-01: add tis sector; outflow specific MC instead of 'Par_3_MC_Stock_ByElement_Nr'; add element composition for historic and future age-cohorts
-            if 'tis' in SectorList:                
-                RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_tis_rge,:,:] = \
-                    np.einsum('rKmc,cme->Kcrme',outflow_tis_rKmtc[:,:,:,t,0:CohortOffset],Par_Element_Composition_of_Materials_m[0:CohortOffset,:,:])/1000 # All elements; unit Mt
-            #plt.plot(np.arange(2015,2061,1),np.einsum('tcrKme->tK',RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,:]))
-            #plt.plot(np.arange(2015,2061,1),np.einsum('tcrKme->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_tis_rge,:,:]))
-            # old version, using material compostion of stock as proxy for outflow - this does not represent IMAGE tis material outflows correctly! Do not use
-            """
-            '''
-            for t in tqdm(range(1,Nt), unit=' years'):  # 1: 2016
-                CohortOffset = t +Nc -Nt # index of current age-cohort.               
-                if 'tis' in SectorList:
-                    RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_tis_rge,:,:] = \
-                    np.einsum('Kcrme,cKr->Kcrme',Par_3_MC_Stock_ByElement_Nr[t-1,0:CohortOffset,:,Sector_tis_rge,:,:],Outflow_Detail_UsePhase_K[t,0:CohortOffset,:,:])/1000 # All elements.
-            '''
-
 
             # 1_Nl_No)
             '''if 'ind' in SectorList: 
@@ -2993,7 +2825,8 @@ for mS in range(2,NS): #SSP2 only
                 RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:]    = np.einsum('coOme->oOme',RECC_System.FlowDict['F_7_8_No'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_0_No'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_17_No'].Values[t,0:CohortOffset,:,:,:,:])
             
             # 4) EoL products to postconsumer scrap: trwe. Add Waste mgt. losses.
-            RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]            = np.einsum('rmgw,rgme->rwe',Par_RECC_EoL_RR[t,:,:,:,:],RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:])    
+            RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]            = np.einsum('rmgw,rgme->rwe',Par_RECC_EoL_RR[t,:,:,:,:],RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:]) 
+            Collected_Scrap_F_9_10_trgmwSR[t,:,:,:,:,mS,mR] = np.einsum('rmgw,rgm->rgmw',Par_RECC_EoL_RR[t,:,:,:,:],RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,0]) # for reporting of collected scrap by material, good and region
             '''if len(Sector_11reg_rge) > 0:                    
                 RECC_System.FlowDict['F_9_10_Nl'].Values[t,:,:,:]     = np.einsum('lmLw,lLme->lwe',Par_RECC_EoL_RR_Nl[t,:,:,:,:],RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:])    '''
             if len(Sector_1reg_rge) > 0:            
@@ -3233,26 +3066,7 @@ for mS in range(2,NS): #SSP2 only
                 # Material composition of tis stock based on 2015 stock MC + RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:] - actual tis material outflows
                 tis_RECC_System_Stock_S_7_trKme[t,:,:,:,:] = tis_RECC_System_Stock_S_7_trKme[t-1,:,:,:,:] # copy last year's stock, for t0 RECC_System.StockDict['S_7'] created above
                 tis_RECC_System_Stock_S_7_trKme[t,:,:,:,:] += np.einsum('Krme->rKme',RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:]) # add inflow
-                tis_RECC_System_Stock_S_7_trKme[t,:,:,:,:] -= tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,:] # subtract outflow, now with all elements (assigned above)
-
-            """2026-01-27
-            #2026-01: add tis sector
-            if 'tis' in SectorList:
-                # update mat. composition by element for current year and latest age-cohort
-                Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset,:,Sector_tis_rge,:,:] = Par_3_MC_Stock_ByElement_Nr[t-1,0:CohortOffset,:,Sector_tis_rge,:,:] # needed?
-                Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_tis_rge,:,:]   = np.einsum('me,Kmr->Krme',Par_Element_Composition_of_Materials_c[t,:,:],Par_RECC_MC_Nr[CohortOffset,:,Sector_tis_rge,:,mS,mR,t])
-                RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:]   = \
-                np.einsum('Krme,Kr->Krme',Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_tis_rge,:,:],Inflow_Detail_UsePhase_K[t,:,:])/1000 # all elements, Indices='t,r,K,m,e'
-                #plt.plot(np.arange(2015,2061,1),np.einsum('trKme->tm',RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_tis_rge,:,:]))
-                # Material composition of tis stock based on 2015 stock MC + RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:] - actual tis material outflows
-                RECC_System.StockDict['S_7'].Values[t,:,:,Sector_tis_rge,:,:] = RECC_System.StockDict['S_7'].Values[t-1,:,:,Sector_tis_rge,:,:] # copy last year's stock; for t0 RECC_System.StockDict['S_7'] created above
-                RECC_System.StockDict['S_7'].Values[t,SwitchTime-1+t,:,Sector_tis_rge,:,:] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:] # add inflow as new age-cohort, now with all elements
-                RECC_System.StockDict['S_7'].Values[t,:,:,Sector_tis_rge,:,:] -= RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_tis_rge,:,:] # subtract outflow, now with all elements (assigned above)
-                # old, do not use
-                #RECC_System.StockDict['S_7'].Values[t,0:CohortOffset+1,:,Sector_tis_rge,:,:] = \
-                #np.einsum('Kcrme,cKr->Kcrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset+1,:,Sector_tis_rge,:,:],Stock_Detail_UsePhase_K[t,0:CohortOffset+1,:,:])/1000 # All elements.
-            #plt.plot(np.arange(2015,2061,1),np.einsum('tcrKme->tm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_tis_rge,:,:]))
-            """    
+                tis_RECC_System_Stock_S_7_trKme[t,:,:,:,:] -= tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,:] # subtract outflow, now with all elements (assigned above)    
             
             '''if 'ind' in SectorList:
                 RECC_System.FlowDict['F_6_7_Nl'].Values[t,:,:,:,:]   = \
@@ -4223,7 +4037,7 @@ if 'ind' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Stock_2020_ind[:,mr,:,:],newrowoffset,len(ColLabels),'Stock curve of all pre 2021 age-cohorts, power sector','GW',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     
 for mg in range(0,Ng):
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million, Buildings: million m2',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million, Buildings: million m2, TranspInf: kt, PowerSec: GW',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 for mm in range(0,Nm):
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat[:,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 #if 'pav' in SectorList:  # 2026-01-22, hmli, circomod: aggregate materials group and use passenger vehicles for testing without affecting the results of building sector #20260216 not sector specific
@@ -4241,7 +4055,7 @@ if 'nrb' in SectorList:
     for mm in range(0,Nm):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb[:,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, nrb, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nrb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb.sum(axis=1)-StockCurves_Mat[:,Concrete_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, nrb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    # 2025-07-10, ch: subtract 'concrete' from 'all materials', otherwise doublecounting
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb.sum(axis=1)-StockCurves_Mat_nrb[:,Concrete_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, nrb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    # 2026-02-21: 'StockCurves_Mat' corrected to 'StockCurves_Mat_nrb'; 2025-07-10, ch: subtract 'concrete' from 'all materials', otherwise doublecounting
 if 'tis' in SectorList:
     for mm in range(0,Nm):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_tis_pr[:,:,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -4969,6 +4783,11 @@ if 'reb' in SectorList and 'nrb' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,mm,Sector_reb_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_rebnrb[:,mm,:,:] * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption,  buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,mm,Sector_reb_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Virgin material in final material consumption, buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+    # 2026-02-20, collected scrap reporting for CIRCOMOD
+    for ww in range (0,Nw):
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_reb_nrb_rge,:,ww,:,:].sum(axis=(0,2,3)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[ww],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20; #2026-02-21: correcting the axis of sum from (1,2,3) to (0,2,3) to get the sum over g, r and m instead of t, r and m.
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_reb_nrb_rge,:,:,:,:][:,:,:,:,[0,1],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, buildings, iron and steel (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_reb_nrb_rge,:,:,:,:][:,:,:,:,[2,3,4,5,6],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, buildings, Non-Ferrous Metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
 if 'pav' in SectorList:
     num_recycle_pav = RecycledMat_final_cons_tmgSR[:,:,Sector_pav_rge,:,:].sum(axis=2)
     num_recycle_pav_steel = RecycledMat_final_cons_tmgSR[:,[0,1,2,3],:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)) #2026-01-22, hmli, circomod: aggregrate material group
@@ -5037,6 +4856,11 @@ if 'pav' in SectorList:
     #2026-01-22, hmli, circomod: aggregrate material group
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_pav_steel * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, pass. vehicles, iron and steel (4 groups)' ,'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_pav_alu * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, pass. vehicles, aluminium (2 groups)' ,'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+    # 2026-02-20, collected scrap reporting for CIRCOMOD
+    for ww in range (0,Nw):
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_pav_rge,:,ww,:,:].sum(axis=(0,2,3)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[ww],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20; #2026-02-21: correcting the axis of sum from (1,2,3) to (0,2,3) to get the sum over g, r and m instead of t, r and m.
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_pav_rge,:,:,:,:][:,:,:,:,[0,1],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, pass. vehicles, iron and steel (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_pav_rge,:,:,:,:][:,:,:,:,[2,3,4,5,6],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, pass. vehicles, Non-Ferrous Metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
 
 if 'tis' in SectorList:
     num_recycle_tis = RecycledMat_final_cons_tmgSR[:,:,Sector_tis_rge,:,:].sum(axis=2)
@@ -5086,7 +4910,12 @@ if 'tis' in SectorList:
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,CM_mat_aggregates_locs,:,:,:][:,:,Sector_tis_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, transport infrastructure, aggregates (concr. agg. + other agg.)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19 circomod: aggregrates material group
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,CM_mat_aggregates_locs,:,:,:][:,:,Sector_tis_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, transport infrastructure, aggregates (concr. agg. + other agg.)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19 circomod: aggregrates material group
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,CM_mat_aggregates_locs,:,:,:][:,:,Sector_tis_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Virgin material in final material consumption, transport infrastructure, aggregates (concr. agg. + other agg.)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19 circomod: aggregrates material group
-   
+    # 2026-02-20, collected scrap reporting for CIRCOMOD
+    for ww in range (0,Nw):
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_tis_rge,:,ww,:,:].sum(axis=(0,2,3)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, transport infrastructure, ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[ww],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20; #2026-02-21: correcting the axis of sum from (1,2,3) to (0,2,3) to get the sum over g, r and m instead of t, r and m.
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_tis_rge,:,:,:,:][:,:,:,:,[0,1],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, transport infrastructure, iron and steel (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_tis_rge,:,:,:,:][:,:,:,:,[2,3,4,5,6],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, transport infrastructure, Non-Ferrous Metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+
 
 if 'ind' in SectorList:
     num_recycle_ind = RecycledMat_final_cons_tmgSR[:,:,Sector_ind_rge,:,:].sum(axis=2)
@@ -5160,11 +4989,14 @@ if 'ind' in SectorList:
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,CM_mat_steel_locs,:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, power technologies, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-02-19
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,CM_mat_steel_locs,:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, power technologies, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,CM_mat_steel_locs,:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Virgin material in final material consumption, power technologies, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
-    
-
     #2026-01-22, hmli, circomod: aggregrate material group
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_ind_steel * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, power technologies, iron and steel (4 groups)' ,'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_ind_alu * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, power technologies, aluminium (2 groups)' ,'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+    # 2026-02-20, collected scrap reporting for CIRCOMOD
+    for ww in range (0,Nw):
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_ind_rge,:,ww,:,:].sum(axis=(0,2,3)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[ww],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20; #2026-02-21: correcting the axis of sum from (1,2,3) to (0,2,3) to get the sum over g, r and m instead of t, r and m.
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_ind_rge,:,:,:,:][:,:,:,:,[0,1],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, power technologies, iron and steel (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_ind_rge,:,:,:,:][:,:,:,:,[2,3,4,5,6],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, power technologies, Non-Ferrous Metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
 
 
 book2 = openpyxl.Workbook() # Export other model results, calibration values, flags, etc.
