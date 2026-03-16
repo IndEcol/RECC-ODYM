@@ -28,12 +28,14 @@ import ODYM_RECC_Main
 #ScenarioSetting = 'CRAFT_Coupling_Config_list'
 #ScenarioSetting = 'pav_reb_Config_list_all'
 #ScenarioSetting = 'CM_20250123_base_pav_reb_nrb'
-ScenarioSetting = 'CM_20250613_baseline_reb_nrb'
+#ScenarioSetting = 'CM_20250613_baseline_reb_nrb'
+#ScenarioSetting = 'R-CE_260217_base'
+ScenarioSetting = 'R-CE_260217_nsc'
 
 # open scenario sheet
 ModelConfigListFile  = openpyxl.load_workbook(os.path.join(RECC_Paths.data_path,'RECC_ModelConfig_List.xlsx'))
 ModelConfigListSheet = ModelConfigListFile[ScenarioSetting]
-SheetName = 'RECC_TIMES_EU27UK'
+SheetName = 'R-CE_260221_nsc' # to be selected from RECC_Config.xlsx
 #Read control lines and execute main model script
 ResultFolders = []
 Row = 3
