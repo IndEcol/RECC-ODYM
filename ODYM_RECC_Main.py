@@ -103,6 +103,11 @@ and apply to sum of primary and secondary material production
     previously material m instead of region r name and unit Mt was in reporting, \
     change to "GW" and region.
 2026-03-16, ch: add reporting for material reuse potential per sector.
+
+2026-03-17, ch: add reuse (CE strategy) for electricity generation sector (ind).
+2026-03-17, ch: correct reporting of reused material (tis sector can also reuse \
+    material from other sectors, was missing in reporting of ReUse_Materials_tmg).
+2026-03-17, ch: add concrete based on sum of cement and concr. agg. for 3_MC_RECC_industry.
 """
 
 
@@ -841,6 +846,9 @@ if 'nrbg' in SectorList:
     ParameterDict['3_MC_RECC_Nonresbuildings_g'].Values[ConcrAgg_loc,:] = (1 - ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]) * ParameterDict['3_MC_RECC_Nonresbuildings_g'].Values[Concrete_loc,:].copy()
     ParameterDict['3_MC_RECC_Nonresbuildings_g'].Values[Concrete_loc,:] = 0
 
+if 'ind' in SectorList: #2026-03-17 add concrete to ind material composition (sum of cement and concrete aggregates), as 3_MC_RECC_industry only contains the latter two, but not concrete (no cement other than in concrete considered here)
+    ParameterDict['3_MC_RECC_industry'].Values[:,Concrete_loc,:]   = ParameterDict['3_MC_RECC_industry'].Values[:,Cement_loc,:] + ParameterDict['3_MC_RECC_industry'].Values[:,ConcrAgg_loc,:]
+
 """#2026-01-27
 if 'tis' in SectorList: #2026-01
     # Split concrete into cement and aggregates:
@@ -874,13 +882,12 @@ if 'reb' in SectorList:
 if 'nrb' in SectorList:
     ParameterDict['6_PR_ReUse_nonresBld'].Values                = np.einsum('mNt,r->mNrt',ParameterDict['6_PR_ReUse_nonresBld'].Values[:,:,0,:],np.ones(Nr)) #2025-06-04, ch: make reuse parameter for buildings time dependent to allow for start year reuse share >0
 if 'tis' in SectorList: #2026-01 add tis reuse
-    ParameterDict['6_PR_ReUse_Tis'].Values                = np.einsum('mKt,r->mKrt',ParameterDict['6_PR_ReUse_Tis'].Values[:,:,0,:],np.ones(Nr)) 
+    ParameterDict['6_PR_ReUse_Tis'].Values                      = np.einsum('mKt,r->mKrt',ParameterDict['6_PR_ReUse_Tis'].Values[:,:,0,:],np.ones(Nr)) 
+if 'ind' in SectorList: #2026-03-17 add ind reuse
+    ParameterDict['6_PR_ReUse_Ind_electricity_inf'].Values      = np.einsum('mIt,r->mIrt',ParameterDict['6_PR_ReUse_Ind_electricity_inf'].Values[:,:,0,:],np.ones(Nr)) #values imported for "World" region, replace with r.
 if 'pav' in SectorList:
     ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values = np.einsum('pS,r->prS',ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values[:,0,:],np.ones(Nr))
 ParameterDict['6_PR_EoL_RR_Improvement'].Values             = np.einsum('gmwW,r->grmwW',ParameterDict['6_PR_EoL_RR_Improvement'].Values[:,0,:,:,:],np.ones(Nr))
-# TODO 2025-13-11 mg: create  6_PR_ReUse_Ind param file or decide accordingly which RE strategy potentials for individual countries are to be replicated from global average 
-#if 'ind' in SectorList:
-#    ParameterDict['6_PR_ReUse_Ind'].Values                      = np.einsum('mI,r->mIr',ParameterDict['6_PR_ReUse_Ind'].Values[:,:,0],np.ones(Nr))
 
 # 8) Define a multi-regional RE strategy and building renovation scaleup parameter
 ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'] = msc.Parameter(Name='3_SHA_RECC_REStrategyScaleUp_r', ID='3_SHA_RECC_REStrategyScaleUp_r',
@@ -926,20 +933,10 @@ if ScriptConfig['Include_REStrategy_ReUse'] == 'False':
         ParameterDict['6_PR_ReUse_nonresBld'].Values = np.einsum('mNr,t->mNrt',ParameterDict['6_PR_ReUse_nonresBld'].Values[:,:,:,1],np.ones(Nt)) # stay at current levels, which are > 0. #2025-06-04, ch: make reuse parameter for buildings time dependent to allow for start year reuse share >0
     if 'tis' in SectorList: #2026-01 add tis reuse
         ParameterDict['6_PR_ReUse_Tis'].Values = np.einsum('mKr,t->mKrt',ParameterDict['6_PR_ReUse_Tis'].Values[:,:,:,1],np.ones(Nt)) # stay at current levels, which are > 0. 
+    if 'ind' in SectorList: #2026-03-17 add ind reuse
+        ParameterDict['6_PR_ReUse_Ind_electricity_inf'].Values = np.einsum('mIr,t->mIrt',ParameterDict['6_PR_ReUse_Ind_electricity_inf'].Values[:,:,:,1],np.ones(Nt)) # stay at current levels, which are > 0.
 
 
-
-
-
-#2026-01-27 for test set ReUse values to zero
-#ParameterDict['6_PR_ReUse_Tis'].Values[ParameterDict['6_PR_ReUse_Tis'].Values > 0] = 0
-#ParameterDict['6_PR_ReUse_Tis'].Values[:] = 1
-  
-
-
-
-
-  
 # 11) MODEL CALIBRATION
 # Calibrate vehicle kilometrage: No longer used! VKM is now calibrated in scenario target table process to deliver correct pC stock number for 2015.
 #### ParameterDict['3_IO_Vehicles_UsePhase'].Values[3,:,:,:]                             = ParameterDict['3_IO_Vehicles_UsePhase'].Values[3,:,:,:]                           * np.einsum('r,tS->rtS',ParameterDict['6_PR_Calibration'].Values[0,:],np.ones((Nt,NS)))
@@ -2487,8 +2484,8 @@ for mS in range(2,NS): #SSP2 only
             ReUseFactor_tmNrS = np.einsum('mNrt,S->tmNrS',RECC_System.ParameterDict['6_PR_ReUse_nonresBld'].Values,np.ones((NS))) #2025-06-04, ch: temporal scale up already included in parameter file, no change over S
         if 'tis' in SectorList: #2026-01 add tis reuse
             ReUseFactor_tmKrS = np.einsum('mKrt,S->tmKrS',RECC_System.ParameterDict['6_PR_ReUse_Tis'].Values,np.ones((NS))) #2025-06-04, ch: temporal scale up already included in parameter file, no change over S
-        #if 'ind' in SectorList:
-        #    ReUseFactor_tmIrS = np.einsum('mIrt,S->tmIrS',RECC_System.ParameterDict['6_PR_ReUse_industry'].Values,np.ones((NS))) #2025-19-11, mg: check temporal scale up in parameter file, if change over S or not!
+        if 'ind' in SectorList:
+            ReUseFactor_tmIrS = np.einsum('mIrt,S->tmIrS',RECC_System.ParameterDict['6_PR_ReUse_Ind_electricity_inf'].Values,np.ones((NS))) #2026-03-17, ch: add ind reuse; temporal scale up already included in parameter file, no change over S
 
 
         Mylog.info('Translate total flows into individual materials and elements, for 2015 and historic age-cohorts.')
@@ -2703,8 +2700,6 @@ for mS in range(2,NS): #SSP2 only
             # RECC_System.FlowDict['F_8_0'].Values = MatContent * ObsStockFormation. Currently 0, already defined.
                         
             # 2) Consider re-use of materials in product groups (via components), as ReUseFactor(m,g,r,R,t) * RECC_System.FlowDict['F_7_8'].Values(t,c,r,g,m,e)
-            # TODO: 2025-19-11 mg: implement reuse for ind sector as well
-                # 1. create ReUseFactor_tmIrS bzw. 6_PR_ReUse_Ind Param file in excel
             # Distribute material for re-use onto product groups
             if 'pav' in SectorList:
                 ReUsePotential_Materials_t_m_Veh = np.einsum('mpr,pcrm->m',ReUseFactor_tmprS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_pav_rge,:,0]) # in Mt
@@ -2718,9 +2713,10 @@ for mS in range(2,NS): #SSP2 only
                 ReUsePotential_Materials_t_m_NRB = np.einsum('mNr,Ncrm->m',ReUseFactor_tmNrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_nrb_rge,:,0]) # in Mt
                 ReUse_EoL_Pot_t_m_all[t,:]       += ReUsePotential_Materials_t_m_NRB
                 ReUse_EoL_Pot_t_mg[t,:,Sector_nrb_rge]     = np.einsum('mNr,Ncrm->Nm',ReUseFactor_tmNrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_nrb_rge,:,0]) # in Mt
-            #if 'ind' in SectorList:
-            #    ReUsePotential_Materials_t_m_Ind = np.einsum('mIr,Icrm->m',ReUseFactor_tmIrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_ind_rge,:,0]) # in Mt
-            #    ReUse_EoL_Pot_t_m_all[t,:]       += ReUsePotential_Materials_t_m_Ind
+            if 'ind' in SectorList: #2026-03-17, ch: add ind reuse
+                ReUsePotential_Materials_t_m_Ind = np.einsum('mIr,Icrm->m',ReUseFactor_tmIrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_ind_rge,:,0]) # in Mt
+                ReUse_EoL_Pot_t_m_all[t,:]       += ReUsePotential_Materials_t_m_Ind
+                ReUse_EoL_Pot_t_mg[t,:,Sector_ind_rge]     = np.einsum('mIr,Icrm->Im',ReUseFactor_tmIrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_ind_rge,:,0]) # in Mt
             
             if 'tis' in SectorList: #2026-01 add tis reuse #2026-01-27
                 ReUsePotential_Materials_t_m_Tis = np.einsum('mKr,rKm->m',ReUseFactor_tmKrS[t,:,:,:,mS],tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,0]) # in Mt
@@ -2745,11 +2741,12 @@ for mS in range(2,NS): #SSP2 only
                     if RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_nrb_rge,mmm,0].sum() < ReUsePotential_Materials_t_m_NRB[mmm]: # if re-use potential is larger than new inflow:
                         if ReUsePotential_Materials_t_m_NRB[mmm] > 0:
                             ReUsePotential_Materials_t_m_NRB[mmm] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_nrb_rge,mmm,0].sum()
-                #industry #TODO: 2025-19-11 mg: implement for ind sector
-                #if 'ind' in SectorList:
-                #    if RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_ind_rge,mmm,0].sum() < ReUsePotential_Materials_t_m_Ind[mmm]: # if re-use potential is larger than new inflow:
-                #        if ReUsePotential_Materials_t_m_Ind[mmm] > 0:
-                #            ReUsePotential_Materials_t_m_Ind[mmm] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_ind_rge,mmm,0].sum()
+                # ind (electricity infrastructure) #2026-03-17, ch: add ind reuse
+                if 'ind' in SectorList:
+                    if RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_ind_rge,mmm,0].sum() < ReUsePotential_Materials_t_m_Ind[mmm]: # if re-use potential is larger than new inflow:
+                        if ReUsePotential_Materials_t_m_Ind[mmm] > 0:
+                            ReUsePotential_Materials_t_m_Ind[mmm] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_ind_rge,mmm,0].sum()
+                # transport infrastructure
                 if 'tis' in SectorList: #2026-01 add tis reuse #2026-01-27 no changes required
                     if RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,mmm,0].sum() < ReUsePotential_Materials_t_m_Tis[mmm]: # if re-use potential is larger than new inflow:
                         if ReUsePotential_Materials_t_m_Tis[mmm] > 0:
@@ -2779,14 +2776,14 @@ for mS in range(2,NS): #SSP2 only
                 RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,Sector_nrb_rge,:,:] = \
                 np.einsum('cme,Ncrm->Ncrme', Par_Element_Composition_of_Materials_u[0:CohortOffset,:,:],\
                 np.einsum('m,Ncrm->Ncrm',ReUsePotential_Materials_t_m_NRB,MassShareNRB))  # All elements.
-            # industry  #TODO: 2025-20-11 mg: implement for ind sector
-            #if 'ind' in SectorList:
-            #    Divisor = np.einsum('m,crI->Icrm',np.einsum('Icrm->m',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_ind_rge,:,0]),np.ones((CohortOffset,Nr,NI)))
-            #    MassShareInd = np.divide(RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_ind_rge,:,0], Divisor, out=np.zeros_like(Divisor), where=Divisor!=0) # index: Icrm
+            # ind (electricity infrastructure) #2026-03-17, ch: add ind reuse
+            if 'ind' in SectorList:
+                Divisor = np.einsum('m,crI->Icrm',np.einsum('Icrm->m',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_ind_rge,:,0]),np.ones((CohortOffset,Nr,NI)))
+                MassShareInd = np.divide(RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_ind_rge,:,0], Divisor, out=np.zeros_like(Divisor), where=Divisor!=0) # index: Icrm
                 # share of combination crg in total mass of m in outflow 7_8
-            #    RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,Sector_ind_rge,:,:] = \
-            #    np.einsum('cme,Icrm->Icrme', Par_Element_Composition_of_Materials_u[0:CohortOffset,:,:],\
-            #    np.einsum('m,Icrm->I   crm',ReUsePotential_Materials_t_m_Ind,MassShareInd))  # All elements.
+                RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,Sector_ind_rge,:,:] = \
+                np.einsum('cme,Icrm->Icrme', Par_Element_Composition_of_Materials_u[0:CohortOffset,:,:],\
+                np.einsum('m,Icrm->Icrm',ReUsePotential_Materials_t_m_Ind,MassShareInd))  # All elements.
             
             # TODO: check reuse again. mass balance for elements other than "all" does not hold
             # Use material element composition of 2015 in-use products as proxy (no changes, assuming long-lifetimes for most tis products)
@@ -3700,7 +3697,7 @@ but partially outside of RECC_System.')
             + np.einsum('tcoOm->tm',RECC_System.FlowDict['F_17_6_No'].Values[:,:,:,:,:,0])'''            
         ReUse_Materials_tmg[:,:,:,mS,mR]            = np.einsum('tcrgm->tmg',RECC_System.FlowDict['F_17_6'].Values[:,:,:,:,:,0]) #2026-01-15, ch: add aspect g; no reporting for sectors with other regional resolution
         if 'tis' in SectorList:
-            ReUse_Materials_tmg[:,:,Sector_tis_rge,mS,mR] = np.einsum('trKm->tmK',tis_RECC_System_Flow_F_17_6_trKme[:,:,:,:,0]) #2026-01-27 add tis
+            ReUse_Materials_tmg[:,:,Sector_tis_rge,mS,mR] += np.einsum('trKm->tmK',tis_RECC_System_Flow_F_17_6_trKme[:,:,:,:,0]) #2026-01-27 add tis; #2026-03-17, ch: correct tis reuse materials: tis products can also contain reused material from other sectors. 
         Carbon_IndustrialRoundwood_bld[:,:,mS,mR]   = SysVar_RoundwoodConstruc_c_1_2_r[:,:,mS,mR].copy()
         Carbon_Wood_Inflow[:,:,mS,mR]               = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44 * (np.einsum('trg->tr', RECC_System.FlowDict['F_6_7'].Values[:,:,:,Wood_loc,0]).copy())
         if 'tis' in SectorList: #2026-01-27 add F_7_8 tis
