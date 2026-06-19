@@ -17,7 +17,119 @@ dependencies:
     scipy >= 0.14
 
 """
-def main():
+
+"""
+Updating ODYM-RECC model v 2.5 to RECC-CE model (work carried out within EU HORIZON project CIRCOMOD)
+@author: Christian Hauenstein
+
+Change log:
+2025-06-04, ch: make reuse parameter for buildings time dependent to allow for start year reuse share >0 (necessary for CIRCOMOD scenario protocol implementation)
+... correct concrete reporting; correct nrb material composition
+2025-09-22, ch: load odym packages according to new way (introduced summer 2025)
+2025-10-07, ch: LTE also for standard buildings, however, in case of historic buildings (pre 2016 age cohorts), 
+only LTE for buildings not older than 40% ( == 1-(2*StdDev/LifeTimes); StdDev = .3*LifeTimes) 
+of the mean lifetime of the 2015 cohort (2015 cohort lifetime as proxy for recent historic age cohorts). 
+This will prevent strong effect of LTE in first model years (calibrated years).
+Furthermore, gradual ramp up of LTE potential for considered historic age-cohorts.
+
+2025-10-07, ch: to calculate scope 3 emissions of building materials, 
+import TIMES-EU emission factors for engineered materials (3_EI_EmissionIntensity_Materials_o) 
+and apply to sum of primary and secondary material production
+2025-11-07: use version of ODYM_RECC_Main adapted for RECC-TIMES model coupling, as of Nov. 07, 2025, as starting point for RECC-CE
+
+2025-11-10, ch: optimize reading of parameter files by using pickled parameter dict if available
+
+2026-01-15, ch: for CIRCOMOD reporting add "Share of recycled (Engineered Material) 
+    in total (Engineered Material) consumption by (Demand Sector), F_6_7(part)/F_6_7*100;
+    percentage share of flow of recycled (Engineered Material) in flow of total 
+    (Engineered Material) from process 6 to process 7"
+    
+2026-01-19, ch: in waste mgmt reporting: subtract mass of concrete flows (for aspect m), 
+    otherwise double counting because mass of concrete already covered by sum of 
+    concrete aggregates and cement contained in concrete
+    
+2026-01-22, hmli: Modify the code to make sure model the target sector in SectorList without reading the relevant parameters of other sectors;
+    aggregate material group for circomod report, like aluminum = wrought Al + cast Al.
+
+2026-01-25: merge RECC-CE_v0.0_TransportInfra into RECC-CE_v0.0
+    2026-01: integration of IMAGE-Materials transport infrastructure stocks and flows
+    changes: (search for #2026-01 to go to change locations)
+        Define index shortcut NK
+        Split concrete into cement and concrete aggregates in 3_MC_RECC_IMAGE_TranspInf
+        Import historic stock and future in- and outflows
+        Add generic age-cohort information to outflows (based on imported tis lifetime parameter)
+        Add tis to Par_RECC_MC_Nr
+        Add age-cohort dependent element composition to outflows
+        Add future material and element composition of stock based on inflow and outflow material and element composition
+        Add reuse for materials in tis products
+    Issues: 
+        Any CE strategy changes affecting inflow material composition (e.g., cement content reduction)
+            not covered in outflow material composition (limited relevance if stocks large enough compared to outflows)
+            
+2026-01-27, ch:  for transport infrastructure, use imported \
+    material in- and outflows and stocks, no tracking of age-cohorts:
+        Calculate the following flows, stocks, and stock changes \
+            outside of RECC_System (without age-cohort tracking):
+            S_7, dS_7, F_7_8, F_8_17, F_17_6
+        These flows and the stock change dS_7 are added at the \
+            to the mass balance of the RECC_System (then: 'Bal_incl_tis').
+        General assumtion for element composition of material flows:
+            for flow in year t, material element composition of \
+            year t-1 (maintenance related outflows in IMAGE \
+            tis results for F_6_7(t) start in year t+1).
+        Reuse of EoL tis material (F_8_17) only possible for new tis \
+            products (F_17_6), however, tis sector can also receive \
+            reuse inflows (F_17_6) from other sectors' F_8_17 flows.
+        
+        #TODOs:
+            !! Mass balance for Process 0 and 6 in year 2016, \
+                for elements Fe, Cu, Ot, is off (due to reuse \
+                and lack of tracking of age-cohorts). 
+            Discuss "tis internal reuse" (see above)
+            Cement content reduction not implemented for tis yet - question if \
+                same values as for buildings would apply.
+            All energy consumption related parts not yet implemented (only needed \
+                if also GHG etc supposed to be calculated)
+            
+2026-02-11, ch: merge RECC-CE_v0.0_PowerSector into RECC-CE_v0.0:
+    Industry sector now for region r
+    Import of energy system model results for product stock and flows (with age-cohorts asigned in pre-processing)  
+
+2026-02-16: merge patch by hmli for pav: Update downsizing setting
+    
+2026-02-16, ch: adapt future stock calculation for industry (power sector):
+        before 2015-2060 stock results were read-in, now import 2015 stock and \
+        create future stock based on imported in- and outflows
+    Add additional/CIRCOMOD reporting for industry sector
+
+2026-03-16, ch: 3_MC_industry add aspect c (age-cohort).
+2026-03-16, ch: correct reporting for ind product stocks/flows per region r; \
+    previously material m instead of region r name and unit Mt was in reporting, \
+    change to "GW" and region.
+2026-03-16, ch: add reporting for material reuse potential per sector.
+
+2026-03-17, ch: add reuse (CE strategy) for electricity generation sector (ind).
+2026-03-17, ch: correct reporting of reused material (tis sector can also reuse \
+    material from other sectors, was missing in reporting of ReUse_Materials_tmg).
+2026-03-17, ch: add concrete based on sum of cement and concr. agg. for 3_MC_RECC_industry.
+
+2026-03-24, ch: add reporting of:
+    - breakdown of final material consumption by source for\
+        residential and non-residential buildings;
+    - flow total diverted scrap 'Fabscrapdiversionpotential_twm'
+    - F_10_9 (total scrap entering remelting (includes (non-diverted) scrap from \
+        manufacturing (S_10(t-1)(part)) and collected scrap from EoL products (F_9_10)))
+    - flow of stockpiled sec. material to manufacturing: 'StockPileSecondaryMaterialUse'
+    - Add export of total secondary (Engineered Material) production ('SecondaryProduct') as \
+        'Secondary material production, [Engineering materials]'
+    - Correct calculation of 'production_volume_tmSR' \
+        (was 'RecycledMat_to_Manuf.copy() + PrimaryProduction.copy()')\
+        to 'SecondaryProduct.copy() + PrimaryProduction.copy()'
+         
+"""
+
+
+def main(): # to run model standalone and not as function, comment out first (def main():) and last line (return OutputDict) of code and unindent all code in between by one level
     # Import required libraries:
     import os
     import sys
@@ -41,7 +153,7 @@ def main():
     from scipy.interpolate import make_interp_spline
     import pylab
     import pickle
-    
+
     import RECC_Paths # Import path file
     log.getLogger('matplotlib.font_manager').disabled = True    # required for preventing debugging messages in some console versions
     #import re
@@ -49,8 +161,11 @@ def main():
     ##################################
     #    Section 1)  Initialize      #
     ##################################
-    # add ODYM module directory to system path
+
+    # 2025-09-22, ch: loading of ODYM packages according to ODYM version prior to summer 2025
+    # add ODYM module directory to system path (not needed in case of new odym version)
     sys.path.insert(0, os.path.join(os.path.join(RECC_Paths.odym_path,'odym'),'modules'))
+
     ### 1.1.) Read main script parameters
     # Mylog.info('### 1.1 - Read main script parameters')
     ProjectSpecs_Name_ConFile = 'RECC_Config.xlsx'
@@ -64,7 +179,9 @@ def main():
     ScriptConfig['Logging_Verbosity'] = Model_Configsheet.cell(DebugCounter+1,4).value # Read loggin verbosity once entry was reached.    
     # Extract user name from main file
     ProjectSpecs_User_Name     = getpass.getuser()
-    
+
+    '''
+    # 2025-09-22, ch: loading of ODYM packages according to ODYM version prior to summer 2025
     # import packages whose location is now on the system path:    
     import ODYM_Classes as msc # import the ODYM class file
     importlib.reload(msc)
@@ -72,9 +189,18 @@ def main():
     importlib.reload(msf)
     import dynamic_stock_model as dsm # import the dynamic stock model library
     importlib.reload(dsm)
+    ''' 
+    # 2025-09-22, ch: loading ODYM packages, new way since summer 2025; check that python interpreter used in IDE is the same as used in your environment (Tools-> Preferences -> Python interpreter)
+    import odym.classes as msc # import the ODYM class file
+    #importlib.reload(msc)
+    import odym.functions as msf  # import the ODYM function file
+    #importlib.reload(msf)
+    import odym.dynamic_stock_model as dsm # import the dynamic stock model library
     
+
     Name_Script        = Model_Configsheet.cell(6,4).value
     if Name_Script != 'ODYM_RECC_Main':  # Name of this script must equal the specified name in the Excel config file
+    #if Name_Script != 'ODYM_RECC_Main-TranspInf':  # Name of this script must equal the specified name in the Excel config file; #2026-01
         raise AssertionError('Fatal: The name of the current script does not match to the sript name specfied in the project configuration file. Exiting the script.')
     # the model will terminate if the name of the script that is run is not identical to the script name specified in the config file.
     Name_Scenario            = Model_Configsheet.cell(7,4).value # Regional scope as torso for scenario name
@@ -82,7 +208,7 @@ def main():
     TimeString               = str(StartTime.year) + '_' + str(StartTime.month) + '_' + str(StartTime.day) + '__' + str(StartTime.hour) + '_' + str(StartTime.minute) + '_' + str(StartTime.second)
     #DateString               = str(StartTime.year) + '_' + str(StartTime.month) + '_' + str(StartTime.day)
     ProjectSpecs_Path_Result = os.path.join(RECC_Paths.results_path, Name_Scenario + '__' + TimeString )
-    
+
     if not os.path.exists(ProjectSpecs_Path_Result): # Create model run results directory.
         os.makedirs(ProjectSpecs_Path_Result)
     # Initialize logger
@@ -90,33 +216,33 @@ def main():
         log_verbosity = eval("log.DEBUG")  
     log_filename = Name_Scenario + '__' + TimeString + '.md'
     [Mylog, console_log, file_log] = msf.function_logger(log_filename, ProjectSpecs_Path_Result,
-                                                         log_verbosity, log_verbosity)
+                                                        log_verbosity, log_verbosity)
     # log header and general information
     Time_Start = time.time()
     ScriptConfig['Current_UUID'] = str(uuid.uuid4())
     Mylog.info('# Simulation from ' + time.asctime())
     Mylog.info('Unique ID of scenario run: ' + ScriptConfig['Current_UUID'])
-    
+
     ### 1.2) Read model control parameters
     Mylog.info('### 1.2 - Read model control parameters')
     #Read control and selection parameters into dictionary
     ScriptConfig = msf.ParseModelControl(Model_Configsheet,ScriptConfig)
-    
+
     Mylog.info('Script: ' + Name_Script + '.py')
     Mylog.info('Model script version: ' + __version__)
-    Mylog.info('Model functions version: ' + msf.__version__())
-    Mylog.info('Model classes version: ' + msc.__version__())
+    #Mylog.info('Model functions version: ' + msf.__version__()) # 2025-09-22, ch: module 'odym.functions' has no attribute '__version__'
+    #Mylog.info('Model classes version: ' + msc.__version__()) # 2025-09-22, ch: module 'odym.classes' has no attribute '__version__'
     Mylog.info('Current User: ' + ProjectSpecs_User_Name)
     Mylog.info('Current Scenario: ' + Name_Scenario)
     Mylog.info(ScriptConfig['Description'])
     Mylog.debug('----\n')
-    
+
     ### 1.3) Organize model output folder and logger
     Mylog.info('### 1.3 Organize model output folder and logger')
     #Copy Config file and model script into that folder
     shutil.copy(os.path.join(RECC_Paths.data_path,ProjectSpecs_Name_ConFile), os.path.join(ProjectSpecs_Path_Result, ProjectSpecs_Name_ConFile))
     #shutil.copy(Name_Script + '.py'      , os.path.join(ProjectSpecs_Path_Result, Name_Script + '.py'))
-    
+
     ######################################################
     #     Section 2a) Read classifications and data      #
     ######################################################
@@ -132,7 +258,7 @@ def main():
         
     Mylog.info('Read and parse config table, including the model index table, from model config sheet.')
     IT_Aspects,IT_Description,IT_Dimension,IT_Classification,IT_Selector,IT_IndexLetter,PL_Names,PL_Description,PL_Version,PL_IndexStructure,PL_IndexMatch,PL_IndexLayer,PL_SubFolder,PL_ProxyCode,PL_ProcMethod,PL_UpdateOverwrite,PrL_Number,PrL_Name,PrL_Comment,PrL_Type,ScriptConfig = msf.ParseConfigFile(Model_Configsheet,ScriptConfig,Mylog)    
-    
+
     Mylog.info('Define model classifications and select items for model classifications according to information provided by config file.')
     ModelClassification  = {} # Dict of model classifications
     for m in range(0,len(IT_Aspects)):
@@ -155,24 +281,24 @@ def main():
     Model_Time_Start = int(min(ModelClassification['Time'].Items))
     Model_Time_End   = int(max(ModelClassification['Time'].Items))
     Model_Duration   = Model_Time_End - Model_Time_Start + 1
-    
+
     Mylog.info('Define index table dataframe.')
     IndexTable = pd.DataFrame({'Aspect'        : IT_Aspects,  # 'Time' and 'Element' must be present!
-                               'Description'   : IT_Description,
-                               'Dimension'     : IT_Dimension,
-                               'Classification': [ModelClassification[Aspect] for Aspect in IT_Aspects],
-                               'IndexLetter'   : IT_IndexLetter})  # Unique one letter (upper or lower case) indices to be used later for calculations.
-    
+                            'Description'   : IT_Description,
+                            'Dimension'     : IT_Dimension,
+                            'Classification': [ModelClassification[Aspect] for Aspect in IT_Aspects],
+                            'IndexLetter'   : IT_IndexLetter})  # Unique one letter (upper or lower case) indices to be used later for calculations.
+
     # Default indexing of IndexTable, other indices are produced on the fly
     IndexTable.set_index('Aspect', inplace=True)
-    
+
     # Add indexSize to IndexTable:
     IndexTable['IndexSize'] = pd.Series([len(IndexTable.Classification[i].Items) for i in range(0, len(IndexTable.IndexLetter))],
                                         index=IndexTable.index)
-    
+
     # list of the classifications used for each indexletter
     IndexTable_ClassificationNames = [IndexTable.Classification[i].Name for i in range(0, len(IndexTable.IndexLetter))]
-    
+
     # 2.3) Define shortcuts for the most important index sizes:
     Nt = len(IndexTable.Classification[IndexTable.index.get_loc('Time')].Items)
     Ne = len(IndexTable.Classification[IndexTable.index.get_loc('Element')].Items)
@@ -202,12 +328,15 @@ def main():
     NL = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('L')].Items)
     NO = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('O')].Items)    
     NM = len(IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items)
+    NK = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('K')].Items) #2026-01: transport infrastructure IMAGE-Materials (infrastruKtur)
     #IndexTable.loc['t']['Classification'].Items # get classification items
-    
+
     SwitchTime = Nc-Nt+1 # Index of first model year (2016)
     # 2.4) Read model data and parameters.
     Mylog.info('Read model data and parameters.')
-    
+
+
+    #2025-11-10, ch: use if statement instead of try-except in order to have specific error messages for reading parameter files shown again
     ParFileName = os.path.join(RECC_Paths.data_path,'RECC_ParameterDict_' + ScriptConfig['RegionalScope'] + '.dat')
     ParFileName_name = 'RECC_ParameterDict_' + ScriptConfig['RegionalScope'] + '.dat'
     #try: # Load Pickle parameter dict to save processing time
@@ -233,8 +362,8 @@ def main():
                 #MetaData, Values = msf.ReadParameter(ParPath = ParPath,ThisPar = PL_Names[mo], ThisParIx = PL_IndexStructure[mo], IndexMatch = PL_IndexMatch[mo], ThisParLayerSel = PL_IndexLayer[mo], MasterClassification,IndexTable,IndexTable_ClassificationNames,ScriptConfig,Mylog) # Do not change order of parameters handed over to function!
                 # Do not change order of parameters handed over to function!
                 MetaData, Values = msf.ReadParameterXLSX(ParPath, PL_Names[mo], PL_IndexStructure[mo], PL_IndexMatch[mo],
-                                                     PL_IndexLayer[mo], PL_ProcMethod[mo], MasterClassification, IndexTable,
-                                                     IndexTable_ClassificationNames, ScriptConfig, Mylog, False)
+                                                    PL_IndexLayer[mo], PL_ProcMethod[mo], MasterClassification, IndexTable,
+                                                    IndexTable_ClassificationNames, ScriptConfig, Mylog, False)
                 ParameterDict[PL_Names[mo]] = msc.Parameter(Name=MetaData['Dataset_Name'], ID=MetaData['Dataset_ID'],
                                                             UUID=MetaData['Dataset_UUID'], P_Res=None, MetaData=MetaData,
                                                             Indices=PL_IndexStructure[mo], Values=Values, Uncert=None,
@@ -270,8 +399,8 @@ def main():
             #MetaData, Values = msf.ReadParameter(ParPath = ParPath,ThisPar = PL_Names[mo], ThisParIx = PL_IndexStructure[mo], IndexMatch = PL_IndexMatch[mo], ThisParLayerSel = PL_IndexLayer[mo], MasterClassification,IndexTable,IndexTable_ClassificationNames,ScriptConfig,Mylog) # Do not change order of parameters handed over to function!
             # Do not change order of parameters handed over to function!
             MetaData, Values = msf.ReadParameterXLSX(ParPath, PL_Names[mo], PL_IndexStructure[mo], PL_IndexMatch[mo],
-                                                 PL_IndexLayer[mo], PL_ProcMethod[mo], MasterClassification, IndexTable,
-                                                 IndexTable_ClassificationNames, ScriptConfig, Mylog, False)
+                                                PL_IndexLayer[mo], PL_ProcMethod[mo], MasterClassification, IndexTable,
+                                                IndexTable_ClassificationNames, ScriptConfig, Mylog, False)
             ParameterDict[PL_Names[mo]] = msc.Parameter(Name=MetaData['Dataset_Name'], ID=MetaData['Dataset_ID'],
                                                         UUID=MetaData['Dataset_UUID'], P_Res=None, MetaData=MetaData,
                                                         Indices=PL_IndexStructure[mo], Values=Values, Uncert=None,
@@ -290,7 +419,7 @@ def main():
         
     Mylog.info('_')
     Mylog.info('_')
-    
+
     ########################################################
     #     Section 2b) Automatic assignment of proxies      #
     ########################################################
@@ -298,14 +427,14 @@ def main():
     LEDindex        = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('LED')
     SSP1index       = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP1')
     SSP2index       = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items.index('SSP2')
-    
+
     # a) Currently not used 
     # b) Set reference population dataset.
     ParameterDict['2_P_Population_Reference'] = msc.Parameter(Name='2_P_Population_Reference', ID='2_P_Population_Reference',
                                                 UUID=ParameterDict[ScriptConfig['Population_Reference']].UUID, P_Res=None, MetaData=ParameterDict[ScriptConfig['Population_Reference']].MetaData,
                                                 Indices=ParameterDict[ScriptConfig['Population_Reference']].Indices, Values=ParameterDict[ScriptConfig['Population_Reference']].Values, Uncert=None,
                                                 Unit=ParameterDict[ScriptConfig['Population_Reference']].MetaData['Dataset_Unit'])
-    
+
     # c) assign proxy data to model parameters
     for mo in range(0,len(PL_Names)):
         ProxyCommands = PL_ProxyCode[mo].split('_')
@@ -349,7 +478,16 @@ def main():
     SectorList      = eval(ScriptConfig['SectorSelect'])
     if 'nrb' in SectorList and 'nrbg' in SectorList:
         raise AssertionError('Fatal: Non-residential buildings are included both globally (nrbg) and for individual regions (nrb). Double-counting. Exiting the script, check config file.')    
-    
+
+    # TODO 2025-13-11 mg:
+        # 1. implement similar check for industry sector technologies as for nrb with "if 'nrb' in SectorList and 'nrbg' in SectorList:", to avoid double counting technologies
+            # to be checked which hierarchy of technologies is selcted in config file for industry sector technologies
+            # could it still happen that a dataset has information for technolgies on different hierarchies, e.g. inflows for PV and PV|rooftop|TopCon or should this be avoided? 
+            # selection or data pre-processing?
+            # raise error if double counting expected
+        # 2. implement check for ind and indg as excatly for "if 'nrb' in SectorList and 'nrbg' in SectorList:"
+
+
     # index location and range of pass. vehs. in product list.
     try:
         Sector_pav_loc  = IndexTable.Classification[IndexTable.index.get_loc('Sectors')].Items.index('passenger vehicles')
@@ -398,7 +536,7 @@ def main():
             Sector_nrbg_rge = []
     else:
         Sector_nrbg_rge = []        
-     # index location and range of industry in product list.    
+    # index location and range of industry in product list.    
     try:
         Sector_ind_loc  = IndexTable.Classification[IndexTable.index.get_loc('Sectors')].Items.index('industry')
     except:
@@ -410,6 +548,14 @@ def main():
             raise AssertionError('Fatal: All selected items for aspect I must also be selected for aspect g. Exiting the script.')
         else:
             Sector_ind_rge = []
+    try:
+        Sector_ind_regions = IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items #returns list of selected regions for industry sector
+    except:
+        Sector_ind_regions = np.nan
+    try:
+        Sector_ind_regions_indx  = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('r')].Items.index(i) for i in Sector_ind_regions] #returns index of selected regions for industry sector
+    except:
+        Sector_ind_regions_indx = np.nan
     # index location and range of appliances in product list.    
     try:
         Sector_app_loc  = IndexTable.Classification[IndexTable.index.get_loc('Sectors')].Items.index('appliances')
@@ -422,6 +568,18 @@ def main():
             raise AssertionError('Fatal: All selected items for aspect a must also be selected for aspect g. Exiting the script.')
         else:
             Sector_app_rge = []
+    # index location and range of transp. infrastructure IMAGE-Materials in product list. #2026-01
+    try:
+        Sector_tis_loc  = IndexTable.Classification[IndexTable.index.get_loc('Sectors')].Items.index('transport infrastructure IMAGE-Materials')
+    except:
+        Sector_tis_loc  = np.nan
+    try:
+        Sector_tis_rge  = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('K')].Items]
+    except:
+        if 'tis' in SectorList:
+            raise AssertionError('Fatal: All selected items for aspect K must also be selected for aspect g. Exiting the script.')
+        else:
+            Sector_tis_rge = []
         
     Cement_loc    = IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items.index('cement')
     Concrete_loc  = IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items.index('concrete')
@@ -447,6 +605,7 @@ def main():
     PaperProd_loc    = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of paper and cardboard, primary')
     WoodProd_loc     = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items.index('production of wood and wood products, primary')
     Woodwaste_loc = IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items.index('used construction wood')
+    Woodwastemgt_loc = IndexTable.Classification[IndexTable.index.get_loc('WasteManagementIndustries')].Items.index('wood recycling') # 2025-06-10, ch: added because Woodwaste_loc can differ from Woodwastemgt_loc
     Electric_loc  = IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items.index('electricity')
     NatuGas_loc   = IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items.index('natural gas')
     WoodFuel_loc  = IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items.index('fuel wood')
@@ -469,9 +628,9 @@ def main():
     Cooling_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Cooling')
     DomstHW_loc   = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('DHW')
     Service_Drivg = IndexTable.Classification[IndexTable.index.get_loc('ServiceType')].Items.index('Driving')
-    Bio_El_loc    = IndexTable.Classification[IndexTable.index.get_loc('Industry')].Items.index('bio powerplant')
-    Bio_El_CS_loc = IndexTable.Classification[IndexTable.index.get_loc('Industry')].Items.index('biomass power plant with CCS')
-    
+    Bio_El_loc    = IndexTable.Classification[IndexTable.index.get_loc('Industry')].Items.index('Biomass|Other (Not Elsewhere Specified)')
+    Bio_El_CS_loc = IndexTable.Classification[IndexTable.index.get_loc('Industry')].Items.index('Biomass|w/ CCS')
+
     Service_Reb   = np.array([Heating_loc,Cooling_loc,DomstHW_loc])
     Ind_2015      = 115 #index of year 2015
     #Ind_2017      = 117 #index of year 2017
@@ -479,7 +638,7 @@ def main():
     IsClose_Remainder_Small = 1e-15 
     IsClose_Remainder_Large = 1e-7 
     DPI_RES        = ScriptConfig['Plot4Max'] # 100 for overview or 500 for paper plots, defined in ModelConfig_List
-    
+
     # Determine location of the indices of individual sectors in the region-specific list and in the list of all goods
     # indices of sectors with same regional scope in complete goods list
     Sector_11reg_rge    = Sector_ind_rge
@@ -488,69 +647,74 @@ def main():
     Sector_ind_rge_reg  = np.arange(0,18,1)
     Sector_app_rge_reg  = np.arange(0,12,1)
     Sector_nrbg_rge_reg = np.arange(12,16,1)
-    
+
     OutputDict      = {}  # Dictionary with output variables for entire model run, to export checks and analyses.
-    
+
     # 1a) Currently not used
-    
+
     # 1b) Currently not used
         
     # 1c) Currently not used
-    
+
+    #2026-01: add "if" clauses to execute only when sectors in SectorList
     # 1d) Split concrete in building archetypes into cement and aggregates but keep concrete separately
-    ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,Cement_loc]   = ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,Cement_loc] + ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc] * ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,Concrete_loc].copy()
-    ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,ConcrAgg_loc] = (1 - ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]) * ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,Concrete_loc].copy()
-    
-    ParameterDict['3_MC_NonResBuildingArchetypes'].Values[:,:,Cement_loc]   = ParameterDict['3_MC_NonResBuildingArchetypes'].Values[:,:,Cement_loc] + ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc] * ParameterDict['3_MC_NonResBuildingArchetypes'].Values[:,:,Concrete_loc].copy()
-    ParameterDict['3_MC_NonResBuildingArchetypes'].Values[:,:,ConcrAgg_loc] = (1 - ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]) * ParameterDict['3_MC_NonResBuildingArchetypes'].Values[:,:,Concrete_loc].copy()
+    if 'reb' in SectorList: 
+        ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,Cement_loc]   = ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,Cement_loc] + ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc] * ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,Concrete_loc].copy()
+        ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,ConcrAgg_loc] = (1 - ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]) * ParameterDict['3_MC_BuildingArchetypes'].Values[:,:,Concrete_loc].copy()
+    if 'nrb' in SectorList:
+        ParameterDict['3_MC_NonResBuildingArchetypes'].Values[:,:,Cement_loc]   = ParameterDict['3_MC_NonResBuildingArchetypes'].Values[:,:,Cement_loc] + ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc] * ParameterDict['3_MC_NonResBuildingArchetypes'].Values[:,:,Concrete_loc].copy()
+        ParameterDict['3_MC_NonResBuildingArchetypes'].Values[:,:,ConcrAgg_loc] = (1 - ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]) * ParameterDict['3_MC_NonResBuildingArchetypes'].Values[:,:,Concrete_loc].copy()
         
     # 1e) Compile parameter for building energy conversion efficiency:
-    ParameterDict['4_TC_ResidentialEnergyEfficiency'] = msc.Parameter(Name='4_TC_ResidentialEnergyEfficiency', ID='4_TC_ResidentialEnergyEfficiency',
-                                                UUID=None, P_Res=None, MetaData=None,
-                                                Indices='VRrntS', Values=np.zeros((NV,NR,Nr,Nn,Nt,NS)), Uncert=None,
-                                                Unit='1')
-    ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values                                   = np.einsum('VRrn,tS->VRrntS',ParameterDict['4_TC_ResidentialEnergyEfficiency_Default'].Values[:,:,:,:,0],np.ones((Nt,NS)))
-    ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[Heating_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_ResidentialEnergyEfficiency_Scenario_Heating'].Values[Heating_loc,:,:,Electric_loc,:,:] / 100
-    ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[Cooling_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_ResidentialEnergyEfficiency_Scenario_Cooling'].Values[Cooling_loc,:,:,Electric_loc,:,:] / 100
-    ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[DomstHW_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_ResidentialEnergyEfficiency_Scenario_Heating'].Values[DomstHW_loc,:,:,Electric_loc,:,:] / 100
-    
-    ParameterDict['4_TC_NonResidentialEnergyEfficiency'] = msc.Parameter(Name='4_TC_NonResidentialEnergyEfficiency', ID='4_TC_NonResidentialEnergyEfficiency',
-                                                UUID=None, P_Res=None, MetaData=None,
-                                                Indices='VRrntS', Values=np.zeros((NV,NR,Nr,Nn,Nt,NS)), Uncert=None,
-                                                Unit='1')
-    ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values                                   = np.einsum('VRrn,tS->VRrntS',ParameterDict['4_TC_NonResEnergyEfficiency_Default'].Values[:,:,:,:,0],np.ones((Nt,NS)))
-    ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[Heating_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_NonResEnergyEfficiency_Scenario_Heating'].Values[Heating_loc,:,:,Electric_loc,:,:] / 100
-    ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[Cooling_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_NonResEnergyEfficiency_Scenario_Cooling'].Values[Cooling_loc,:,:,Electric_loc,:,:] / 100
-    ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[DomstHW_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_NonResEnergyEfficiency_Scenario_Heating'].Values[DomstHW_loc,:,:,Electric_loc,:,:] / 100
-    
+    if 'reb' in SectorList:
+        ParameterDict['4_TC_ResidentialEnergyEfficiency'] = msc.Parameter(Name='4_TC_ResidentialEnergyEfficiency', ID='4_TC_ResidentialEnergyEfficiency',
+                                                    UUID=None, P_Res=None, MetaData=None,
+                                                    Indices='VRrntS', Values=np.zeros((NV,NR,Nr,Nn,Nt,NS)), Uncert=None,
+                                                    Unit='1')
+        ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values                                   = np.einsum('VRrn,tS->VRrntS',ParameterDict['4_TC_ResidentialEnergyEfficiency_Default'].Values[:,:,:,:,0],np.ones((Nt,NS)))
+        ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[Heating_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_ResidentialEnergyEfficiency_Scenario_Heating'].Values[Heating_loc,:,:,Electric_loc,:,:] / 100
+        ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[Cooling_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_ResidentialEnergyEfficiency_Scenario_Cooling'].Values[Cooling_loc,:,:,Electric_loc,:,:] / 100
+        ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[DomstHW_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_ResidentialEnergyEfficiency_Scenario_Heating'].Values[DomstHW_loc,:,:,Electric_loc,:,:] / 100
+    if 'nrb' in SectorList:
+        ParameterDict['4_TC_NonResidentialEnergyEfficiency'] = msc.Parameter(Name='4_TC_NonResidentialEnergyEfficiency', ID='4_TC_NonResidentialEnergyEfficiency',
+                                                    UUID=None, P_Res=None, MetaData=None,
+                                                    Indices='VRrntS', Values=np.zeros((NV,NR,Nr,Nn,Nt,NS)), Uncert=None,
+                                                    Unit='1')
+        ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values                                   = np.einsum('VRrn,tS->VRrntS',ParameterDict['4_TC_NonResEnergyEfficiency_Default'].Values[:,:,:,:,0],np.ones((Nt,NS)))
+        ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[Heating_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_NonResEnergyEfficiency_Scenario_Heating'].Values[Heating_loc,:,:,Electric_loc,:,:] / 100
+        ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[Cooling_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_NonResEnergyEfficiency_Scenario_Cooling'].Values[Cooling_loc,:,:,Electric_loc,:,:] / 100
+        ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[DomstHW_loc,:,:,Electric_loc,:,:] = ParameterDict['4_TC_NonResEnergyEfficiency_Scenario_Heating'].Values[DomstHW_loc,:,:,Electric_loc,:,:] / 100
+
     # 1f) Derive energy supply multipliers for buildings for future age-cohorts
     # From energy carrier split and conversion efficiency, the multipliers converting 1 MJ of final building energy demand into different energy carriers are determined.
     # For details around the ancillary quantity anc, see the model documentation.
-    Divisor = ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values #VRrntS
-    Anc = np.divide(np.einsum('VRrnt,S->VRrntS',ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values, np.ones(NS)), Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)
-    
-    # Define energy carrier split for useful energy
-    ParameterDict['3_SHA_EnergyCarrierSplit_Buildings_uf'] = msc.Parameter(Name='3_SHA_EnergyCarrierSplit_Buildings_uf', ID='3_SHA_EnergyCarrierSplit_Buildings_uf',
-                                                UUID=None, P_Res=None, MetaData=None,
-                                                Indices='VRrntS', Values=np.zeros((NV,NR,Nr,Nn,Nt,NS)), Uncert=None,
-                                                Unit='1')
-    ParameterDict['3_SHA_EnergyCarrierSplit_Buildings_uf'].Values = np.divide(Anc, np.einsum('VRrtS,n->VRrntS',np.einsum('VRrntS->VRrtS',Anc),np.ones(Nn)), out=np.zeros_like(Divisor), where=Divisor!=0)
-    
-    Divisor = ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values #VRrntS
-    Anc = np.divide(np.einsum('VRrnt,S->VRrntS',ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values, np.ones(NS)), Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)
-    
-    # Define energy carrier split for useful energy
-    ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings_uf'] = msc.Parameter(Name='3_SHA_EnergyCarrierSplit_NonResBuildings_uf', ID='3_SHA_EnergyCarrierSplit_NonResBuildings_uf',
-                                                UUID=None, P_Res=None, MetaData=None,
-                                                Indices='VRrntS', Values=np.zeros((NV,NR,Nr,Nn,Nt,NS)), Uncert=None,
-                                                Unit='1')
-    ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings_uf'].Values = np.divide(Anc, np.einsum('VRrtS,n->VRrntS',np.einsum('VRrntS->VRrtS',Anc),np.ones(Nn)), out=np.zeros_like(Divisor), where=Divisor!=0)
-    
+    if 'reb' in SectorList:
+        Divisor = ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values #VRrntS
+        Anc = np.divide(np.einsum('VRrnt,S->VRrntS',ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values, np.ones(NS)), Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)
+        
+        # Define energy carrier split for useful energy
+        ParameterDict['3_SHA_EnergyCarrierSplit_Buildings_uf'] = msc.Parameter(Name='3_SHA_EnergyCarrierSplit_Buildings_uf', ID='3_SHA_EnergyCarrierSplit_Buildings_uf',
+                                                    UUID=None, P_Res=None, MetaData=None,
+                                                    Indices='VRrntS', Values=np.zeros((NV,NR,Nr,Nn,Nt,NS)), Uncert=None,
+                                                    Unit='1')
+        ParameterDict['3_SHA_EnergyCarrierSplit_Buildings_uf'].Values = np.divide(Anc, np.einsum('VRrtS,n->VRrntS',np.einsum('VRrntS->VRrtS',Anc),np.ones(Nn)), out=np.zeros_like(Divisor), where=Divisor!=0)
+    if 'nrb' in SectorList:
+        Divisor = ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values #VRrntS # unit [MJ_final/MJ_useful]
+        Anc = np.divide(np.einsum('VRrnt,S->VRrntS',ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values, np.ones(NS)), Divisor, out=np.zeros_like(Divisor), where=Divisor!=0) 
+        
+        # Define energy carrier split for useful energy
+        ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings_uf'] = msc.Parameter(Name='3_SHA_EnergyCarrierSplit_NonResBuildings_uf', ID='3_SHA_EnergyCarrierSplit_NonResBuildings_uf',
+                                                    UUID=None, P_Res=None, MetaData=None,
+                                                    Indices='VRrntS', Values=np.zeros((NV,NR,Nr,Nn,Nt,NS)), Uncert=None,
+                                                    Unit='1')
+        ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings_uf'].Values = np.divide(Anc, np.einsum('VRrtS,n->VRrntS',np.einsum('VRrntS->VRrtS',Anc),np.ones(Nn)), out=np.zeros_like(Divisor), where=Divisor!=0) 
+
     # 2a) Determine future energy intensity and material composition of vehicles by mixing archetypes:
     # Check if RE strategies are active and set implementation curves to 2016 value if not.
-    if 'pav' in SectorList:
+    if 'pav' in SectorList: #20260201: add patch-1 by huimei-li
         if ScriptConfig['Include_REStrategy_MaterialSubstitution'] == 'False': # no additional lightweighting trough material substitution.
-            ParameterDict['3_SHA_LightWeighting_Vehicles'].Values  = np.einsum('prS,t->prtS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[:,:,0,:],np.ones((Nt)))
+            #ParameterDict['3_SHA_LightWeighting_Vehicles'].Values  = np.einsum('prS,t->prtS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[:,:,0,:],np.ones((Nt)))
+            ParameterDict['3_SHA_LightWeighting_Vehicles'].Values   = ParameterDict['3_SHA_LightWeighting_Vehicles_Default'].Values.copy() #2026-01-26, hmli, circomod: even when the Material Substitution strategy is turned off, the future share of lightweight still adopts the scenario value instead of the value of 2015
         DownSizingBuffer = ParameterDict['3_SHA_DownSizing_Vehicles'].Values.copy()
         if ScriptConfig['Include_REStrategy_UsingLessMaterialByDesign'] == 'True': # consider lightweighting trough UsingLessMaterialByDesign (segment shift)
             for nnr in range(0,Nr):
@@ -559,15 +723,16 @@ def main():
                         ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,nnr,:,nnS] = np.einsum('s,t->st',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,nnr,0,nnS],np.ones((Nt)))
         else: # no lightweighting trough UsingLessMaterialByDesign.
             # for regions not selected above (high-income regions): Set downsizing to 2016 levels.
-            ParameterDict['3_SHA_DownSizing_Vehicles'].Values = np.einsum('srS,t->srtS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,:,0,:],np.ones((Nt)))
+            #ParameterDict['3_SHA_DownSizing_Vehicles'].Values = np.einsum('srS,t->srtS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,:,0,:],np.ones((Nt)))
+            ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,:,6:,:] = ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,:,5:6,:] #2026-02-14, hmli, circomod: With downsizing turned off, all values after 2021 (t >= 6) are set to the values of 2020 (t=5).
             for nnr in range(0,Nr):
                 for nnS in range(0,NS):
                     if ParameterDict['8_FLAG_VehicleDownsizingDirection'].Values[nnr,nnS] == 1:
                         ParameterDict['3_SHA_DownSizing_Vehicles'].Values[:,nnr,:,nnS]  = DownSizingBuffer[:,nnr,:,nnS].copy()
         ParameterDict['3_MC_RECC_Vehicles_RECC'] = msc.Parameter(Name='3_MC_RECC_Vehicles_RECC', ID='3_MC_RECC_Vehicles_RECC',
-                                                   UUID=None, P_Res=None, MetaData=None,
-                                                   Indices='cmprS', Values=np.zeros((Nc,Nm,Np,Nr,NS)), Uncert=None,
-                                                   Unit='kg/unit')
+                                                UUID=None, P_Res=None, MetaData=None,
+                                                Indices='cmprS', Values=np.zeros((Nc,Nm,Np,Nr,NS)), Uncert=None,
+                                                Unit='kg/unit')
         ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[0:SwitchTime-1,:,:,:,:] = np.einsum('cmpr,S->cmprS',ParameterDict['3_MC_RECC_Vehicles'].Values[0:SwitchTime-1,:,:,:],np.ones(NS))
         ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[SwitchTime-1::,:,:,:,:] = \
         np.einsum('prcS,pmrcS->cmprS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values/100,     np.einsum('rcS,pm->pmrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[0,:,:,:],ParameterDict['3_MC_VehicleArchetypes'].Values[[24,28,32,36,40,44],:])) +\
@@ -587,7 +752,7 @@ def main():
         np.einsum('prcS,pnrcS->cpnrS',1 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values/100, np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[1,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[1 ,5 ,9 ,13,17,21],:])) +\
         np.einsum('prcS,pnrcS->cpnrS',1 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values/100, np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[2,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[2 ,6 ,10,14,18,22],:])) +\
         np.einsum('prcS,pnrcS->cpnrS',1 - ParameterDict['3_SHA_LightWeighting_Vehicles'].Values/100, np.einsum('rcS,pn->pnrcS',ParameterDict['3_SHA_DownSizing_Vehicles'].Values[3,:,:,:],ParameterDict['3_EI_VehicleArchetypes'].Values[[3 ,7 ,11,15,19,23],:]))
-    
+
     # 2b) Determine future energy intensity and material composition of residential buildings by mixing archetypes:
     # Expand building light-weighting split to all building types:
     if 'reb' in SectorList:
@@ -631,7 +796,7 @@ def main():
                                                     UUID=None, P_Res=None, MetaData=None,
                                                     Indices='mBrctSR', Values=np.zeros((Nm,NB,Nr,Nc,Nt,NS,NR)), Uncert=None,
                                                     Unit='kg/m2')    
-    
+
     # 2c) Determine future energy intensity and material composition of nonresidential buildings by mixing archetypes:
     if 'nrb' in SectorList:
         # Expand building light-weighting split to all building types:
@@ -663,7 +828,11 @@ def main():
         ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[0:115,:,[12,13,14,15],:,:,:] = np.einsum('cmrSR,N->cmNrSR',ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[0:115,:,13,:,:,:],np.ones(4))
         ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[0:115,:,[16,17,18,19],:,:,:] = np.einsum('cmrSR,N->cmNrSR',ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[0:115,:,17,:,:,:],np.ones(4))
         ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[0:115,:,[20,21,22,23],:,:,:] = np.einsum('cmrSR,N->cmNrSR',ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[0:115,:,21,:,:,:],np.ones(4))
+<<<<<<< HEAD
         # Mix future archetypes for material composition
+=======
+        # Mix future archetypes for material composition 
+>>>>>>> 80a44448d6fa680fdb39b8539842092820be6a60
         ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[115::,:,:,:,:,:] = \
         np.einsum('NrcSR,NmrcSR->cmNrSR',ParameterDict['3_SHA_LightWeighting_NonResBuildings'].Values,     np.einsum('urcSR,Nrm->NmrcSR',ParameterDict['3_SHA_DownSizing_NonResBuildings'].Values,    ParameterDict['3_MC_NonResBuildingArchetypes'].Values[[110,114,106,102,158,162,154,150,174,178,170,166,190,194,186,182,126,130,122,118,142,146,138,134],:,:])) +\
         np.einsum('NrcSR,NmrcSR->cmNrSR',ParameterDict['3_SHA_LightWeighting_NonResBuildings'].Values,     np.einsum('urcSR,Nrm->NmrcSR',1 - ParameterDict['3_SHA_DownSizing_NonResBuildings'].Values,ParameterDict['3_MC_NonResBuildingArchetypes'].Values[[109,113,105,101,157,161,153,149,173,177,169,165,189,193,185,181,125,129,121,117,141,145,137,133],:,:])) +\
@@ -676,8 +845,8 @@ def main():
         
         # For 3_EI_Products_UsePhase_nonresbuildings: Replicate SSP1 values to LED and SSP2 scenarios (scenario aspect is irrelevant anyway because these are historic data only)
         ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values = np.einsum('cNVnrS,R->cNVnrSR',ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values,np.ones(NR)) # replicate for both RCP scenarios
-        ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[:,:,:,:,:,:,:]     = np.einsum('cNVnrR,S->cNVnrSR',ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[:,:,:,:,:,1,:],np.ones((NS)))
-        # Mix future archetypes
+        ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[:,:,:,:,:,:,:]     = np.einsum('cNVnrR,S->cNVnrSR',ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[:,:,:,:,:,1,:],np.ones((NS))) # EI in final energy demand
+        # Mix future archetypes (EI in useful energy demand for future age-cohorts at this point)
         ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[115::,:,:,:,:,:,:] = \
         np.einsum('NrcSR,NnrVcSR->cNVnrSR',ParameterDict['3_SHA_LightWeighting_NonResBuildings'].Values,     np.einsum('urcSR,NrVn->NnrVcSR',ParameterDict['3_SHA_DownSizing_NonResBuildings'].Values,    ParameterDict['3_EI_NonResBuildingArchetypes'].Values[[110,114,106,102,158,162,154,150,174,178,170,166,190,194,186,182,126,130,122,118,142,146,138,134],:,:,:])) +\
         np.einsum('NrcSR,NnrVcSR->cNVnrSR',ParameterDict['3_SHA_LightWeighting_NonResBuildings'].Values,     np.einsum('urcSR,NrVn->NnrVcSR',1 - ParameterDict['3_SHA_DownSizing_NonResBuildings'].Values,ParameterDict['3_EI_NonResBuildingArchetypes'].Values[[109,113,105,101,157,161,153,149,173,177,169,165,189,193,185,181,125,129,121,117,141,145,137,133],:,:,:])) +\
@@ -691,7 +860,7 @@ def main():
                                                     UUID=None, P_Res=None, MetaData=None,
                                                     Indices='mNrctSR', Values=np.zeros((Nm,NN,Nr,Nc,Nt,NS,NR)), Uncert=None,
                                                     Unit='kg/m2')      
-    
+
     if 'nrbg' in SectorList:
         # Split concrete into cement and aggregates:
         # Cement for buildings remains, as this item refers to cement in mortar, screed, and plaster. Cement in concrete is calculated as ParameterDict['3_MC_CementContentConcrete'].Values * concrete and added here. 
@@ -699,49 +868,98 @@ def main():
         ParameterDict['3_MC_RECC_Nonresbuildings_g'].Values[Cement_loc,:]   = ParameterDict['3_MC_RECC_Nonresbuildings_g'].Values[Cement_loc,:] + ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc] * ParameterDict['3_MC_RECC_Nonresbuildings_g'].Values[Concrete_loc,:].copy()
         ParameterDict['3_MC_RECC_Nonresbuildings_g'].Values[ConcrAgg_loc,:] = (1 - ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]) * ParameterDict['3_MC_RECC_Nonresbuildings_g'].Values[Concrete_loc,:].copy()
         ParameterDict['3_MC_RECC_Nonresbuildings_g'].Values[Concrete_loc,:] = 0
-        
+
+    if 'ind' in SectorList: #2026-03-17 add concrete to ind material composition (sum of cement and concrete aggregates), as 3_MC_RECC_industry only contains the latter two, but not concrete (no cement other than in concrete considered here)
+        ParameterDict['3_MC_RECC_industry'].Values[:,Concrete_loc,:]   = ParameterDict['3_MC_RECC_industry'].Values[:,Cement_loc,:] + ParameterDict['3_MC_RECC_industry'].Values[:,ConcrAgg_loc,:]
+
+    """#2026-01-27
+    if 'tis' in SectorList: #2026-01
+        # Split concrete into cement and aggregates:
+        ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,Cement_loc,:,:,:,:]   = ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,Cement_loc,:,:,:,:] + ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc] * ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,Concrete_loc,:,:,:,:].copy()
+        ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,ConcrAgg_loc,:,:,:,:] = (1 - ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]) * ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,Concrete_loc,:,:,:,:].copy()
+        # 2026-01-19, ch: keep values for Concrete 
+        #ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,Concrete_loc,:,:,:,:] = 0 
+    """
+            
     # 3) Currently not in use.
-    
+
     # 4) Fabrication yield and fabrication scrap diversion:
     # Extrapolate 2050-2060 as 2015 values
     index = PL_Names.index('4_PY_Manufacturing')
     ParameterDict[PL_Names[index]].Values[:,:,:,:,1::,:] = np.einsum('t,mwgFr->mwgFtr',np.ones(45),ParameterDict[PL_Names[index]].Values[:,:,:,:,0,:])
     if ScriptConfig['Include_REStrategy_FabScrapDiversion'] == 'False':
         ParameterDict['6_PR_FabricationScrapDiversion'].Values = np.zeros((Nm,Nw,No,NS))
-    
+
     # 5) EoL RR, apply world average to all regions
     ParameterDict['4_PY_EoL_RecoveryRate'].Values = np.einsum('gmwW,r->grmwW',ParameterDict['4_PY_EoL_RecoveryRate'].Values[:,0,:,:,:],np.ones((Nr)))
-    
+
     # 6) Energy carrier split of vehicles, replicate fixed values for all regions and age-cohorts etc.
-    ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles'].Values = np.einsum('pn,crVS->cprVnS',ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles'].Values[115,:,0,Service_Drivg,:,SSP1index].copy(),np.ones((Nc,Nr,NV,NS)))
-    
+    if 'pav' in SectorList:
+        ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles'].Values = np.einsum('pn,crVS->cprVnS',ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles'].Values[115,:,0,Service_Drivg,:,SSP1index].copy(),np.ones((Nc,Nr,NV,NS)))
+
     # 7) RE strategy potentials for individual countries are replicated from global average:
-    ParameterDict['6_PR_ReUse_Bld'].Values                      = np.einsum('mB,r->mBr',ParameterDict['6_PR_ReUse_Bld'].Values[:,:,0],np.ones(Nr))
-    ParameterDict['6_PR_ReUse_nonresBld'].Values                = np.einsum('mN,r->mNr',ParameterDict['6_PR_ReUse_nonresBld'].Values[:,:,0],np.ones(Nr))
-    ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values = np.einsum('pS,r->prS',ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values[:,0,:],np.ones(Nr))
+    #ParameterDict['6_PR_ReUse_Bld'].Values                      = np.einsum('mB,r->mBr',ParameterDict['6_PR_ReUse_Bld'].Values[:,:,0],np.ones(Nr))
+    if 'reb' in SectorList:
+        ParameterDict['6_PR_ReUse_Bld'].Values                      = np.einsum('mBt,r->mBrt',ParameterDict['6_PR_ReUse_Bld'].Values[:,:,0,:],np.ones(Nr)) #2025-06-04, ch: make reuse parameter for buildings time dependent to allow for start year reuse share >0
+    #ParameterDict['6_PR_ReUse_nonresBld'].Values                = np.einsum('mN,r->mNr',ParameterDict['6_PR_ReUse_nonresBld'].Values[:,:,0],np.ones(Nr))
+    if 'nrb' in SectorList:
+        ParameterDict['6_PR_ReUse_nonresBld'].Values                = np.einsum('mNt,r->mNrt',ParameterDict['6_PR_ReUse_nonresBld'].Values[:,:,0,:],np.ones(Nr)) #2025-06-04, ch: make reuse parameter for buildings time dependent to allow for start year reuse share >0
+    if 'tis' in SectorList: #2026-01 add tis reuse
+        ParameterDict['6_PR_ReUse_Tis'].Values                      = np.einsum('mKt,r->mKrt',ParameterDict['6_PR_ReUse_Tis'].Values[:,:,0,:],np.ones(Nr)) 
+    if 'ind' in SectorList: #2026-03-17 add ind reuse
+        ParameterDict['6_PR_ReUse_Ind_electricity_inf'].Values      = np.einsum('mIt,r->mIrt',ParameterDict['6_PR_ReUse_Ind_electricity_inf'].Values[:,:,0,:],np.ones(Nr)) #values imported for "World" region, replace with r.
+    if 'pav' in SectorList:
+        ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values = np.einsum('pS,r->prS',ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values[:,0,:],np.ones(Nr))
     ParameterDict['6_PR_EoL_RR_Improvement'].Values             = np.einsum('gmwW,r->grmwW',ParameterDict['6_PR_EoL_RR_Improvement'].Values[:,0,:,:,:],np.ones(Nr))
-    
+
     # 8) Define a multi-regional RE strategy and building renovation scaleup parameter
     ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'] = msc.Parameter(Name='3_SHA_RECC_REStrategyScaleUp_r', ID='3_SHA_RECC_REStrategyScaleUp_r',
-                                                      UUID=None, P_Res=None, MetaData=None,
-                                                      Indices='trSR', Values=np.zeros((Nt,Nr,NS,NR)), Uncert=None,
-                                                      Unit='1')
+                                                    UUID=None, P_Res=None, MetaData=None,
+                                                    Indices='trSR', Values=np.zeros((Nt,Nr,NS,NR)), Uncert=None,
+                                                    Unit='1')
     ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values        = np.einsum('RtS,r->trSR',ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[:,0,:,:],np.ones(Nr)).copy()
-    ParameterDict['3_SHA_BuildingRenovationScaleUp_r'] = msc.Parameter(Name='3_SHA_BuildingRenovationScaleUp_r', ID='3_SHA_BuildingRenovationScaleUp_r',
-                                                      UUID=None, P_Res=None, MetaData=None,
-                                                      Indices='trSR', Values=np.zeros((Nt,Nr,NS,NR)), Uncert=None,
-                                                      Unit='1')
-    ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values        = np.einsum('RtS,r->trSR',ParameterDict['3_SHA_BuildingRenovationScaleUp'].Values[:,0,:,:],np.ones(Nr)).copy()
-    
+    if 'reb' in SectorList:
+        # 2025-06-11, ch: region r and building type B dependent 3_SHA_BuildingRenovationScaleUp for coupling with TIMES model renovation rates
+        '''
+        ParameterDict['3_SHA_BuildingRenovationScaleUp_r'] = msc.Parameter(Name='3_SHA_BuildingRenovationScaleUp_r', ID='3_SHA_BuildingRenovationScaleUp_r',
+                                                        UUID=None, P_Res=None, MetaData=None,
+                                                        Indices='trSR', Values=np.zeros((Nt,Nr,NS,NR)), Uncert=None,
+                                                        Unit='1')
+        ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values        = np.einsum('RtS,r->trSR',ParameterDict['3_SHA_BuildingRenovationScaleUp'].Values[:,0,:,:],np.ones(Nr)).copy()
+        '''
+        ParameterDict['3_SHA_BuildingRenovationScaleUp_rB'] = msc.Parameter(Name='3_SHA_BuildingRenovationScaleUp_rB', ID='3_SHA_BuildingRenovationScaleUp_rB',
+                                                        UUID=None, P_Res=None, MetaData=None,
+                                                        Indices='trBSR', Values=np.zeros((Nt,Nr,NB,NS,NR)), Uncert=None,
+                                                        Unit='1')
+        ParameterDict['3_SHA_BuildingRenovationScaleUp_rB'].Values        = np.einsum('RrBSt->trBSR',ParameterDict['3_SHA_BuildingRenovationScaleUp'].Values[:,:,:,:,:]).copy()
+    if 'nrb' in SectorList:
+        # 2025-06-11, ch: add 3_SHA_NonResBuildingRenovationScaleUp (region r and nonres building type N dependent)
+        ParameterDict['3_SHA_NonResBuildingRenovationScaleUp_rN'] = msc.Parameter(Name='3_SHA_NonResBuildingRenovationScaleUp_rN', ID='3_SHA_NonResBuildingRenovationScaleUp_rN',
+                                                        UUID=None, P_Res=None, MetaData=None,
+                                                        Indices='trNSR', Values=np.zeros((Nt,Nr,NN,NS,NR)), Uncert=None,
+                                                        Unit='1')
+        ParameterDict['3_SHA_NonResBuildingRenovationScaleUp_rN'].Values        = np.einsum('RrNSt->trNSR',ParameterDict['3_SHA_NonResBuildingRenovationScaleUp'].Values[:,:,:,:,:]).copy()
+
+
     # 9) Currently not used    
-    
+
     # 10) Set future vehicle reuse to 2015 levels if strategy is not included:
     # (To reflect that reuse is already happening to some extent.)
     if ScriptConfig['Include_REStrategy_ReUse'] == 'False':
-        ParameterDict['6_PR_ReUse_Veh'].Values       = np.einsum('mprS,t->mprtS',ParameterDict['6_PR_ReUse_Veh'].Values[:,:,:,1,:],np.ones(Nt)) # stay at current levels, which are > 0.
-        ParameterDict['6_PR_ReUse_Bld'].Values       = np.zeros(ParameterDict['6_PR_ReUse_Bld'].Values.shape) # set to zero, which corresponds to current levels.
-        ParameterDict['6_PR_ReUse_nonresBld'].Values = np.zeros(ParameterDict['6_PR_ReUse_nonresBld'].Values.shape) # set to zero, which corresponds to current levels.
-        
+        if 'pav' in SectorList:
+            ParameterDict['6_PR_ReUse_Veh'].Values       = np.einsum('mprS,t->mprtS',ParameterDict['6_PR_ReUse_Veh'].Values[:,:,:,1,:],np.ones(Nt)) # stay at current levels, which are > 0.
+        #ParameterDict['6_PR_ReUse_Bld'].Values       = np.zeros(ParameterDict['6_PR_ReUse_Bld'].Values.shape) # set to zero, which corresponds to current levels.
+        if 'reb' in SectorList:
+            ParameterDict['6_PR_ReUse_Bld'].Values       = np.einsum('mBr,t->mBrt',ParameterDict['6_PR_ReUse_Bld'].Values[:,:,:,1],np.ones(Nt)) # stay at current levels, which are > 0. #2025-06-04, ch: make reuse parameter for buildings time dependent to allow for start year reuse share >0
+        #ParameterDict['6_PR_ReUse_nonresBld'].Values = np.zeros(ParameterDict['6_PR_ReUse_nonresBld'].Values.shape) # set to zero, which corresponds to current levels.
+        if 'nrb' in SectorList:
+            ParameterDict['6_PR_ReUse_nonresBld'].Values = np.einsum('mNr,t->mNrt',ParameterDict['6_PR_ReUse_nonresBld'].Values[:,:,:,1],np.ones(Nt)) # stay at current levels, which are > 0. #2025-06-04, ch: make reuse parameter for buildings time dependent to allow for start year reuse share >0
+        if 'tis' in SectorList: #2026-01 add tis reuse
+            ParameterDict['6_PR_ReUse_Tis'].Values = np.einsum('mKr,t->mKrt',ParameterDict['6_PR_ReUse_Tis'].Values[:,:,:,1],np.ones(Nt)) # stay at current levels, which are > 0. 
+        if 'ind' in SectorList: #2026-03-17 add ind reuse
+            ParameterDict['6_PR_ReUse_Ind_electricity_inf'].Values = np.einsum('mIr,t->mIrt',ParameterDict['6_PR_ReUse_Ind_electricity_inf'].Values[:,:,:,1],np.ones(Nt)) # stay at current levels, which are > 0.
+
+
     # 11) MODEL CALIBRATION
     # Calibrate vehicle kilometrage: No longer used! VKM is now calibrated in scenario target table process to deliver correct pC stock number for 2015.
     #### ParameterDict['3_IO_Vehicles_UsePhase'].Values[3,:,:,:]                             = ParameterDict['3_IO_Vehicles_UsePhase'].Values[3,:,:,:]                           * np.einsum('r,tS->rtS',ParameterDict['6_PR_Calibration'].Values[0,:],np.ones((Nt,NS)))
@@ -753,66 +971,74 @@ def main():
         ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:]      = ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:]    * np.einsum('r,cBVnSR->cBVnrSR',ParameterDict['6_PR_Calibration'].Values[2,:],np.ones((115,NB,3,Nn,NS,NR)))
     # Calibrate nonres. building energy consumption
     if 'nrb' in SectorList:
-        ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:]   = ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:] * np.einsum('r,cNVnSR->cNVnrSR',ParameterDict['6_PR_Calibration'].Values[3,:],np.ones((115,NN,3,Nn,NS,NR)))
-    
+        ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:]   = ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:115,:,[Heating_loc,Cooling_loc,DomstHW_loc],:,:,:,:] * np.einsum('r,cNVnSR->cNVnrSR',ParameterDict['6_PR_Calibration'].Values[3,:],np.ones((115,NN,3,Nn,NS,NR))) # EI in final energy demand
+
     # 12) No recycling scenario (counterfactual reference)
     if ScriptConfig['IncludeRecycling'] == 'False': # no recycling and remelting
         ParameterDict['4_PY_EoL_RecoveryRate'].Values            = np.zeros(ParameterDict['4_PY_EoL_RecoveryRate'].Values.shape)
         ParameterDict['4_PY_MaterialProductionRemelting'].Values = np.zeros(ParameterDict['4_PY_MaterialProductionRemelting'].Values.shape)
         
     # 13) Currently not used.
-      
-    # 14) Define parameter for future vehicle stock:
-    # a) calculated passenger vehicle stock
-    ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_passvehicles', ID='2_S_RECC_FinalProducts_Future_passvehicles',
-                                                UUID=None, P_Res=None, MetaData=None,
-                                                Indices='StGr', Values=np.zeros((NS,Nt,NG,Nr)), Uncert=None,
-                                                Unit='cars per person')
-    # b) calculated vehicle kilometrage
-    ParameterDict['3_IO_Vehicles_UsePhase_eff'] = msc.Parameter(Name='3_IO_Vehicles_UsePhase_eff', ID='3_IO_Vehicles_UsePhase_eff',
-                                                UUID=None, P_Res=None, MetaData=None,
-                                                Indices='VrtS', Values=np.zeros((NV,Nr,Nt,NS)), Uncert=None,
-                                                Unit='km per vehicle')
-    
+    if 'pav' in SectorList:  
+        # 14) Define parameter for future vehicle stock:
+        # a) calculated passenger vehicle stock
+        ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_passvehicles', ID='2_S_RECC_FinalProducts_Future_passvehicles',
+                                                    UUID=None, P_Res=None, MetaData=None,
+                                                    Indices='StGr', Values=np.zeros((NS,Nt,NG,Nr)), Uncert=None,
+                                                    Unit='cars per person')
+        # b) calculated vehicle kilometrage
+        ParameterDict['3_IO_Vehicles_UsePhase_eff'] = msc.Parameter(Name='3_IO_Vehicles_UsePhase_eff', ID='3_IO_Vehicles_UsePhase_eff',
+                                                    UUID=None, P_Res=None, MetaData=None,
+                                                    Indices='VrtS', Values=np.zeros((NV,Nr,Nt,NS)), Uncert=None,
+                                                    Unit='km per vehicle')
+
     # 15) Define parameter for future building stock:
     # actual future res and nonres building stock
-    ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_act'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_resbuildings_act', ID='2_S_RECC_FinalProducts_Future_resbuildings_act',
-                                                UUID=None, P_Res=None, MetaData=None,
-                                                Indices='StGr', Values=np.zeros((NS,Nt,NG,Nr)), Uncert=None,
-                                                Unit='m2 per person')
-    ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings_act'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_NonResBuildings_act', ID='2_S_RECC_FinalProducts_Future_NonResBuildings_act',
-                                                UUID=None, P_Res=None, MetaData=None,
-                                                Indices='GrtS', Values=np.zeros((NG,Nr,Nt,NS)), Uncert=None,
-                                                Unit='m2 per person')    
+    #2026-01: add "if" clauses to execute only when sectors in SectorList
+    if 'reb' in SectorList:
+        ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_act'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_resbuildings_act', ID='2_S_RECC_FinalProducts_Future_resbuildings_act',
+                                                    UUID=None, P_Res=None, MetaData=None,
+                                                    Indices='StGr', Values=np.zeros((NS,Nt,NG,Nr)), Uncert=None,
+                                                    Unit='m2 per person')
+    if 'nrb' in SectorList:
+        ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings_act'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_NonResBuildings_act', ID='2_S_RECC_FinalProducts_Future_NonResBuildings_act',
+                                                    UUID=None, P_Res=None, MetaData=None,
+                                                    Indices='GrtS', Values=np.zeros((NG,Nr,Nt,NS)), Uncert=None,
+                                                    Unit='m2 per person')    
     # 3_IO changing over time:
-    ParameterDict['3_IO_Buildings_UsePhase'] = msc.Parameter(Name='3_IO_Buildings_UsePhase', ID='3_IO_Buildings_UsePhase',
+    if 'reb' in SectorList:
+        ParameterDict['3_IO_Buildings_UsePhase'] = msc.Parameter(Name='3_IO_Buildings_UsePhase', ID='3_IO_Buildings_UsePhase',
                                                 UUID=None, P_Res=None, MetaData=None,
                                                 Indices='tcBVrS', Values=np.zeros((Nt,Nc,NB,NV,Nr,NS)), Uncert=None,
                                                 Unit='1')
+    ## 2025-01-17: only if residential buildings sector modelled (ch)
     # Historic age-cohorts:
-    # ParameterDict['3_IO_Buildings_UsePhase_Historic'] is a combination of climate and socioeconomic 3_IO determinants.
-    # We single out the former and keep them constant and let the socioeconomic factors change according to the '3_IO_Buildings_UsePhase_Future_...' parameters.
-    Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:SwitchTime,:,Heating_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,0,:],np.ones((SwitchTime,NB))) * 100
-    Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating[np.isnan(Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating)] = 0
-    ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,Heating_loc,:,:] = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating,np.ones(Nt))
-    Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW     = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:SwitchTime,:,DomstHW_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,0,:],np.ones((SwitchTime,NB))) * 100
-    Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW[np.isnan(Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW)] = 0
-    ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,DomstHW_loc,:,:] = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW,np.ones(Nt))
-    Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:SwitchTime,:,Cooling_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Cooling'].Values[Sector_reb_loc,:,0,:],np.ones((SwitchTime,NB))) * 100
-    Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling[np.isnan(Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling)] = 0
-    ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,Cooling_loc,:,:] = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling,np.ones(Nt))
-    # Correct for if some of the corrections lead to IO > 1 which may be the case when hist. IO data are incomplete and thus set to 1 already.
-    ParameterDict['3_IO_Buildings_UsePhase'].Values[ParameterDict['3_IO_Buildings_UsePhase'].Values > 1] = 1
-    # Future age-cohorts:
-    ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,Heating_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
-    ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,DomstHW_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
-    ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,Cooling_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Cooling'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
-    
-    # expand 3_IO parameter for nonres buildings with 1 for post 2015 years:
-    ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[SwitchTime::,:,:,:,:] = 1
-    
+    if 'reb' in SectorList:
+        # ParameterDict['3_IO_Buildings_UsePhase_Historic'] is a combination of climate and socioeconomic 3_IO determinants.
+        # We single out the former and keep them constant and let the socioeconomic factors change according to the '3_IO_Buildings_UsePhase_Future_...' parameters.
+        Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:SwitchTime,:,Heating_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,0,:],np.ones((SwitchTime,NB))) * 100
+        Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating[np.isnan(Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating)] = 0
+        ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,Heating_loc,:,:] = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_Heating,np.ones(Nt))
+        Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW     = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:SwitchTime,:,DomstHW_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,0,:],np.ones((SwitchTime,NB))) * 100
+        Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW[np.isnan(Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW)] = 0
+        ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,DomstHW_loc,:,:] = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_DHW,np.ones(Nt))
+        Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling = ParameterDict['3_IO_Buildings_UsePhase_Historic'].Values[0:SwitchTime,:,Cooling_loc,:,:] / np.einsum('rS,cB->cBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Cooling'].Values[Sector_reb_loc,:,0,:],np.ones((SwitchTime,NB))) * 100
+        Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling[np.isnan(Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling)] = 0
+        ParameterDict['3_IO_Buildings_UsePhase'].Values[:,0:SwitchTime,:,Cooling_loc,:,:] = np.einsum('cBrS,t->tcBrS',Par_3_IO_Buildings_UsePhase_Historic_Climate_Cooling,np.ones(Nt))
+        # Correct for if some of the corrections lead to IO > 1 which may be the case when hist. IO data are incomplete and thus set to 1 already.
+        ParameterDict['3_IO_Buildings_UsePhase'].Values[ParameterDict['3_IO_Buildings_UsePhase'].Values > 1] = 1
+        # Future age-cohorts:
+        ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,Heating_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
+        ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,DomstHW_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Heating'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
+        ParameterDict['3_IO_Buildings_UsePhase'].Values[:,SwitchTime::,:,Cooling_loc,:,:] = np.einsum('rtS,cB->tcBrS',ParameterDict['3_IO_Buildings_UsePhase_Future_Cooling'].Values[Sector_reb_loc,:,:,:]/100,np.ones((Nc-SwitchTime,NB)))
+
+    ## 2025-01-17: only if non-residential buildings sector modelled (ch)
+    if 'nrb' in SectorList:
+        # expand 3_IO parameter for nonres buildings with 1 for post 2015 years:
+        ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[SwitchTime::,:,:,:,:] = 1
+
     # 16) Currently not used.
-    
+
     # 17) No energy efficiency improvements (counterfactual reference)
     # Freeze type split and archetypes at 2015/17/2020 levels:
     if ScriptConfig['No_EE_Improvements'] == 'True':
@@ -834,41 +1060,48 @@ def main():
             ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[SwitchIndex::,:,:,:,:,:]         = np.einsum('mNrSR,c->cmNrSR',ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[SwitchIndex,:,:,:,:,:],np.ones(Nc-SwitchIndex))
             ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[:,:,4::,:]                      = np.einsum('NrS,t->NrtS',ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
             ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[:,:,:,:,4::,:]              = np.einsum('VRrnS,t->VRrntS',ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[:,:,:,:,4,:],np.ones(Nt-4)) # index 4 is year 2020.
-    
+
     # 18) Currently not used.
-    
+
     # 19) Make sure that all share parameters are non-negative and add up to 100%:
     # not necessary for res. buildings as data fulfil constraints.
     #ParameterDict['3_SHA_TypeSplit_Buildings'].Values[ParameterDict['3_SHA_TypeSplit_Buildings'].Values < 0] = 0
     #ParameterDict['3_SHA_TypeSplit_Buildings'].Values = ParameterDict['3_SHA_TypeSplit_Buildings'].Values / np.einsum('rtS,B->BrtS',ParameterDict['3_SHA_TypeSplit_Buildings'].Values.sum(axis=0),np.ones(NB))
     #ParameterDict['3_SHA_TypeSplit_Buildings'].Values[np.isnan(ParameterDict['3_SHA_TypeSplit_Buildings'].Values)] = 0
-    ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values < 0] = 0
-    ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values = ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values / np.einsum('rtSR,B->BrtSR',ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values.sum(axis=0),np.ones(NN))
-    ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[np.isnan(ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values)] = 0
-    
-    # 20) Extrapolate appliances beyond 2050:
-    for noS in range(0,NS):
-        for noR in range(0,NR):
-            for noa in range(0,Na):
-                if ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,140,noS,noR,noa] != 0:
-                    growthrate = (ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,150,noS,noR,noa]/ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,140,noS,noR,noa]-1)/10
-                else:
-                    growthrate = 0
-                for noT in range(151,161):
-                    ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,noT,noS,noR,noa] = ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,150,noS,noR,noa] * np.power(1+growthrate,noT-150)
-        
+    if 'nrb' in SectorList:
+        ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values < 0] = 0
+        ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values = ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values / np.einsum('rtSR,B->BrtSR',ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values.sum(axis=0),np.ones(NN))
+        ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values[np.isnan(ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values)] = 0
+
+    if 'app' in SectorList:
+        # 20) Extrapolate appliances beyond 2050:
+        for noS in range(0,NS):
+            for noR in range(0,NR):
+                for noa in range(0,Na):
+                    if ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,140,noS,noR,noa] != 0:
+                        growthrate = (ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,150,noS,noR,noa]/ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,140,noS,noR,noa]-1)/10
+                    else:
+                        growthrate = 0
+                    for noT in range(151,161):
+                        ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,noT,noS,noR,noa] = ParameterDict['1_F_RECC_FinalProducts_appliances'].Values[0,150,noS,noR,noa] * np.power(1+growthrate,noT-150)
+            
     # 21) Currently not used
         
-    # 22) calculate Stocks on 1. Jan 2016:    
+    # 22) calculate Stocks on 1. Jan 2016:   
+    # TODO: #2026-01 add tis pC and total stocks
     pC_AgeCohortHist           = np.zeros((NG,Nr))
     #pC_FutureStock             = np.zeros((NS,NG,Nr))
     # a) from historic data:
-    Stocks_2016_passvehicles   = ParameterDict['2_S_RECC_FinalProducts_2015_passvehicles'].Values[0,:,:,:].sum(axis=0)
-    pCStocks_2016_passvehicles = np.einsum('pr,r->rp',Stocks_2016_passvehicles,1/ParameterDict['2_P_Population_Reference'].Values[0,0,:,1]) 
-    Stocks_2016_resbuildings   = ParameterDict['2_S_RECC_FinalProducts_2015_resbuildings'].Values[0,:,:,:].sum(axis=0)
-    pCStocks_2016_resbuildings = np.einsum('Br,r->rB',Stocks_2016_resbuildings,1/ParameterDict['2_P_Population_Reference'].Values[0,0,:,1]) 
-    Stocks_2016_nresbuildings  = ParameterDict['2_S_RECC_FinalProducts_2015_nonresbuildings'].Values[0,:,:,:].sum(axis=0)
-    pCStocks_2016_nresbuildings= np.einsum('Nr,r->rN',Stocks_2016_nresbuildings,1/ParameterDict['2_P_Population_Reference'].Values[0,0,:,1]) 
+    # TODO 2025-13-11 mg: adapt accordingly for industry sector as inflow driven model will only work for the future?
+    if 'pav' in SectorList:
+        Stocks_2016_passvehicles   = ParameterDict['2_S_RECC_FinalProducts_2015_passvehicles'].Values[0,:,:,:].sum(axis=0)
+        pCStocks_2016_passvehicles = np.einsum('pr,r->rp',Stocks_2016_passvehicles,1/ParameterDict['2_P_Population_Reference'].Values[0,0,:,1]) 
+    if 'reb' in SectorList:
+        Stocks_2016_resbuildings   = ParameterDict['2_S_RECC_FinalProducts_2015_resbuildings'].Values[0,:,:,:].sum(axis=0)
+        pCStocks_2016_resbuildings = np.einsum('Br,r->rB',Stocks_2016_resbuildings,1/ParameterDict['2_P_Population_Reference'].Values[0,0,:,1]) 
+    if 'nrb' in SectorList:
+        Stocks_2016_nresbuildings  = ParameterDict['2_S_RECC_FinalProducts_2015_nonresbuildings'].Values[0,:,:,:].sum(axis=0)
+        pCStocks_2016_nresbuildings= np.einsum('Nr,r->rN',Stocks_2016_nresbuildings,1/ParameterDict['2_P_Population_Reference'].Values[0,0,:,1]) 
     if 'pav' in SectorList:
         pC_AgeCohortHist[Sector_pav_loc, :] = pCStocks_2016_passvehicles.sum(axis =1)
     if 'reb' in SectorList:
@@ -878,7 +1111,7 @@ def main():
     OutputDict['pC_AgeCohortHist']   = pC_AgeCohortHist.copy()
     # b) from future stock curves:
     #This is done for the individual sector calculations below.
-    
+
     # c) Total 2015 material stock, all in Mt!
     if 'pav' in SectorList:
         TotalMaterialStock_2015_pav = np.einsum('cgr,cmgr->mgr',ParameterDict['2_S_RECC_FinalProducts_2015_passvehicles'].Values[0,:,:,:],ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[:,:,:,:,0])/1000
@@ -886,12 +1119,13 @@ def main():
         TotalMaterialStock_2015_reb = np.einsum('cgr,cmgr->mgr',ParameterDict['2_S_RECC_FinalProducts_2015_resbuildings'].Values[0,:,:,:],ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,0,0])/1000
     if 'nrb' in SectorList:
         TotalMaterialStock_2015_nrb = np.einsum('cgr,cmgr->mgr',ParameterDict['2_S_RECC_FinalProducts_2015_nonresbuildings'].Values[0,:,:,:],ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[:,:,:,:,0,0])/1000
-        
+    # TODO 2025-13-11 mg: implement as well for the industry sector once 2_S_RECC_FinalProducts_2015_industry is set up?
+
     # 23) Material and process-dependent electricity mix (with aluminium electricity mix)
     # reshape electricity mix: oRit->PRit
     Par_ElectricityMix_P  = np.einsum('RIt,P->PRIt', ParameterDict['4_SHA_ElectricityMix_World'].Values[0,:,:,:], np.ones(NP) )
     if ScriptConfig['Include_AluminiumElectricityMix'] == 'True':
-        # overwright aluminium energy mix
+        # overwrite aluminium energy mix
         for mP in [PrimCastAl_loc,PrimWrAl_loc,EffCastAl_loc,EffWrAl_loc]:
             Par_ElectricityMix_P[mP,:,:,:] = np.einsum('I,Rt->RIt',ParameterDict['4_SHA_ElectricityMix_World_Alu'].Values[0,0,:,0],np.ones((NR,Nt)))
             
@@ -905,7 +1139,7 @@ def main():
                                                 UUID=None, P_Res=None, MetaData=None,
                                                 Indices='mnxotR', Values=np.zeros((Nm,Nn,Nx,No,Nt,NR)), Uncert=None,
                                                 Unit='impact-eq/MJ') # For energy demand of material production
-    
+
     # replicate 2015 values. The current dataset contains only the 2015 initial value. 
     # Formula calculates impact / kg * kg /MJ = impact / MJ
     # Electricity is added separately in the next step
@@ -935,21 +1169,21 @@ def main():
     # replicate 2015 values. In current dataset is only initial value. Electricity is added separately in the next step
     # Formula calculates impact / kg * kg /MJ = impact / MJ
     ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values = np.einsum('nx,n,rtR->nxrtR',ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,0,0],ParameterDict['3_EI_SpecificEnergy_EnergyCarriers'].Values,np.ones((Nr,Nt,NR)))
-    
+
     # add electricity calculated from electriciy mix
     ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,:,:,:,:] = np.einsum('rRIt,Ixt->xrtR',
                                                                                                         ParameterDict['4_SHA_ElectricityMix'].Values,                            # MJ industry/MJ el        
                                                                                                         ParameterDict['4_PE_ProcessExtensions_Industry'].Values[:,:,0,:]/3.6)    # impact/MJ industry
-    
+
     # emission factors
     EmissionFactorElectricity_r = ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,GWP100_loc,:,:,:]
     EmissionFactorElectricity_o = ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[Electric_loc,GWP100_loc,0,:,:]
-    
+
     # diagnostic
     impact_elect =  np.einsum('I,Ix->x',
                         ParameterDict['4_SHA_ElectricityMix_World'].Values[0,0,:,0],              # MJ industry/MJ el        
                         ParameterDict['4_PE_ProcessExtensions_Industry'].Values[:,:,0,0]/3.6,     # impact/MJ industry 
-                         )  # Impact/MJ el
+                        )  # Impact/MJ el
         
     # 24) Computing residuals(=process emissions) for material production processes   
     ParameterDict['4_PE_ProcessExtensions_Residual'] = msc.Parameter(Name='4_PE_ProcessExtensions_Residual', ID='4_PE_ProcessExtensions_Residual',
@@ -958,22 +1192,22 @@ def main():
                                                 Unit='[impact unit]/kg')    
     # Fuel contributions
     fuel_production = np.einsum('nx,n,Pn->Px',
-                         ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,0,0], # impact/kg fuel        
-                         ParameterDict['3_EI_SpecificEnergy_EnergyCarriers'].Values,             # kg fuel/MJ fuel 
-                         ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,0,0]            # MJ fuel/kg mat 
-                         )  # Impact/kg mat
+                        ParameterDict['4_PE_ProcessExtensions_EnergyCarriers'].Values[:,:,0,0], # impact/kg fuel        
+                        ParameterDict['3_EI_SpecificEnergy_EnergyCarriers'].Values,             # kg fuel/MJ fuel 
+                        ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,0,0]            # MJ fuel/kg mat 
+                        )  # Impact/kg mat
     # Direct contributions
     direct_impact = np.einsum('Xn,xX,Pn->Px',
-                         ParameterDict['6_PR_DirectEmissions'].Values,             # impact/MJ fuel  
-                         ParameterDict['6_MIP_CharacterisationFactors'].Values,
-                         ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,0,0]  # MJ fuel/kg mat 
-                         )  # Impact/kg mat
+                        ParameterDict['6_PR_DirectEmissions'].Values,             # impact/MJ fuel  
+                        ParameterDict['6_MIP_CharacterisationFactors'].Values,
+                        ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,0,0]  # MJ fuel/kg mat 
+                        )  # Impact/kg mat
     # Electricity generation
     elec_production = np.einsum('P,Pi,ix->Px',
                         ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,Electric_loc,0,0],    # MJ el/kg mat
                         Par_ElectricityMix_P[:,0,:,0],              # MJ industry/MJ el        
                         ParameterDict['4_PE_ProcessExtensions_Industry'].Values[:,:,0,0]/3.6        # impact/MJ industry 
-                         )  # Impact/kg mat
+                        )  # Impact/kg mat
     # compute residuals
     residuals = ParameterDict['4_PE_ProcessExtensions_Materials'].Values[:,:,0,0] - fuel_production - direct_impact - elec_production   # Index_ Px, Unit: [impact unit]/kg mat
     # remove primary energy from residuals, as accounted for separately, only process emisisons here:
@@ -985,7 +1219,7 @@ def main():
     mfilter[WoodProd_loc] = 1
     mfilter[PaperProd_loc] = 1
     residuals[:,Biomass_loc] = residuals[:,Biomass_loc]  * mfilter
-     
+    
     # RCP production processes represent technologies that are not out there yet. 
     # They are modelled as the same production steps, with different energy inputs. 
     # Hence, the residual extensions (i.e. the process impacts) are the same as the Baseline technology.
@@ -998,32 +1232,32 @@ def main():
     ParameterDict['4_PE_ProcessExtensions_Residual'].Values[:,:,0] = residuals
     # Replicate residuals over time
     ParameterDict['4_PE_ProcessExtensions_Residual'].Values = np.einsum('Px,t->Pxt',ParameterDict['4_PE_ProcessExtensions_Residual'].Values[:,:,0],np.ones((Nt)))
-    
+
     # 25) Dynamic primary production intensity for diagnostic purposes
     MaterialProductionIntensity_P = \
         np.einsum('Pxt,R->PxtR',
-                  ParameterDict['4_PE_ProcessExtensions_Residual'].Values,
-                  np.ones((NR))) + \
+                ParameterDict['4_PE_ProcessExtensions_Residual'].Values,
+                np.ones((NR))) + \
         np.einsum('Xn,xX,Pnt,R->PxtR',
-                   ParameterDict['6_PR_DirectEmissions'].Values[:,:],              
-                   ParameterDict['6_MIP_CharacterisationFactors'].Values,
-                   ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],
-                   np.ones((NR))) +\
+                ParameterDict['6_PR_DirectEmissions'].Values[:,:],              
+                ParameterDict['6_MIP_CharacterisationFactors'].Values,
+                ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],
+                np.ones((NR))) +\
         np.einsum('nxtR,Pnt->PxtR',
-                   ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,0,:,:],              
-                   ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0])  
+                ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,0,:,:],              
+                ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0])  
     MaterialProductionIntensity_m = np.einsum('PxtR,tmRP->mxtR',
-                  MaterialProductionIntensity_P,
-                  ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,:,:])
+                MaterialProductionIntensity_P,
+                ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,:,:])
     MaterialProductionIntensityGHG_m = MaterialProductionIntensity_m[:,GWP100_loc,:,:]
-    
+
         
     ##########################################################
     #    Section 4) Initialize dynamic MFA model for RECC    #
     ##########################################################
     Mylog.info('Initialize dynamic MFA model for RECC')
     Mylog.info('Define RECC system and processes.')
-    
+
     #Define arrays for result export:
     Impacts_System_13579di               = np.zeros((Nx,Nt,NS,NR))
     Impacts_System_3579di                = np.zeros((Nx,Nt,NS,NR))
@@ -1051,12 +1285,13 @@ def main():
     Impacts_ByEnergyCarrier_UsePhase_d   = np.zeros((Nx,Nt,Nr,Nn,NS,NR))
     Impacts_ByEnergyCarrier_UsePhase_i   = np.zeros((Nx,Nt,Nr,Nn,NS,NR))
     Impacts_Energy_Supply_All            = np.zeros((Nx,Nt,NS,NR)) # impacts of all energy carriers for all processes. 
-    
+
     dynGWP_System_3579di                 = np.zeros((NS,NR)) # dynGWP100 of entire system
     dynGWP_WoodCycle                     = np.zeros((NS,NR)) # dynGWP100 of wood use: forest uptake + wood-related emissions from waste mgt. Pos sign for flow from system to environment.
-    
+
     Material_Inflow                  = np.zeros((Nt,Ng,Nm,NS,NR))
     Scrap_Outflow                    = np.zeros((Nt,Nw,NS,NR))
+    Collected_Scrap_F_9_10_trgmwSR   = np.zeros((Nt,Nr,Ng,Nm,Nw,NS,NR)) #2026-02-19
     PrimaryProduction                = np.zeros((Nt,Nm,NS,NR))
     SecondaryProduct                 = np.zeros((Nt,Nm,NS,NR))
     SecondaryExport                  = np.zeros((Nt,Nm,NS,NR))
@@ -1080,6 +1315,7 @@ def main():
     EnergyCons_UP_serv_reb           = np.zeros((Nt,Nr,NV,NS,NR))
     EnergyCons_UP_serv_nrb           = np.zeros((Nt,Nr,NV,NS,NR))
     EnergyCons_UP_total              = np.zeros((Nt,Nn,NS,NR))
+    EnergyCons_UP_pav                = np.zeros((Nt,Nn,NS,NR)) #2026-01-22, hmli, circomod: for pav, add aspect n for energy consumption in use-phase
     EnergyCons_UP_reb                = np.zeros((Nt,Nn,NS,NR))
     EnergyCons_UP_nrb                = np.zeros((Nt,Nn,NS,NR))
     EnergyCons_total                 = np.zeros((Nt,Nn,NS,NR))
@@ -1088,6 +1324,7 @@ def main():
     StockCurves_Mat                  = np.zeros((Nt,Nm,NS,NR))
     StockCurves_Mat_reb              = np.zeros((Nt,Nm,NS,NR))
     StockCurves_Mat_nrb              = np.zeros((Nt,Nm,NS,NR))
+    StockCurves_Mat_ind              = np.zeros((Nt,Nm,NS,NR)) 
     Inflow_Prod                      = np.zeros((Nt,Ng,NS,NR))
     Inflow_Prod_r                    = np.zeros((Nt,Nr,Ng,NS,NR))
     Outflow_Prod                     = np.zeros((Nt,Ng,NS,NR))
@@ -1103,6 +1340,7 @@ def main():
     Service_IO_ResBuildings          = np.zeros((Nt,NV,NS,NR))
     Service_IO_NonResBuildings       = np.zeros((Nt,NV,NS,NR))
     ReUse_Materials                  = np.zeros((Nt,Nm,NS,NR))
+    ReUse_Materials_tmg              = np.zeros((Nt,Nm,Ng,NS,NR)) #2026-01-15, ch: for CIRCOMOD reporting, add aspect g (does not cover products with other regional resolution)
     Carbon_IndustrialRoundwood_bld   = np.zeros((Nt,Nr,NS,NR)) # Industrial roundwood, hard and softwood, for processing into structural wood elements for residential and non-residential buildings. Unit: Mt/yr of C.
     Carbon_Fuelwood_bld              = np.zeros((Nt,NS,NR)) # Fuelwood, hard and softwood, for use in building heating and hot water only (no cooking fuel).
     Carbon_Fuelwood_el               = np.zeros((Nt,NS,NR)) # Fuelwood, hard and softwood, for use in electricity generation.
@@ -1128,18 +1366,69 @@ def main():
     Stock_2020_pav                   = np.zeros((Nt,Nr,NS,NR))
     Stock_2020_reb                   = np.zeros((Nt,Nr,NS,NR))
     Stock_2020_nrb                   = np.zeros((Nt,Nr,NS,NR))
+    Stock_2020_ind                   = np.zeros((Nt,Nr,NS,NR)) #2026-02-16 add ind
     NegInflowFlags                   = np.zeros((NG,NS,NR))
     time_dsm                         = np.arange(0,Nc,1) # time array of [0:Nc) needed for some sectors
-    
+    Material_Inflow_pr_pg            = np.zeros((Nt,Nr,Ng,Nm,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
+    Outflow_Materials_Usephase_pr_pg = np.zeros((Nt,Nr,Ng,Nm,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
+    StockCurves_Prod_pr              = np.zeros((Nt,Nr,Ng,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
+    StockCurves_Mat_reb_pr           = np.zeros((Nt,Nr,Nm,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
+    StockCurves_Mat_nrb_pr           = np.zeros((Nt,Nr,Nm,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
+    StockCurves_Mat_pav_pr           = np.zeros((Nt,Nr,Nm,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
+    StockCurves_Mat_tis_pr           = np.zeros((Nt,Nr,Nm,NS,NR)) #2026-01-2 add tis
+    StockCurves_Mat_ind_pr           = np.zeros((Nt,Nr,Nm,NS,NR)) #2026-02-16 add ind
+    Service_IO_ResBuildings_pr       = np.zeros((Nt,Nr,NV,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
+    Service_IO_NonResBuildings_pr    = np.zeros((Nt,Nr,NV,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
+    Passenger_km_pr                  = np.zeros((Nt,Nr,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
+    DivertedScrap_to_Manuf           = np.zeros((Nt,Nm,NS,NR)) # 2025-07-08, ch, add for CIRCOMOD reporting
+    DivertedScrap_final_cons         = np.zeros((Nt,Nm,NS,NR)) # 2025-07-08, ch, add for CIRCOMOD reporting
+    DivertedScrap_final_cons_tmgSR   = np.zeros((Nt,Nm,Ng,NS,NR)) # 2025-07-08, ch, add for CIRCOMOD reporting
+    RecycledMat_to_Manuf             = np.zeros((Nt,Nm,NS,NR)) # 2025-07-08, ch, add for CIRCOMOD reporting
+    RecycledMat_final_cons_tmgSR     = np.zeros((Nt,Nm,Ng,NS,NR)) # 2025-07-08, ch, add for CIRCOMOD reporting; #2026-01-15, ch: add aspect g
+    Primary_final_cons               = np.zeros((Nt,Nm,NS,NR)) # 2025-07-08, ch, add for CIRCOMOD reporting
+    Primary_final_cons_tmgSR         = np.zeros((Nt,Nm,Ng,NS,NR)) #2026-02-19
+    ReUse_Materials_EoL_Pot          = np.zeros((Nt,Nm,NS,NR)) # 2025-07-08, ch, add for CIRCOMOD reporting
+    ReUse_Materials_EoL_Pot_g        = np.zeros((Nt,Nm,Ng,NS,NR)) # 2026-03-16, ch, add for CIRCOMOD Sankeys
+    StockCurves_Mat_rge              = np.zeros((Nt,Ng,Nm,NS,NR)) # 2025-07-08, ch, add for CIRCOMOD reporting; region 32 goods only
+    EI_useful_nonres                 = np.zeros((Nt,Nr,Nc,NN,NV,NS,NR)) # 2025-07-23, ch: for reporting of useful energy EI change in nrb to feed information into TIMES
+    EI_final_nonres                  = np.zeros((Nt,Nr,Nc,NN,NV,NS,NR))
+    EnergyCons_useful_UP_serv_nrb    = np.zeros((Nt,Nr,NN,NV,NS,NR))
+    EI_useful_UP_serv_nrb            = np.zeros((Nt,Nr,NN,NV,NS,NR))
+    EI_useful_UP_serv_nrb_all        = np.zeros((Nt,Nr,NV,NS,NR))
+    EI_useful_UP_serv_nrb_off        = np.zeros((Nt,Nr,NV,NS,NR))
+    EI_useful_UP_serv_nrb_com        = np.zeros((Nt,Nr,NV,NS,NR))
+    EI_useful_UP_serv_nrb_edu        = np.zeros((Nt,Nr,NV,NS,NR))
+    EI_useful_UP_serv_nrb_hea        = np.zeros((Nt,Nr,NV,NS,NR))
+    EI_useful_UP_serv_nrb_hot        = np.zeros((Nt,Nr,NV,NS,NR))
+    EI_useful_UP_serv_nrb_oth        = np.zeros((Nt,Nr,NV,NS,NR))
+    Renovated_m2_reb_cum             = np.zeros((Nt,Nr,NB,NS,NR))
+    Renovated_m2_nrb_cum             = np.zeros((Nt,Nr,NN,NS,NR))
+    Renovated_m2_reb_t               = np.zeros((Nt,Nr,NB,NS,NR))
+    Renovated_m2_nrb_t               = np.zeros((Nt,Nr,NN,NS,NR))
+    MaterialProduction_CO2   = np.zeros((Nt,Nm,NS,NR)) #CO2 emissions material production (Scope 1 and 2, including process emissions)
+    DemolitionRate_reb_rB            = np.zeros((Nt,Nr,NB,NS,NR))
+    DemolitionRate_reb_r             = np.zeros((Nt,Nr,NS,NR))
+    DemolitionRate_reb_SFH_r         = np.zeros((Nt,Nr,NS,NR))
+    DemolitionRate_reb_MFH_r         = np.zeros((Nt,Nr,NS,NR))
+    DemolitionRate_reb_RT_r          = np.zeros((Nt,Nr,NS,NR))
+    DemolitionRate_reb_inf_r         = np.zeros((Nt,Nr,NS,NR))
+    DemolitionRate_nrb_rN            = np.zeros((Nt,Nr,NN,NS,NR))
+    DemolitionRate_nrb_r             = np.zeros((Nt,Nr,NS,NR))
+    Fabscrapdiversionpotential_twmSR = np.zeros((Nt,Nw,Nm,NS,NR)) #2026-03-25, ch: Sankey diagrams, total scrap diversion
+    Scrap_entering_remelting_F_10_9_twSR   = np.zeros((Nt,Nw,NS,NR)) #2026-03-25, ch: Sankey diagrams, scrap entering remelting
+    StockPileSecondaryMaterialUse_tmSR = np.zeros((Nt,Nm,NS,NR)) #2026-03-25, ch: Sankey diagrams, stock-pile secondary material use
+
     ExitFlags = {} # Exit flags for individual model runs
     #  Examples for testing
     #mS = 1
     #mR = 1
-    
+
     # Select and loop over scenarios
-    for mS in range(0,NS):
+    #for mS in range(0,NS):
+    for mS in range(2,NS): #SSP2 only
         for mR in range(0,NR):
-    
+        #for mR in range(0,1): #Baseline only
+
             SName = IndexTable.loc['Scenario'].Classification.Items[mS]
             RName = IndexTable.loc['Scenario_RCP'].Classification.Items[mR]
             Mylog.info('_')
@@ -1147,7 +1436,7 @@ def main():
             
             # Initialize MFA system
             RECC_System = msc.MFAsystem(Name='RECC_SingleScenario',
-                                        Geogr_Scope='19 regions + 1 single country', #IndexTableR.Classification[IndexTableR.set_index('IndexLetter').index.get_loc('r')].Items,
+                                        Geogr_Scope='19 regions + 1 single country', #IndexTableR.Classification[IndexTableR.set_index('IndexLetter').index.get_loc('r')].Items, # TODO use the comment for Geogr_Scope or why 19 regions + 1 single country?
                                         Unit='Mt',
                                         ProcessList=[],
                                         FlowDict={},
@@ -1158,7 +1447,7 @@ def main():
                                         IndexTable=IndexTable,
                                         Elements=IndexTable.loc['Element'].Classification.Items,
                                         Graphical=None)
-                                  
+                                
             # Check Validity of index tables:
             # returns true if dimensions are OK and time index is present and element list is not empty
             RECC_System.IndexTableCheck()
@@ -1169,237 +1458,237 @@ def main():
                 
             # Define system variables: Flows.    
             RECC_System.FlowDict['F_0_1']     = msc.Flow(Name='CO2 uptake', P_Start=0, P_End=1,
-                                                     Indices='t,r,e', Values=None, Uncert=None,
-                                                     Color=None, ID=None, UUID=None)
-    
+                                                    Indices='t,r,e', Values=None, Uncert=None,
+                                                    Color=None, ID=None, UUID=None)
+
             RECC_System.FlowDict['F_1_2']     = msc.Flow(Name='harvested wood', P_Start=1, P_End=2,
-                                                     Indices='t,r,e', Values=None, Uncert=None,
-                                                     Color=None, ID=None, UUID=None)
-    
+                                                    Indices='t,r,e', Values=None, Uncert=None,
+                                                    Color=None, ID=None, UUID=None)
+
             RECC_System.FlowDict['F_2_3']     = msc.Flow(Name='timber consumed by sawmills', P_Start=2, P_End=3,
-                                                     Indices='t,m,e', Values=None, Uncert=None,
-                                                     Color=None, ID=None, UUID=None)
+                                                    Indices='t,m,e', Values=None, Uncert=None,
+                                                    Color=None, ID=None, UUID=None)
             
             RECC_System.FlowDict['F_2_7']     = msc.Flow(Name='wood fuel use', P_Start=2, P_End=7,
-                                                     Indices='t,e', Values=None, Uncert=None,
-                                                     Color=None, ID=None, UUID=None) # flow is directly routed to use phase.
-    
+                                                    Indices='t,e', Values=None, Uncert=None,
+                                                    Color=None, ID=None, UUID=None) # flow is directly routed to use phase.
+
             RECC_System.FlowDict['F_7_0']     = msc.Flow(Name='wood fuel use direct emissions', P_Start=7, P_End=0,
-                                                     Indices='t,e', Values=None, Uncert=None,
-                                                     Color=None, ID=None, UUID=None)
-    
+                                                    Indices='t,e', Values=None, Uncert=None,
+                                                    Color=None, ID=None, UUID=None)
+
             RECC_System.FlowDict['F_0_3']     = msc.Flow(Name='ore input', P_Start=0, P_End=3,
-                                                     Indices='t,m,e', Values=None, Uncert=None,
-                                                     Color=None, ID=None, UUID=None)
+                                                    Indices='t,m,e', Values=None, Uncert=None,
+                                                    Color=None, ID=None, UUID=None)
             
             RECC_System.FlowDict['F_3_4']     = msc.Flow(Name='primary material production' , P_Start = 3, P_End = 4, 
-                                                     Indices = 't,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_3_10']    = msc.Flow(Name='primary material production waste' , P_Start = 3, P_End = 10, 
-                                                     Indices = 't,r,w,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,r,w,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_4_5']     = msc.Flow(Name='primary material consumption' , P_Start = 4, P_End = 5, 
-                                                     Indices = 't,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_5_6']     = msc.Flow(Name='manufacturing output' , P_Start = 5, P_End = 6, 
-                                                     Indices = 't,o,g,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,o,g,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
                 
             RECC_System.FlowDict['F_6_7']     = msc.Flow(Name='final consumption', P_Start=6, P_End=7,
-                                                     Indices='t,r,g,m,e', Values=None, Uncert=None,
-                                                     Color=None, ID=None, UUID=None)
+                                                    Indices='t,r,g,m,e', Values=None, Uncert=None,
+                                                    Color=None, ID=None, UUID=None)
             
             RECC_System.FlowDict['F_6_7_Nl']  = msc.Flow(Name='final consumption Nl', P_Start=6, P_End=7,
-                                                     Indices='t,l,L,m,e', Values=None, Uncert=None,
-                                                     Color=None, ID=None, UUID=None)
+                                                    Indices='t,l,L,m,e', Values=None, Uncert=None,
+                                                    Color=None, ID=None, UUID=None)
             
             RECC_System.FlowDict['F_6_7_No']  = msc.Flow(Name='final consumption No', P_Start=6, P_End=7,
-                                                     Indices='t,o,O,m,e', Values=None, Uncert=None,
-                                                     Color=None, ID=None, UUID=None)
+                                                    Indices='t,o,O,m,e', Values=None, Uncert=None,
+                                                    Color=None, ID=None, UUID=None)
             
             RECC_System.FlowDict['F_7_8']     = msc.Flow(Name='EoL products' , P_Start = 7, P_End = 8, 
-                                                     Indices = 't,c,r,g,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
-    
+                                                    Indices = 't,c,r,g,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
+
             RECC_System.FlowDict['F_7_8_Nl']  = msc.Flow(Name='EoL products Nl' , P_Start = 7, P_End = 8, 
-                                                     Indices = 't,c,l,L,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,c,l,L,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
         
             RECC_System.FlowDict['F_7_8_No']  = msc.Flow(Name='EoL products No' , P_Start = 7, P_End = 8, 
-                                                     Indices = 't,c,o,O,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,c,o,O,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_8_0']     = msc.Flow(Name='obsolete stock formation' , P_Start = 8, P_End = 0, 
-                                                     Indices = 't,c,r,g,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
-    
+                                                    Indices = 't,c,r,g,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
+
             RECC_System.FlowDict['F_8_0_Nl']  = msc.Flow(Name='obsolete stock formation Nl' , P_Start = 8, P_End = 0, 
-                                                     Indices = 't,c,l,L,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,c,l,L,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_8_0_No']  = msc.Flow(Name='obsolete stock formation No' , P_Start = 8, P_End = 0, 
-                                                     Indices = 't,c,o,O,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,c,o,O,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_8_9']     = msc.Flow(Name='waste mgt. input' , P_Start = 8, P_End = 9, 
-                                                     Indices = 't,r,g,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,r,g,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_8_9_Nl']  = msc.Flow(Name='waste mgt. input Nl' , P_Start = 8, P_End = 9, 
-                                                     Indices = 't,l,L,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,l,L,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_8_9_No']  = msc.Flow(Name='waste mgt. input No' , P_Start = 8, P_End = 9, 
-                                                     Indices = 't,o,O,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,o,O,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_8_17']    = msc.Flow(Name='product re-use in' , P_Start = 8, P_End = 17, 
-                                                     Indices = 't,c,r,g,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,c,r,g,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_8_17_Nl'] = msc.Flow(Name='product re-use in Nl' , P_Start = 8, P_End = 17, 
-                                                     Indices = 't,c,l,L,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,c,l,L,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_8_17_No'] = msc.Flow(Name='product re-use in No' , P_Start = 8, P_End = 17, 
-                                                     Indices = 't,c,o,O,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,c,o,O,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
                     
             RECC_System.FlowDict['F_17_6']    = msc.Flow(Name='product re-use out' , P_Start = 17, P_End = 6, 
-                                                     Indices = 't,c,r,g,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,c,r,g,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_17_6_Nl'] = msc.Flow(Name='product re-use out' , P_Start = 17, P_End = 6, 
-                                                     Indices = 't,c,l,L,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
-     
+                                                    Indices = 't,c,l,L,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
+    
             RECC_System.FlowDict['F_17_6_No'] = msc.Flow(Name='product re-use out' , P_Start = 17, P_End = 6, 
-                                                     Indices = 't,c,o,O,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,c,o,O,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
                     
             RECC_System.FlowDict['F_9_10']    = msc.Flow(Name='old scrap' , P_Start = 9, P_End = 10, 
-                                                     Indices = 't,r,w,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,r,w,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_9_10_Nl'] = msc.Flow(Name='old scrap Nl' , P_Start = 9, P_End = 10, 
-                                                     Indices = 't,l,w,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,l,w,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_9_10_No'] = msc.Flow(Name='old scrap No' , P_Start = 9, P_End = 10, 
-                                                     Indices = 't,o,w,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,o,w,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
                     
             RECC_System.FlowDict['F_5_10']    = msc.Flow(Name='new scrap' , P_Start = 5, P_End = 10, 
-                                                     Indices = 't,o,w,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,o,w,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_10_9']    = msc.Flow(Name='scrap use' , P_Start = 10, P_End = 9, 
-                                                     Indices = 't,o,w,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
-    
+                                                    Indices = 't,o,w,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
+
             RECC_System.FlowDict['F_10_9w']   = msc.Flow(Name='wood waste use' , P_Start = 10, P_End = 9, 
-                                                     Indices = 't,r,w,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,r,w,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_9_12']    = msc.Flow(Name='secondary material production' , P_Start = 9, P_End = 12, 
-                                                     Indices = 't,o,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
-    
+                                                    Indices = 't,o,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
+
             RECC_System.FlowDict['F_10_12']   = msc.Flow(Name='fabscrapdiversion' , P_Start = 10, P_End = 12, 
-                                                     Indices = 't,o,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)        
+                                                    Indices = 't,o,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)        
             
             RECC_System.FlowDict['F_12_5']    = msc.Flow(Name='secondary material consumption' , P_Start = 12, P_End = 5, 
-                                                     Indices = 't,o,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
-            
+                                                    Indices = 't,o,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
+
             RECC_System.FlowDict['F_12_0']    = msc.Flow(Name='excess secondary material' , P_Start = 12, P_End = 0, 
-                                                     Indices = 't,o,m,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,o,m,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             RECC_System.FlowDict['F_9_0']     = msc.Flow(Name='waste mgt. and remelting losses' , P_Start = 9, P_End = 0, 
-                                                     Indices = 't,e', Values=None, Uncert=None, 
-                                                     Color = None, ID = None, UUID = None)
+                                                    Indices = 't,e', Values=None, Uncert=None, 
+                                                    Color = None, ID = None, UUID = None)
             
             # Define system variables: Stocks.
             RECC_System.StockDict['dS_0']     = msc.Stock(Name='System environment stock change', P_Res=0, Type=1,
-                                                     Indices = 't,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['dS_1t']    = msc.Stock(Name='Forestry stock change, timber', P_Res=1, Type=1,
-                                                     Indices = 't,r,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,r,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['S_1t']     = msc.Stock(Name='Forestry carbon stock, timber', P_Res=1, Type=0,
-                                                     Indices = 't,c,r,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,c,r,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['dS_1f']    = msc.Stock(Name='Forestry stock change, fuel wood', P_Res=1, Type=1,
-                                                     Indices = 't,r,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,r,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['S_1f']     = msc.Stock(Name='Forestry carbon stock, fuel wood', P_Res=1, Type=0,
-                                                     Indices = 't,c,r,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)        
+                                                    Indices = 't,c,r,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)        
             
             RECC_System.StockDict['S_7']      = msc.Stock(Name='In-use stock', P_Res=7, Type=0,
-                                                     Indices = 't,c,r,g,m,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,c,r,g,m,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['S_7_Nl']   = msc.Stock(Name='In-use stock', P_Res=7, Type=0,
-                                                     Indices = 't,c,l,L,m,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
-    
+                                                    Indices = 't,c,l,L,m,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
+
             RECC_System.StockDict['S_7_No']   = msc.Stock(Name='In-use stock', P_Res=7, Type=0,
-                                                     Indices = 't,c,o,O,m,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,c,o,O,m,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['dS_7']     = msc.Stock(Name='In-use stock change', P_Res=7, Type=1,
-                                                     Indices = 't,c,r,g,m,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,c,r,g,m,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['dS_7_Nl']  = msc.Stock(Name='In-use stock change', P_Res=7, Type=1,
-                                                     Indices = 't,c,l,L,m,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,c,l,L,m,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['dS_7_No']  = msc.Stock(Name='In-use stock change', P_Res=7, Type=1,
-                                                     Indices = 't,c,o,O,m,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
-    
+                                                    Indices = 't,c,o,O,m,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
+
             RECC_System.StockDict['S_9']     = msc.Stock(Name='Wood cascading buffer', P_Res=9, Type=0,
-                                                     Indices = 't,c,r,w,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,c,r,w,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['dS_9']    = msc.Stock(Name='Wood cascading buffer change', P_Res=9, Type=1,
-                                                     Indices = 't,c,r,w,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,c,r,w,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['S_10']     = msc.Stock(Name='Fabrication scrap buffer', P_Res=10, Type=0,
-                                                     Indices = 't,c,o,w,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,c,o,w,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['dS_10']    = msc.Stock(Name='Fabrication scrap buffer change', P_Res=10, Type=1,
-                                                     Indices = 't,o,w,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
-    
+                                                    Indices = 't,o,w,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
+
             RECC_System.StockDict['S_10w']    = msc.Stock(Name='Wood waste buffer', P_Res=10, Type=0,
-                                                     Indices = 't,c,r,w,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,c,r,w,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['dS_10w']   = msc.Stock(Name='Wood waste buffer change', P_Res=10, Type=1,
-                                                     Indices = 't,r,w,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,r,w,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['S_12']     = msc.Stock(Name='secondary material buffer', P_Res=12, Type=0,
-                                                     Indices = 't,o,m,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,o,m,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.StockDict['dS_12']    = msc.Stock(Name='Secondary material buffer change', P_Res=12, Type=1,
-                                                     Indices = 't,o,m,e', Values=None, Uncert=None,
-                                                     ID=None, UUID=None)
+                                                    Indices = 't,o,m,e', Values=None, Uncert=None,
+                                                    ID=None, UUID=None)
             
             RECC_System.Initialize_StockValues() # Assign empty arrays to stocks according to dimensions.
             RECC_System.Initialize_FlowValues()  # Assign empty arrays to flows according to dimensions.
@@ -1410,7 +1699,7 @@ def main():
             Mylog.info('Solve dynamic MFA model for the RECC project for all sectors chosen.')
             # THIS IS WHERE WE EXPAND FROM THE FORMAL MODEL STRUCTURE AND CODE WHATEVER IS NECESSARY TO SOLVE THE MODEL EQUATIONS.
             SwitchTime=Nc - Model_Duration +1 # Year when future modelling horizon starts: 1.1.2016        
-    
+
             # Determine empty result containers for all sectors
             Stock_Detail_UsePhase_p     = np.zeros((Nt,Nc,Np,Nr)) # index structure: tcpr. Unit: million items.
             Stock_2020_decline_p        = np.zeros((Nt,Np,Nr))    # index structure: tpr.  Unit: million items.
@@ -1432,17 +1721,49 @@ def main():
             Outflow_Detail_UsePhase_Ng  = np.zeros((Nt,Nc,NN,No)) # index structure: tcNo. Unit: million m².
             Inflow_Detail_UsePhase_Ng   = np.zeros((Nt,NN,No))    # index structure: tNo.  Unit: million m².         
             
-            Stock_Detail_UsePhase_I     = np.zeros((Nt,Nc,NI,Nl)) # index structure: tcIL. Unit: GW.
-            Outflow_Detail_UsePhase_I   = np.zeros((Nt,Nc,NI,Nl)) # index structure: tcIl. Unit: GW.
-            Inflow_Detail_UsePhase_I    = np.zeros((Nt,NI,Nl))    # index structure: tIl.  Unit: GW.
+            Stock_Detail_UsePhase_I     = np.zeros((Nt,Nc,NI,Nr)) # index structure: tcIL. Unit: GW.
+            Outflow_Detail_UsePhase_I   = np.zeros((Nt,Nc,NI,Nr)) # index structure: tcIl. Unit: GW.
+            Inflow_Detail_UsePhase_I    = np.zeros((Nt,NI,Nr))    # index structure: tIl.  Unit: GW.
+            Stock_2020_decline_I        = np.zeros((Nt,NI,Nr))    # index structure: tIr.  Unit: GW.
+
         
             Stock_Detail_UsePhase_a     = np.zeros((Nt,Nc,Na,No)) # index structure: tcao. Unit: # of items (1).
             Outflow_Detail_UsePhase_a   = np.zeros((Nt,Nc,Na,No)) # index structure: tcao. Unit: # of items (1).
-            Inflow_Detail_UsePhase_a    = np.zeros((Nt,Na,No))    # index structure: tao.  Unit: # of items (1).    
+            Inflow_Detail_UsePhase_a    = np.zeros((Nt,Na,No))    # index structure: tao.  Unit: # of items (1).   
+            
+            #2026-01 add tis sector
+            #Stock_Detail_UsePhase_K     = np.zeros((Nt,Nc,NK,Nr)) # index structure: tcKr. Unit: kt.
+            #Outflow_Detail_UsePhase_K   = np.zeros((Nt,Nc,NK,Nr)) # index structure: tcKr. Unit: kt.
+            #Inflow_Detail_UsePhase_K    = np.zeros((Nt,NK,Nr))    # index structure: tKr.  Unit: kt.     
+            
+            #2026-01-27 tis sector without age-cohort
+            Stock_Detail_UsePhase_K_tKrm     = np.zeros((Nt,NK,Nr,Nm)) # index structure: tKmr. Unit: kt.
+            Outflow_Detail_UsePhase_K_tKrm   = np.zeros((Nt,NK,Nr,Nm)) # index structure: tKrm. Unit: kt.
+            Inflow_Detail_UsePhase_K_tKrm    = np.zeros((Nt,NK,Nr,Nm))    # index structure: tKrm.  Unit: kt.  
+            #2026-01-27: stock and flow variables for tis sector without aspect c
+            tis_RECC_System_Flow_F_7_8_trKme = np.zeros((Nt,Nr,NK,Nm,Ne)) # mimic Flow(Name='EoL products' , P_Start = 7, P_End = 8, Indices = 't,r,g,m,e')
+            tis_RECC_System_Stock_S_7_trKme  = np.zeros((Nt,Nr,NK,Nm,Ne)) # mimic Stock(Name='In-use stock', P_Res=7, Type=0, Indices = 't,r,g,m,e')
+            tis_RECC_System_Flow_F_8_17_trKme   = np.zeros((Nt,Nr,NK,Nm,Ne)) # mimic Flow(Name='product re-use in' , P_Start = 8, P_End = 17, Indices = 't,r,g,m,e'
+            tis_RECC_System_Flow_F_17_6_trKme   = np.zeros((Nt,Nr,NK,Nm,Ne)) # mimic Flow(Name='product re-use out' , P_Start = 17, P_End = 6, Indices = 't,r,g,m,e'
+            tis_RECC_System_Stock_dS_7_trKme    = np.zeros((Nt,Nr,NK,Nm,Ne)) # mimic Stock(Name='In-use stock change', P_Res=7, Type=1, Indices = 't,r,g,m,e'
             
             F_6_7_ren                   = np.zeros((Nt,Nc,Nr,Ng,Nm,Ne)) # Indices='t,c,r,g,m,e', # inflow of renovation material, Mt/yr
             F_6_7_new                   = np.zeros((Nt,Nr,Ng,Nm,Ne))    # Indices='t,r,g,m,e',   # inflow of material in new products, Mt/yr
-        
+            
+            RecycledMat_to_Manuf_tm     = np.zeros((Nt,Nm)) # For CIRCOMOD reporting, recycled material consumption in manufacturin, F_12_5 (part), Mt/yr
+            RecycledMat_final_cons_tmg  = np.zeros((Nt,Nm,Ng)) # For CIRCOMOD reporting, inflow (final consumption) of recycled material; F_6_7 (part), Mt/yr; #2026-01-15, ch: add aspect g 
+            Primary_final_cons_tm       = np.zeros((Nt,Nm)) # For CIRCOMOD reporting, inflow (final consumption) of primary material; F_6_7 (part), Mt/yr     
+            Primary_final_cons_tmg      = np.zeros((Nt,Nm,Ng)) # 2026-02-19
+            ReUse_EoL_Pot_t_m_all       = np.zeros((Nt,Nm)) # For CIRCOMOD reporting, material reuse potential from EoL goods
+            ReUse_EoL_Pot_t_mg          = np.zeros((Nt,Nm,Ng)) # 2026-03-16, ch: for Sankey diagrams; reuse potential by sector
+            #Material_Losses_EoL_recovery_tm = np.zeros((Nt,Nm)) # For CIRCOMOD reporting, material losses from EoL goods during EoL recovery stage, F_8_9 (part), Mt/yr
+            #Material_Losses_Remelting_tm = np.zeros((Nt,Nm)) # For CIRCOMOD reporting, material losses from Remelting, F_10_9 (part), Mt/yr --> reporting for m does not really make sense here
+            EI_Products_UsePhase_nonresbuildings_t_uf = np.zeros((Nc,NN,NV,Nn,Nr,Nt))  # 2025-07-23, ch: for reporting of useful energy EI change in nrb to feed information into TIMES
+
+            # 2026-01-19, ch: container for reporting of material losses, excluding double counting of concrete and concrete aggregates + cement
+            F_9_0_excl_concrete = np.zeros((Nt, Ne))
+            dS_0_excl_concrete = np.zeros((Nt, Ne))
+
             # Sector: Passenger vehicles
             if 'pav' in SectorList:
                 Mylog.info('Calculate inflows and outflows for use phase, passenger vehicles.')
@@ -1459,7 +1780,7 @@ def main():
                     RECC_System.ParameterDict['6_PR_CarSharingShare'].Values  = np.zeros(RECC_System.ParameterDict['6_PR_CarSharingShare'].Values.shape)
                 if ScriptConfig['Include_REStrategy_RideSharing'] == 'False': # set ride-sharing to zero.                
                     RECC_System.ParameterDict['6_PR_RideSharingShare'].Values = np.zeros(RECC_System.ParameterDict['6_PR_RideSharingShare'].Values.shape)
-    
+
                 # i) Calculate pc stocks in the four subdivisions: CaS, RiS, CaS+RiS, none:
                 Total_Vehicle_km_pav_tr_pC          = np.zeros((Nt,Nr))
                 TotalStockCurves_UsePhase_p_pC_test = np.zeros((Nt,Nr)) 
@@ -1469,21 +1790,21 @@ def main():
                         MIP_RideSharing_Occupancy_rel = (RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] + RECC_System.ParameterDict['6_MIP_RideSharing_Occupancy'].Values[mS,nrr]) / RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS]
                         # calculate future stock levels:
                         s0        = (1 - RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100)*(1 - RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,nrr,ntt,mS] / 100) \
-                                  * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Drivg,nrr,ntt,mS])
+                                * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Drivg,nrr,ntt,mS])
                         s_CaS     = (RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100)*(1 - RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,nrr,ntt,mS] / 100) \
-                                  * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Drivg,nrr,ntt,mS]) \
-                                  * (RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr])
+                                * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Drivg,nrr,ntt,mS]) \
+                                * (RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr])
                         s_RiS     = (1 - RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100)*(RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,nrr,ntt,mS] / 100) \
-                                  * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Drivg,nrr,ntt,mS]) \
-                                  / (MIP_RideSharing_Occupancy_rel)
+                                * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Drivg,nrr,ntt,mS]) \
+                                / (MIP_RideSharing_Occupancy_rel)
                         s_CaS_RiS = (RECC_System.ParameterDict['6_PR_CarSharingShare'].Values[Sector_pav_loc,0,ntt,mS] / 100)*(RECC_System.ParameterDict['6_PR_RideSharingShare'].Values[Sector_pav_loc,nrr,ntt,mS] / 100) \
-                                  * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Drivg,nrr,ntt,mS]) \
-                                  / (MIP_RideSharing_Occupancy_rel / RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr])
-    
+                                * Total_Service_pav_tr_pC[ntt,nrr] /(RECC_System.ParameterDict['6_MIP_VehicleOccupancyRate'].Values[Sector_pav_loc,nrr,ntt,mS] * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Drivg,nrr,ntt,mS]) \
+                                / (MIP_RideSharing_Occupancy_rel / RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr])
+
                         s_total   = s0.copy() + s_CaS.copy() + s_RiS.copy() + s_CaS_RiS.copy()
                         TotalStockCurves_UsePhase_p_pC_test[ntt,nrr] = s_total.copy()
                         TotalStockCurves_UsePhase_p_pC_test[np.isnan(TotalStockCurves_UsePhase_p_pC_test)] = 0 # ignore drive technologies where there is no stock.
-    
+
                         # ii) Calculate average vehicle kilometrage and average occupancy rate:
                         vkm       = ((s0 + s_RiS) + (s_CaS + s_CaS_RiS) / RECC_System.ParameterDict['6_MIP_CarSharing_Stock'].Values[mS,nrr]) * RECC_System.ParameterDict['3_IO_Vehicles_UsePhase'].Values[Service_Drivg,nrr,ntt,mS].copy() / s_total
                         Total_Vehicle_km_pav_tr_pC[ntt,nrr] = vkm.copy()
@@ -1519,8 +1840,8 @@ def main():
                     for r in range(0, Nr):
                         LifeTimes = Par_RECC_ProductLifetime_p[p, r, :]
                         lt = {'Type'  : 'Normal',
-                              'Mean'  : LifeTimes,
-                              'StdDev': 0.5 * LifeTimes} # flat decline: obsolescence of 16 % in 3 years around mean lifetime.
+                            'Mean'  : LifeTimes,
+                            'StdDev': 0.5 * LifeTimes} # flat decline: obsolescence of 16 % in 3 years around mean lifetime.
                         SF_Array[:, :, p, r] = dsm.DynamicStockModel(t=np.arange(0, Nc, 1), lt=lt).compute_sf().copy()
                         np.fill_diagonal(SF_Array[:, :, p, r],1) # no outflows from current year, this would break the mass balance in the calculation routine below, as the element composition of the current year is not yet known.
                         # Those parts of the stock remain in use instead.
@@ -1572,7 +1893,8 @@ def main():
                 Inflow_Prod_r[:,:,Sector_pav_rge,mS,mR]  = np.einsum('tpr->trp',Inflow_Detail_UsePhase_p).copy()
                 Outflow_Prod[:,Sector_pav_rge,mS,mR]     = np.einsum('tcpr->tp',Outflow_Detail_UsePhase_p).copy()
                 Outflow_Prod_r[:,:,Sector_pav_rge,mS,mR]     = np.einsum('tcpr->trp',Outflow_Detail_UsePhase_p).copy()
-    
+                StockCurves_Prod_pr[:,:,Sector_pav_rge,mS,mR]   = np.einsum('tcpr->trp',Stock_Detail_UsePhase_p).copy() # 2025-01-20, ch CIRCOMOD reporting
+
             # Sector: Residential buildings
             if 'reb' in SectorList:
                 Mylog.info('Calculate inflows and outflows for use phase, residential buildings.')
@@ -1606,10 +1928,12 @@ def main():
             
                 # Include_REStrategy_LifeTimeExtension: Product lifetime extension.
                 # First, replicate lifetimes for post 2020 age-cohorts from 2020 values as the parameter file only specifies values up to 2020:
+                # noinspection PyUnboundLocalVariable
                 RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values[:,:,120::] = np.einsum('c,Br->Brc',np.ones((41)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values[:,:,120]).copy()
                 Par_RECC_ProductLifetime_B = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_resbuildings'].Values.copy()
                 # Second, change lifetime of future age-cohorts according to lifetime extension parameter
                 if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True':
+                    """
                     # option: future age-cohorts only, used in ODYM-RECC v2.2:
                     #Par_RECC_ProductLifetime_B[:,:,SwitchTime -1::] = np.einsum('crB,Brc->Brc',1 + np.einsum('cr,Br->crB',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['6_PR_LifeTimeExtension_resbuildings'].Values[:,:,mS]),Par_RECC_ProductLifetime_B[:,:,SwitchTime -1::])
                     # option: all age-cohorts, used from ODYM-RECC v2.3 onwards, which leads to:
@@ -1628,15 +1952,34 @@ def main():
                                     None # LTE_Pot = 0, no LTE
                                 LTE_Rampupcurve[SwitchTime::] = LTE_Pot
                                 Par_RECC_ProductLifetime_B[B,r,:] = np.einsum('c,c->c',1 + LTE_Rampupcurve,Par_RECC_ProductLifetime_B[B,r,:])
-    
+                    """
+                    # 2025-10-07, ch: include LTE for historic buildings (standard buildings) (requires update of 6_PR_LifeTimeExtension_resbuildings | 6_PR_LifeTimeExtension_nonresbuildings)
+                    #only LTE for historic buildings not older than 40% (1-(2*StdDev/LifeTimes); StdDev = .3*LifeTimes, see below) of the mean lifetime of the 2015 cohort (2015 cohort lifetime as proxy for recent historic age cohorts). This will prevent strong effect of LTE in first model years (calibrated years).
+                    for B in range(0, NB):
+                        for r in range(0, Nr):
+                            LTE_Pot = RECC_System.ParameterDict['6_PR_LifeTimeExtension_resbuildings'].Values[B,r,mS]
+                            LTE_Rampupcurve = np.zeros(Nc)
+                            try:
+                                LTE_ma = round(Par_RECC_ProductLifetime_B[B,r,115]*(1-2*0.3)) #max age for historic cohorts to be considered for LTE
+                                if LTE_ma > SwitchTime:
+                                    LTE_ma = SwitchTime
+                                LTE_start = SwitchTime-LTE_ma
+                                LTE_Rampupcurve[LTE_start:SwitchTime] = np.arange(0,LTE_Pot,LTE_Pot/LTE_ma)
+                            except:
+                                None # LTE_Pot = 0, no LTE
+                            LTE_Rampupcurve[SwitchTime::] = LTE_Pot
+                            Par_RECC_ProductLifetime_B[B,r,:] = np.einsum('c,c->c',1 + LTE_Rampupcurve,Par_RECC_ProductLifetime_B[B,r,:])                    
+
+
+
                 # 3) Dynamic stock model, with lifetime depending on age-cohort.
                 # Build pdf array from lifetime distribution: Probability of survival.
                 for B in tqdm(range(0, NB), unit=' res. building types'):
                     for r in range(0, Nr):
                         LifeTimes = Par_RECC_ProductLifetime_B[B, r, :]
                         lt = {'Type'  : 'Normal',
-                              'Mean'  : LifeTimes,
-                              'StdDev': 0.3 * LifeTimes}
+                            'Mean'  : LifeTimes,
+                            'StdDev': 0.3 * LifeTimes}
                         SF_Array[:, :, B, r] = dsm.DynamicStockModel(t=np.arange(0, Nc, 1), lt=lt).compute_sf().copy()
                         np.fill_diagonal(SF_Array[:, :, B, r],1) # no outflows from current year, 
                         # this would break the mass balance in the calculation routine below, as the element composition of the current year is not yet known.
@@ -1677,24 +2020,54 @@ def main():
                 Inflow_Prod_r[:,:,Sector_reb_rge,mS,mR]  = np.einsum('tBr->trB',Inflow_Detail_UsePhase_B).copy()
                 Outflow_Prod[:,Sector_reb_rge,mS,mR]     = np.einsum('tcBr->tB',Outflow_Detail_UsePhase_B).copy()
                 Outflow_Prod_r[:,:,Sector_reb_rge,mS,mR] = np.einsum('tcpr->trp',Outflow_Detail_UsePhase_B).copy()
-                
+                StockCurves_Prod_pr[:,:,Sector_reb_rge,mS,mR]   = np.einsum('tcBr->trB',Stock_Detail_UsePhase_B).copy() # 2025-01-20, ch CIRCOMOD reporting
+                # 2025-10-10, ch: report also demolition rate for export to TIMES-EU model
+                Sector_reb_B_SFH = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('B')].Items.index(i) for i in ['SFH_non-standard', 'SFH_standard', 'SFH_efficient', 'SFH_ZEB']]
+                Sector_reb_B_MFH = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('B')].Items.index(i) for i in ['MFH_non-standard', 'MFH_standard', 'MFH_efficient', 'MFH_ZEB']]
+                Sector_reb_B_RT  = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('B')].Items.index(i) for i in ['RT_non-standard', 'RT_standard', 'RT_efficient', 'RT_ZEB']]
+                Sector_reb_B_inf = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('B')].Items.index(i) for i in ['informal_non-standard']]
+
+                DemolitionRate_reb_rB[:,:,:,mS,mR]       = np.divide(
+                    np.einsum('tcBr->trB',Outflow_Detail_UsePhase_B),np.einsum('tcBr->trB',Stock_Detail_UsePhase_B),where = np.einsum('tcBr->trB',Stock_Detail_UsePhase_B) != 0
+                    ).copy()
+                DemolitionRate_reb_r[:,:,mS,mR]          = np.divide(
+                    np.einsum('tcBr->tr',Outflow_Detail_UsePhase_B),np.einsum('tcBr->tr',Stock_Detail_UsePhase_B),where = np.einsum('tcBr->tr',Stock_Detail_UsePhase_B) != 0
+                    ).copy()
+                DemolitionRate_reb_SFH_r[:,:,mS,mR]      = np.divide(
+                    np.einsum('tcBr->tr',Outflow_Detail_UsePhase_B[:,:,Sector_reb_B_SFH,:]),np.einsum('tcBr->tr',Stock_Detail_UsePhase_B[:,:,Sector_reb_B_SFH,:]),where = np.einsum('tcBr->tr',Stock_Detail_UsePhase_B[:,:,Sector_reb_B_SFH,:]) != 0
+                    ).copy()
+                DemolitionRate_reb_MFH_r[:,:,mS,mR]      = np.divide(
+                    np.einsum('tcBr->tr',Outflow_Detail_UsePhase_B[:,:,Sector_reb_B_MFH,:]),np.einsum('tcBr->tr',Stock_Detail_UsePhase_B[:,:,Sector_reb_B_MFH,:]),where = np.einsum('tcBr->tr',Stock_Detail_UsePhase_B[:,:,Sector_reb_B_MFH,:]) != 0
+                    ).copy()
+                DemolitionRate_reb_RT_r[:,:,mS,mR]       = np.divide(
+                    np.einsum('tcBr->tr',Outflow_Detail_UsePhase_B[:,:,Sector_reb_B_RT,:]),np.einsum('tcBr->tr',Stock_Detail_UsePhase_B[:,:,Sector_reb_B_RT,:]),where = np.einsum('tcBr->tr',Stock_Detail_UsePhase_B[:,:,Sector_reb_B_RT,:]) != 0
+                    ).copy()
+                DemolitionRate_reb_inf_r[:,:,mS,mR]      = np.divide(
+                    np.einsum('tcBr->tr',Outflow_Detail_UsePhase_B[:,:,Sector_reb_B_inf,:]),np.einsum('tcBr->tr',Stock_Detail_UsePhase_B[:,:,Sector_reb_B_inf,:]),where = np.einsum('tcBr->tr',Stock_Detail_UsePhase_B[:,:,Sector_reb_B_inf,:]) != 0
+                    ).copy()
+
                 # Include renovation of reb:
                 RECC_System.ParameterDict['3_MC_RECC_Buildings_t'].Values[:,:,:,:,:,mS,mR] = np.einsum('cmBr,t->mBrct',RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS,mR],np.ones(Nt)) # mBrctSR
                 if ScriptConfig['Include_Renovation_reb'] == 'True' and ScriptConfig['No_EE_Improvements'] == 'False': 
                     RenPot_E   = np.einsum('rcB,rB->rcB',RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:],RECC_System.ParameterDict['3_SHA_EnergySavingsPot_Renovation_ResBuildings'].Values[:,mS,:]) # Unit: 1
-                    RenPot_E_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot_E) # Unit: 1, Defined as share of stock crB that is renovated by year t * energy saving potential
+                    #RenPot_E_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot_E) # Unit: 1, Defined as share of stock crB that is renovated by year t * energy saving potential
+                    RenPot_E_t = np.einsum('trB,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_rB'].Values[:,:,:,mS,mR],RenPot_E) # Unit: 1, Defined as share of stock crB that is renovated by year t * energy saving potential # 2025-06-11, ch: region r and building type B dependent 3_SHA_BuildingRenovationScaleUp
                     RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cBVnr,trcB->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:SwitchTime,:,:,:,:,mS,mR],(np.ones((Nt,Nr,Nc-Nt+1,NB))-RenPot_E_t)) # cBVnrt
                     # Add renovation material intensity to building material intensity:
-                    RenPot_M_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crB that is renovated by year t
-                    MC_Ren = RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS,mR]*RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Relative'].Values + RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values
+                    #RenPot_M_t = np.einsum('tr,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crB that is renovated by year t
+                    RenPot_M_t = np.einsum('trB,rcB->trcB',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_rB'].Values[:,:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_ResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crB that is renovated by year t # 2025-06-11, ch: region r and building type B dependent 3_SHA_BuildingRenovationScaleUp
+                    #MC_Ren = RECC_System.ParameterDict['3_MC_RECC_Buildings_RECC'].Values[:,:,:,:,mS,mR]*RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Relative'].Values + RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values
+                    MC_Ren = RECC_System.ParameterDict['3_MC_RECC_Buildings_Renovation_Absolute'].Values # 2025-06-13, ch: remove relatve mc parameter, needs long time to read in, not used
                     RECC_System.ParameterDict['3_MC_RECC_Buildings_t'].Values[:,:,:,0:SwitchTime,:,mS,mR] += np.einsum('cmBr,trcB->mBrct',MC_Ren[0:SwitchTime,:,:,:],RenPot_M_t)
+                    Renovated_m2_reb_cum[:,:,:,mS,mR] = np.einsum('tcBr,trcB->trB',Stock_Detail_UsePhase_B[:,0:SwitchTime,:,:],RenPot_M_t).copy()
+                    Renovated_m2_reb_t[:,:,:,mS,mR] = np.diff(Renovated_m2_reb_cum[:,:,:,mS,mR],axis=0,prepend=0)
                 else:
                     RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cBVnr,trcB->cBVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[0:SwitchTime,:,:,:,:,mS,mR],np.ones((Nt,Nr,Nc-Nt+1,NB))) # cBVnrt
                 # Add values for future age-cohorts, convert from useful to final energy, expand from 'all' to specific energy carriers
                 RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[SwitchTime-1::,:,:,:,:,:]   = np.einsum('Vrnt,Vrnt,cBVr,t->cBVnrt',ParameterDict['4_TC_ResidentialEnergyEfficiency'].Values[:,mR,:,:,:,mS],ParameterDict['3_SHA_EnergyCarrierSplit_Buildings_uf'].Values[:,mR,:,:,:,mS],RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchTime-1::,:,:,all_loc,:,mS,mR],np.ones(Nt))
                 # Split energy into different carriers for historic age-cohorts. Here, a shift of heating systems is assumed irrespective of the renovation activities. The energy carrier split is time dependent but not age-cohort dependent.
                 RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,:,:,:]     = np.einsum('Vrnt,cBVrt->cBVnrt',RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Buildings'].Values[:,mR,:,:,:], RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings_t'].Values[0:SwitchTime,:,:,all_loc,:,:]) 
-                 
+                
                 
             # Sector: Nonresidential buildings, by region
             if 'nrb' in SectorList:
@@ -1731,6 +2104,7 @@ def main():
                 Par_RECC_ProductLifetime_N = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_NonResbuildings'].Values.copy()
                 # Second, change lifetime of future age-cohorts according to lifetime extension parameter
                 if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True':
+                    """
                     # option: all age-cohorts, used from ODYM-RECC v2.3 onwards, which leads to:
                     if ScriptConfig['Include_Renovation_nrb'] == 'True' and ScriptConfig['No_EE_Improvements'] == 'False': 
                         # Increase lifetime of all nonres. buildings instantaneously:
@@ -1747,15 +2121,33 @@ def main():
                                     None # LTE_Pot = 0, no LTE
                                 LTE_Rampupcurve[SwitchTime::] = LTE_Pot
                                 Par_RECC_ProductLifetime_N[N,r,:] = np.einsum('c,c->c',1 + LTE_Rampupcurve,Par_RECC_ProductLifetime_N[N,r,:])
-      
+                    """
+                    # 2025-10-07, ch: include LTE for historic buildings (standard buildings) (requires update of 6_PR_LifeTimeExtension_resbuildings | 6_PR_LifeTimeExtension_nonresbuildings)
+                    #only LTE for historic buildings not older than 40% (1-(2*StdDev/LifeTimes); StdDev = .3*LifeTimes, see below) of the mean lifetime of the 2015 cohort (2015 cohort lifetime as proxy for recent historic age cohorts). This will prevent strong effect of LTE in first model years (calibrated years).
+                    for N in range(0, NN):
+                        for r in range(0, Nr):
+                            LTE_Pot = RECC_System.ParameterDict['6_PR_LifeTimeExtension_nonresbuildings'].Values[N,r]
+                            LTE_Rampupcurve = np.zeros(Nc)
+                            try:
+                                LTE_ma = round(Par_RECC_ProductLifetime_N[N,r,115]*(1-2*0.3)) #max age for historic cohorts to be considered for LTE
+                                if LTE_ma > SwitchTime:
+                                    LTE_ma = SwitchTime
+                                LTE_start = SwitchTime-LTE_ma
+                                LTE_Rampupcurve[LTE_start:SwitchTime] = np.arange(0,LTE_Pot,LTE_Pot/LTE_ma)
+                            except:
+                                None # LTE_Pot = 0, no LTE
+                            LTE_Rampupcurve[SwitchTime::] = LTE_Pot
+                            Par_RECC_ProductLifetime_N[N,r,:] = np.einsum('c,c->c',1 + LTE_Rampupcurve,Par_RECC_ProductLifetime_N[N,r,:])                    
+
+                        
                 # 3) Dynamic stock model, with lifetime depending on age-cohort.
                 # Build pdf array from lifetime distribution: Probability of survival.
                 for N in tqdm(range(0, NN), unit=' nonres. building types'):
                     for r in range(0, Nr):
                         LifeTimes = Par_RECC_ProductLifetime_N[N, r, :]
                         lt = {'Type'  : 'Normal',
-                              'Mean'  : LifeTimes,
-                              'StdDev': 0.3 * LifeTimes}
+                            'Mean'  : LifeTimes,
+                            'StdDev': 0.3 * LifeTimes}
                         SF_Array[:, :, N, r] = dsm.DynamicStockModel(t=np.arange(0, Nc, 1), lt=lt).compute_sf().copy()
                         np.fill_diagonal(SF_Array[:, :, N, r],1) # no outflows from current year, 
                         # this would break the mass balance in the calculation routine below, as the element composition of the current year is not yet known.
@@ -1795,42 +2187,61 @@ def main():
                 Inflow_Prod_r[:,:,Sector_nrb_rge,mS,mR]  = np.einsum('tNr->trN',Inflow_Detail_UsePhase_N).copy()
                 Outflow_Prod[:,Sector_nrb_rge,mS,mR]     = np.einsum('tcNr->tN',Outflow_Detail_UsePhase_N).copy()
                 Outflow_Prod_r[:,:,Sector_nrb_rge,mS,mR] = np.einsum('tcpr->trp',Outflow_Detail_UsePhase_N).copy()
-    
+                StockCurves_Prod_pr[:,:,Sector_nrb_rge,mS,mR]   = np.einsum('tcNr->trN',Stock_Detail_UsePhase_N).copy() # 2025-01-20, ch CIRCOMOD reporting
+                # 2025-10-10, ch: report also demolition rate for export to TIMES-EU model
+                DemolitionRate_nrb_rN[:,:,:,mS,mR]       = np.divide(
+                    np.einsum('tcNr->trN',Outflow_Detail_UsePhase_N),np.einsum('tcNr->trN',Stock_Detail_UsePhase_N),where = np.einsum('tcNr->trN',Stock_Detail_UsePhase_N) != 0
+                    ).copy()
+                DemolitionRate_nrb_r[:,:,mS,mR]          = np.divide(
+                    np.einsum('tcNr->tr',Outflow_Detail_UsePhase_N),np.einsum('tcNr->tr',Stock_Detail_UsePhase_N),where = np.einsum('tcNr->tr',Stock_Detail_UsePhase_N) != 0
+                    ).copy()
+
+
                 # Include renovation of nrb:
                 RECC_System.ParameterDict['3_MC_RECC_NonResBuildings_t'].Values[:,:,:,:,:,mS,mR] = np.einsum('cmNr,t->mNrct',RECC_System.ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[:,:,:,:,mS,mR],np.ones(Nt)) # mNrctSR
                 if ScriptConfig['Include_Renovation_nrb'] == 'True' and ScriptConfig['No_EE_Improvements'] == 'False': 
                     RenPot_E   = np.einsum('rcN,rN->rcN',RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_NonResBuildings'].Values[:,0:SwitchTime,:],RECC_System.ParameterDict['3_SHA_EnergySavingsPot_Renovation_NonResBuildings'].Values[:,mS,:]) # Unit: 1
-                    RenPot_E_t = np.einsum('tr,rcN->trcN',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot_E) # Unit: 1
-                    RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cNVnr,trcN->cNVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:SwitchTime,:,:,:,:,mS,mR],(np.ones((Nt,Nr,Nc-Nt+1,NN))-RenPot_E_t)) # cNVnrt
+                    #RenPot_E_t = np.einsum('tr,rcN->trcN',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RenPot_E) # Unit: 1
+                    RenPot_E_t = np.einsum('trN,rcN->trcN',RECC_System.ParameterDict['3_SHA_NonResBuildingRenovationScaleUp_rN'].Values[:,:,:,mS,mR],RenPot_E) # Unit: 1 # 2025-06-11, ch: adapt 3_SHA_NonResBuildingRenovationScaleUp (region r and nonres building type N dependent)
+                    RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cNVnr,trcN->cNVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:SwitchTime,:,:,:,:,mS,mR],(np.ones((Nt,Nr,Nc-Nt+1,NN))-RenPot_E_t)) # cNVnrt # EI, final energy demand
                     # Add renovation material intensity to building material intensity:
-                    RenPot_M_t = np.einsum('tr,rcN->trcN',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_NonResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crN that is renovated by year t
+                    #RenPot_M_t = np.einsum('tr,rcN->trcN',RECC_System.ParameterDict['3_SHA_BuildingRenovationScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_NonResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crN that is renovated by year t
+                    RenPot_M_t = np.einsum('trN,rcN->trcN',RECC_System.ParameterDict['3_SHA_NonResBuildingRenovationScaleUp_rN'].Values[:,:,:,mS,mR],RECC_System.ParameterDict['3_SHA_MaxRenovationPotential_NonResBuildings'].Values[:,0:SwitchTime,:]) # Unit: 1, Defined as share of stock crN that is renovated by year t # 2025-06-11, ch: add 3_SHA_NonResBuildingRenovationScaleUp (region r and nonres building type N dependent)
                     MC_Ren = RECC_System.ParameterDict['3_MC_RECC_NonResBuildings_Renovation_Absolute'].Values
                     RECC_System.ParameterDict['3_MC_RECC_NonResBuildings_t'].Values[:,:,:,0:SwitchTime,:,mS,mR] += np.einsum('cmNr,trcN->mNrct',MC_Ren[0:SwitchTime,:,:,:],RenPot_M_t)
+                    Renovated_m2_nrb_cum[:,:,:,mS,mR] = np.einsum('tcNr,trcN->trN',Stock_Detail_UsePhase_N[:,0:SwitchTime,:,:],RenPot_M_t).copy()
+                    Renovated_m2_nrb_t[:,:,:,mS,mR] = np.diff(Renovated_m2_nrb_cum[:,:,:,mS,mR],axis=0,prepend=0)
                 else:
                     RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:] = np.einsum('cNVnr,trcN->cNVnrt',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[0:SwitchTime,:,:,:,:,mS,mR],(np.ones((Nt,Nr,Nc-Nt+1,NN)))) # cNVnrt
                 # Add values for future age-cohorts, convert from useful to final energy, expand from 'all' to specific energy carriers
-                RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[SwitchTime-1::,:,:,:,:,:]   = np.einsum('Vrnt,Vrnt,cNVr,t->cNVnrt',ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[:,mR,:,:,:,mS],ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings_uf'].Values[:,mR,:,:,:,mS],RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[SwitchTime-1::,:,:,all_loc,:,mS,mR],np.ones(Nt))
+                RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[SwitchTime-1::,:,:,:,:,:]   = np.einsum('Vrnt,Vrnt,cNVr,t->cNVnrt',ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[:,mR,:,:,:,mS],ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings_uf'].Values[:,mR,:,:,:,mS],RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[SwitchTime-1::,:,:,all_loc,:,mS,mR],np.ones(Nt)) # [MJ_final/MJ_useful]_(TC) * [1]_(SHA, useful) * [MJ_useful/m2]_(EI)
+                # 2025-07-23, ch: for reporting of useful energy EI change in nrb to feed information into TIMES
+                EI_Products_UsePhase_nonresbuildings_t_uf[SwitchTime-1::,:,:,:,:,:] = np.einsum('Vrnt,cNVr,t->cNVnrt',ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings_uf'].Values[:,mR,:,:,:,mS],RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings'].Values[SwitchTime-1::,:,:,all_loc,:,mS,mR],np.ones(Nt)) # [1]_(SHA, useful) * [MJ_useful/m2]_(EI)
                 # Split energy into different carriers for historic age-cohorts. Here, a shift of heating systems is assumed irrespective of the renovation activities. The energy carrier split is time dependent but not age-cohort dependent.
-                RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:]     = np.einsum('Vrnt,cNVrt->cNVnrt',RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:], RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,all_loc,:,:]) 
+                RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:]     = np.einsum('Vrnt,cNVrt->cNVnrt',RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_NonResBuildings'].Values[:,mR,:,:,:], RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,all_loc,:,:]) # EI in final energy demand
+                # 2025-07-23, ch: for reporting of useful energy EI change in nrb to feed information into TIMES
+                Divisor_TC = ParameterDict['4_TC_NonResidentialEnergyEfficiency'].Values[:,mR,:,:,:,mS] #Vrnt # unit [MJ_final/MJ_useful]
+                Divisor_TC = np.einsum('Vrnt,cN->cNVnrt',Divisor_TC,(np.ones((Nc-Nt+1,NN))))
+                EI_Products_UsePhase_nonresbuildings_t_uf[0:SwitchTime,:,:,:,:,:] = np.divide(RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[0:SwitchTime,:,:,:,:,:],Divisor_TC, where=Divisor_TC!=0)
                 
             # Sector: Nonresidential buildings, global total
             if 'nrbg' in SectorList:
                 Mylog.info('Calculate inflows and outflows for use phase, nonresidential buildings.')
                 SF_Array = np.zeros((Nc,Nc,NN,No)) # survival functions, by year, age-cohort, good, and region. PDFs are stored externally because recreating them with scipy.stats is slow.            
                 s_nrbg   = RECC_System.ParameterDict['2_S_RECC_FinalProducts_nonresbuildings_g'].Values[:,:]  ### dimensions: 'Nt'
-    
+
                 if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True': # for future age-cohorts t = c
                     RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_nonresbuildings_g'].Values[:,:,SwitchTime -1::] = np.einsum('Not,Not->Not',RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_nonresbuildings_g'].Values[:,:,SwitchTime -1::],1 + np.einsum('No,ot->Not',RECC_System.ParameterDict['6_PR_LifeTimeExtension_nonresbuildings_g'].Values[:,:],RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[mR,:,:,mS]))
-    
+
                 for N in tqdm(range(0, NN), unit='Mm²'):
                     for o in range(0, No):
                         # First, replicate lifetimes for all age-cohorts
                         LifeTimes_nrbg = RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_nonresbuildings_g'].Values[N,o,:] # Dimensions: 'Noc'
                         lt = {'Type'  : 'Normal',
-                              'Mean'  : LifeTimes_nrbg, 
-                              'StdDev': 0.3 * LifeTimes_nrbg}
+                            'Mean'  : LifeTimes_nrbg, 
+                            'StdDev': 0.3 * LifeTimes_nrbg}
                 # Compute evolution of nrbg in-use stock and related flows with stock-driven model
-       
+    
                         RECC_dsm_nrbg            = dsm.DynamicStockModel(time_dsm, s = s_nrbg[N,:].copy(), lt = lt)     
                         SF_Array[:, :, N, o]     = RECC_dsm_nrbg.compute_sf().copy()                             
                         np.fill_diagonal(SF_Array[:, :, N, o],1) # no outflows from current year, this would break the mass balance in the calculation routine below, as the element composition of the current year is not yet known.
@@ -1850,62 +2261,46 @@ def main():
                 Inflow_Prod[:,Sector_nrbg_rge,mS,mR]      = np.einsum('tNo->tN',Inflow_Detail_UsePhase_Ng).copy()
                 Outflow_Prod[:,Sector_nrbg_rge,mS,mR]     = np.einsum('tcNo->tN',Outflow_Detail_UsePhase_Ng).copy()                    
                 
-            # Sector: Industry, 11 region and global coverage, will be calculated separately and waste will be added to wast mgt. inflow for 1st region.
+            # Sector: Industry, SSP_32 regions
             if 'ind' in SectorList:
+                
                 Mylog.info('Calculate inflows and outflows for use phase, industry.')
-                # 1) Determine total stock and apply stock-driven model
+
+                # 1) Import already pre-processed stock and flows from ESM of choice
+                #inflow_ESM = RECC_System.ParameterDict['1_F_RECC_FinalProducts_Future_industry_TIMES_preprocessed'].Values[:,:,:,:,:] ### dimensions: rSRIc
+                #outflow_ind_by_cohort = RECC_System.ParameterDict['1_F_RECC_Outflows_industry_TIMES_preprocessed'].Values[:,:,:,:,:,:] ### dimensions: rSRItc
+                #stock_ind_by_cohort = RECC_System.ParameterDict['2_IUS_RECC_Stock_industry_TIMES_preprocessed'].Values[:,:,:,:,:,:] ### dimensions: rSRItc
+                inflow_ESM = RECC_System.ParameterDict['1_F_RECC_FinalProducts_industry'].Values[:,:,:,:,:] ### dimensions: rSRIc #20260216: update structure ESM data and processing in RECC-CE
+                outflow_ind_by_cohort = RECC_System.ParameterDict['1_F_RECC_Outflows_FinalProducts_industry'].Values[:,:,:,:,:,:] ### dimensions: rSRItc #20260216: update structure ESM data and processing in RECC-CE
+                TotalStock_UsePhase_Hist_rIc = RECC_System.ParameterDict['2_S_RECC_FinalProducts_2015_industry'].Values[:,:,0,:] ### dimensions ESM stock: rItc #20260216: update structure ESM data and processing in RECC-CE
+
+                #2) Calculate future stock and assign stocks and flows by cohort to conatainers
+                #Stock_Detail_UsePhase_I[:,:,:,:]     = np.einsum('rItc->tcIr',stock_ind_by_cohort[:,mS,mR,:,:,:])
+                # add initial stock
+                Stock_Detail_UsePhase_I[0,:,:,:]     = np.einsum('rIc->cIr',TotalStock_UsePhase_Hist_rIc).copy()
+                # calculate future stock by forwarding last year's stock and adding stock change
+                for t in range(1,Nt):
+                    Stock_Detail_UsePhase_I[t,:,:,:] = Stock_Detail_UsePhase_I[t-1,:,:,:] \
+                        - np.einsum('rIc->cIr',outflow_ind_by_cohort[:,mS,mR,:,t,:])
+                    Stock_Detail_UsePhase_I[t,SwitchTime-1+t,:,:] = \
+                        np.einsum('rI->Ir',inflow_ESM[:,mS,mR,:,SwitchTime-1+t]) # for inflow_ESM t and c equivalent
                 
-                SF_Array                    = np.zeros((Nc,Nc,NI,Nl)) # survival functions, by year, age-cohort, good, and region. PDFs are stored externally because recreating them with scipy.stats is slow.
-                i_Inflow_ind = RECC_System.ParameterDict['1_F_RECC_FinalProducts_industry'].Values[:,:,:,:,:]                     ### dimensions: rSRpt of TotalFutureInflow_UsePhase_ind
-    
-                # set lifetime parameter
-                # First, Simply replicate lifetimes for all age-cohorts
-                Par_RECC_ProductLifetime_ind = np.einsum('cl,I->Ilc',np.ones((Nc,Nl)),RECC_System.ParameterDict['3_LT_RECC_ProductLifetime_industry'].Values)
-                if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True': # for future age-cohorts t = c
-                    Par_RECC_ProductLifetime_ind[:,:,SwitchTime -1::] = np.einsum('Ilt,Ilt->Ilt',Par_RECC_ProductLifetime_ind[:,:,SwitchTime -1::],1 + np.einsum('Il,t->Ilt',RECC_System.ParameterDict['6_PR_LifeTimeExtension_industry'].Values[:,:,mS],RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[mR,0,:,mS]))
-                    
-                # Dynamic stock model
-                # Build pdf array from lifetime distribution: Probability of survival.
-                RECC_dsm_ind_s_c        = np.zeros((Nl,NS,NR,NI,Nc,Nc))
-                RECC_dsm_ind_s_c_o_c    = np.zeros((Nl,NS,NR,NI,Nc,Nc))
-                RECC_dsm_ind_o          = np.zeros((Nl,NS,NR,NI,Nc))
-                Inflow                  = np.zeros((Nt,Nl,NI))
-                
-                TotalStockCurves_UsePhase_I = np.zeros((Nt,NI,Nl))
-    
-                for I in tqdm(range(0, NI), unit=' EGT types'):
-                    for l in range(0, Nl):
-                                LifeTimes = Par_RECC_ProductLifetime_ind[I, l, :]
-                            
-                                lt = {'Type'  : 'Normal',
-                                      'Mean'  : LifeTimes,
-                                      'StdDev': 0.3 * LifeTimes}
-                # Compute inflow-driven model
-                                RECC_dsm_ind                         = dsm.DynamicStockModel(time_dsm , i = i_Inflow_ind[l,mS,mR,I,:].copy()  , lt = lt)
-                                SF_Array[:, :, I, l]                 = dsm.DynamicStockModel(time_dsm , i = Inflow  , lt = lt).compute_sf().copy()  # The lt parameter is not used, the sf array is handed over directly in the next step.   
-                                np.fill_diagonal(SF_Array[:, :, I, l],1) # no outflows from current year, this would break the mass balance in the calculation routine below, as the element composition of the current year is not yet known.
-                                # Those parts of the stock remain in use instead.
-                                
-                                RECC_dsm_ind.sf                      = SF_Array[:, :, I, l].copy()
-                                RECC_dsm_ind_s_c[l,mS,mR,I,:,:]      = RECC_dsm_ind.compute_s_c_inflow_driven()
-                                RECC_dsm_ind_s_c_o_c[l,mS,mR,I,:,:]  = RECC_dsm_ind.compute_o_c_from_s_c()
-                                RECC_dsm_ind_o[l,mS,mR,I,:]          = RECC_dsm_ind.compute_outflow_total()
-     
-                                Stock_Detail_UsePhase_I[:,:,I,l]     = RECC_dsm_ind_s_c[l,mS,mR,I,SwitchTime-1::,:]
-                                Outflow_Detail_UsePhase_I[:,:,I,l]   = RECC_dsm_ind_s_c_o_c[l,mS,mR,I,SwitchTime-1::,:]
-                                Outflow_Detail_UsePhase_I[0,:,I,l]   = 0 # no flow calculation in first year
-                                Inflow_Detail_UsePhase_I[:,I,l]      = i_Inflow_ind[l,mS,mR,I,SwitchTime-1::] # index structure: tIl
-                                Inflow_Detail_UsePhase_I[0,I,l]      = 0 # no flow calculation in first year
+                Outflow_Detail_UsePhase_I[:,:,:,:]   = np.einsum('rItc->tcIr',outflow_ind_by_cohort[:,mS,mR,:,:,:])
+                Inflow_Detail_UsePhase_I[:,:,:]      = np.einsum('rIc->cIr',inflow_ESM[:,mS,mR,:,SwitchTime-1::])
             
-            
-                TotalStockCurves_UsePhase_I[:,:,:] = Stock_Detail_UsePhase_I[:,:,:,:].sum(axis=1) 
-                                
-            # Here so far: Units: Electricity: GW. for stocks, X/yr for flows.
+                TotalStockCurves_UsePhase_I = np.zeros((Nt,NI,Nr))
+                TotalStockCurves_UsePhase_I[:,:,:] = Stock_Detail_UsePhase_I[:,:,:,:].sum(axis=1)
+
                 StockCurves_Totl[:,Sector_ind_loc,mS,mR] = TotalStockCurves_UsePhase_I[:,:,:].sum(axis=1).sum(axis=1).copy()
                 StockCurves_Prod[:,Sector_ind_rge,mS,mR] = TotalStockCurves_UsePhase_I[:,:,:].sum(axis=2).copy()
-                Inflow_Prod[:,Sector_ind_rge,mS,mR]      = np.einsum('tIl->tI',Inflow_Detail_UsePhase_I).copy()
-                Outflow_Prod[:,Sector_ind_rge,mS,mR]     = np.einsum('tcIl->tI',Outflow_Detail_UsePhase_I).copy()                      
-               
+                Stock_2020_decline_I[1::,:,:]            = Stock_Detail_UsePhase_I[1::,0:Ind_2020+1,:].copy().sum(axis=1) # tIr
+                Inflow_Prod[:,Sector_ind_rge,mS,mR]      = np.einsum('tIr->tI',Inflow_Detail_UsePhase_I).copy()
+                Inflow_Prod_r[:,:,Sector_ind_rge,mS,mR]  = np.einsum('tIr->trI',Inflow_Detail_UsePhase_I).copy()
+                Outflow_Prod[:,Sector_ind_rge,mS,mR]     = np.einsum('tcIr->tI',Outflow_Detail_UsePhase_I).copy()
+                Outflow_Prod_r[:,:,Sector_ind_rge,mS,mR] = np.einsum('tcIr->trI',Outflow_Detail_UsePhase_I).copy()
+                StockCurves_Prod_pr[:,:,Sector_ind_rge,mS,mR]   = np.einsum('tcIr->trI',Stock_Detail_UsePhase_I).copy() # 2025-01-20, ch CIRCOMOD reporting
+
+
                 
             # Sector: Appliances, global coverage, will be calculated separately and waste will be added to wast mgt. inflow for 1st region.
             if 'app' in SectorList:            
@@ -1933,9 +2328,9 @@ def main():
                         LifeTimes = Par_RECC_ProductLifetime_app[a, o, :]
                     
                         lt = {'Type'  : 'Normal',
-                              'Mean'  : LifeTimes,
-                              'StdDev': 0.3 * LifeTimes}
-      
+                            'Mean'  : LifeTimes,
+                            'StdDev': 0.3 * LifeTimes}
+    
                 # Compute inflow-driven model     
                         RECC_dsm_app                         = dsm.DynamicStockModel(time_dsm , i = i_Inflow_app[o,:,mS,mR,a].copy()  , lt = lt)  
                         SF_Array[:, :, a, o]                 = dsm.DynamicStockModel(time_dsm , i = i_Inflow_app[o,:,mS,mR,a].copy()  , lt = lt).compute_sf().copy() 
@@ -1946,13 +2341,13 @@ def main():
                         RECC_dsm_app_s_c[o,mS,mR,a,:,:]      = RECC_dsm_app.compute_s_c_inflow_driven()
                         RECC_dsm_app_s_c_o_c[o,mS,mR,a,:,:]  = RECC_dsm_app.compute_o_c_from_s_c()
                         RECC_dsm_app_o[o,mS,mR,a,:]          = RECC_dsm_app.compute_outflow_total()
-    
+
                         Stock_Detail_UsePhase_a[:,:,a,o]     = RECC_dsm_app_s_c[o,mS,mR,a,SwitchTime-1::,:]
                         Outflow_Detail_UsePhase_a[:,:,a,o]   = RECC_dsm_app_s_c_o_c[o,mS,mR,a,SwitchTime-1::,:]
                         Outflow_Detail_UsePhase_a[0,:,a,o]   = 0 # no flow calculation in first year
                         Inflow_Detail_UsePhase_a[:,a,o]      = i_Inflow_app[o,SwitchTime-1::,mS,mR,a] # index structure: tIl
                         Inflow_Detail_UsePhase_a[0,a,o]      = 0 # no flow calculation in first year
-    
+
                 TotalStockCurves_UsePhase_a[:,:,:]           = Stock_Detail_UsePhase_a[:,:,:,:].sum(axis=1) 
                                 
             # Here so far: Units: 1 (# items). for stocks, X/yr for flows.
@@ -1960,7 +2355,57 @@ def main():
                 StockCurves_Prod[:,Sector_app_rge,mS,mR]     = TotalStockCurves_UsePhase_a[:,:,:].sum(axis=2).copy()
                 Inflow_Prod[:,Sector_app_rge,mS,mR]          = np.einsum('tIl->tI',Inflow_Detail_UsePhase_a).copy()
                 Outflow_Prod[:,Sector_app_rge,mS,mR]         = np.einsum('tcIl->tI',Outflow_Detail_UsePhase_a).copy()   
-    
+
+            
+            #2026-01-27 Sector: transport infrastructure from IMAGE-Materials (tis); 
+            #   import product/material stocks and flows directly from processed IMAGE-Materials results
+            #   ignore age-cohorts
+            if 'tis' in SectorList:
+                Mylog.info('Import inflows, outflows and stocks for use phase, transport infrastructure IMAGE-Materials.')
+                
+                # import inflows; unit kt
+                inflow_tis_rKmc = RECC_System.ParameterDict['1_F_RECC_FinalProducts_IMAGE_TranspInf_rSRKmc'].Values[:,mS,mR,:,:,:]   ### dimensions: rSRKmc 
+                # import outflows; unit kt
+                #outflow_tis_rSRKt = RECC_System.ParameterDict['1_F_Outflow_RECC_FinalProducts_IMAGE_TranspInf'].Values[:,:,:,:,:]  ### dimensions: rSRKt 
+                outflow_tis_rKmt = RECC_System.ParameterDict['1_F_Outflow_RECC_FinalProducts_IMAGE_TranspInf_rSRKmt'].Values[:,mS,mR,:,:,:]  ### dimensions: rSRKmt 
+                # import historic stock at end of 2015 by age-cohort; unit kt
+                #TotalStock_UsePhase_Hist_cKr = RECC_System.ParameterDict['2_S_RECC_FinalProducts_2015_IMAGE_TranspInf'].Values[0,:,:,:] ### dimensions: cKr (time t not needed, is 2015)
+                TotalStock_UsePhase_Hist_Krm  = RECC_System.ParameterDict['2_S_RECC_FinalProducts_2015_IMAGE_TranspInf_rSRKmt'].Values[0,:,:,:,2,0] ### dimensions: tKrmSR (time t not needed, is 2015)
+                
+                # Check for negative flows, set to 0 if <0
+                inflow_tis_rKmc[inflow_tis_rKmc < 0] = 0
+                outflow_tis_rKmt[outflow_tis_rKmt < 0] = 0
+                
+                # calculate stock change 
+                dS_rKmt = np.zeros((Nr,NK,Nm,Nt)) # stock change dS
+                #for t in range (0,Nt):
+                for t in range (1,Nt):    # for year t = 0 (2015) use historic stock, no in/outflow/dS yet
+                    dS_rKmt[:,:,:,t] = inflow_tis_rKmc[:,:,:,SwitchTime-1+t] # add inflows for year 2016-2060
+                dS_rKmt[:,:,:,1::] -= outflow_tis_rKmt[:,:,:,1::]    # subtract 2016-2060 outflows; ConcrAgg and Cement = 0 here
+                #plt.plot(np.arange(2015,2061,1),np.einsum('rKmt->tK',dS_rKmt))
+                
+                # add initial stock
+                Stock_Detail_UsePhase_K_tKrm[0,:,:,:]     = TotalStock_UsePhase_Hist_Krm.copy() # Conrete not yet split into ConcrAgg and Cement
+                # calculate future stock by forwarding last year's stock and adding stock change
+                for t in range (1,Nt):
+                    Stock_Detail_UsePhase_K_tKrm[t,:,:,:] =  Stock_Detail_UsePhase_K_tKrm[t-1,:,:,:] \
+                        + np.einsum('rKm->Krm',dS_rKmt[:,:,:,t]).copy()
+                #plt.plot(np.arange(2015,2061,1),np.einsum('tKrm->tK',Stock_Detail_UsePhase_K_tKrm))
+                
+                Outflow_Detail_UsePhase_K_tKrm[1::,:,:,:] = np.einsum('rKmt->tKrm',outflow_tis_rKmt[:,:,:,1::]).copy() # Conrete not yet split into ConcrAgg and Cement to avoid double counting at "product" level here
+                Inflow_Detail_UsePhase_K_tKrm[1::,:,:,:]  = np.einsum('rKmc->cKrm',inflow_tis_rKmc[:,:,:,SwitchTime::]).copy() # Conrete not yet split into ConcrAgg and Cement
+                
+                StockCurves_Totl[:,Sector_tis_loc,mS,mR] = np.einsum('tKrm->t',Stock_Detail_UsePhase_K_tKrm[:,:,:,:]).copy() #unit kt
+                StockCurves_Prod[:,Sector_tis_rge,mS,mR] = np.einsum('tKrm->tK',Stock_Detail_UsePhase_K_tKrm).copy()
+                #pCStocksCurves[:,Sector_reb_loc,:,mS,mR] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_resbuildings_act'].Values[mS,:,Sector_reb_loc,:].copy()
+                #Population[:,:,mS,mR]                    = RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]
+                Inflow_Prod[:,Sector_tis_rge,mS,mR]      = np.einsum('tKrm->tK',Inflow_Detail_UsePhase_K_tKrm).copy()
+                Inflow_Prod_r[:,:,Sector_tis_rge,mS,mR]  = np.einsum('tKrm->trK',Inflow_Detail_UsePhase_K_tKrm).copy()
+                Outflow_Prod[:,Sector_tis_rge,mS,mR]     = np.einsum('tKrm->tK',Outflow_Detail_UsePhase_K_tKrm).copy()
+                Outflow_Prod_r[:,:,Sector_tis_rge,mS,mR] = np.einsum('tKrm->trK',Outflow_Detail_UsePhase_K_tKrm).copy()
+                StockCurves_Prod_pr[:,:,Sector_tis_rge,mS,mR]   = np.einsum('tKrm->trK',Stock_Detail_UsePhase_K_tKrm).copy() # 2025-01-20, ch CIRCOMOD reporting
+            
+
             # Archive 2015 pC stock values for future curves:
             pC_FutureStock_2015             = np.zeros((NS,NG,Nr))
             # b) from scenario curves:
@@ -1972,26 +2417,33 @@ def main():
                 if 'nrb' in SectorList:
                     pC_FutureStock_2015[mSS, Sector_nrb_loc, :] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_NonResBuildings_act'].Values[Sector_nrb_loc,:,0,mSS]
             OutputDict['pC_FutureStock_2015']   = pC_FutureStock_2015.copy()
-    
+
             
             # ABOVE: each sector separate, individual regional resolution. BELOW: all sectors together, global total.
             
             # Prepare parameters:        
             # include light-weighting in future MC parameter, cmgr
-            Par_RECC_MC_Nr = np.zeros((Nc,Nm,Ng,Nr,NS,NR,Nt))  # Unit: vehicles: kg/item, buildings: kg/m².
+            Par_RECC_MC_Nr = np.zeros((Nc,Nm,Ng,Nr,NS,NR,Nt))  # Unit: vehicles: kg/item, buildings: kg/m², electricity generation technologies: kt/GW.
             if 'pav' in SectorList:
                 Par_RECC_MC_Nr[:,:,Sector_pav_rge,:,mS,mR,:]      = np.einsum('cmpr,t->pcmrt',RECC_System.ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[:,:,:,:,mS],np.ones(Nt))
             if 'reb' in SectorList:
                 Par_RECC_MC_Nr[:,:,Sector_reb_rge,:,mS,mR,:]      = np.einsum('mBrct->Bcmrt',RECC_System.ParameterDict['3_MC_RECC_Buildings_t'].Values[:,:,:,:,:,mS,mR])
             if 'nrb' in SectorList: 
                 Par_RECC_MC_Nr[:,:,Sector_nrb_rge,:,mS,mR,:]      = np.einsum('mNrct->Ncmrt',RECC_System.ParameterDict['3_MC_RECC_NonResBuildings_t'].Values[:,:,:,:,:,mS,mR])
-            Par_RECC_MC_Nl = np.zeros((Nc,Nm,NL,Nl,NS))          # for electricity generation technologies in kt/GW
-            Par_RECC_MC_Nl[:,:,Sector_ind_rge_reg,:,mS]        = np.einsum('lc,Im->Icml',np.ones((Nl,Nc)), RECC_System.ParameterDict['3_MC_RECC_industry'].Values[:,:])       #3_MC_RECC_industry has dimensions Im
+            '''Par_RECC_MC_Nl = np.zeros((Nc,Nm,NL,Nl,NS))          # for electricity generation technologies in kt/GW'''
+            if 'ind' in SectorList:
+                #Par_RECC_MC_Nr[:,:,Sector_ind_rge,:,mS,mR,:]        = np.einsum('rct,Im->Icmrt',np.ones((Nr,Nc,Nt)), RECC_System.ParameterDict['3_MC_RECC_industry'].Values[:,:])      #3_MC_RECC_industry has dimensions Im
+                Par_RECC_MC_Nr[:,:,Sector_ind_rge,:,mS,mR,:]        = np.einsum('rt,Imc->Icmrt',np.ones((Nr,Nt)), RECC_System.ParameterDict['3_MC_RECC_industry'].Values[:,:,:]) #2026-03-16: 3_MC_RECC_industry now including aspect c
+                '''Par_RECC_MC_Nl[:,:,Sector_ind_rge_reg,:,mS]        = np.einsum('lc,Im->Icml',np.ones((Nl,Nc)), RECC_System.ParameterDict['3_MC_RECC_industry'].Values[:,:])       # TODO 2025-14-11 mg: delete Par_RECC_MC_Nl if not further used?'''
             Par_RECC_MC_No = np.zeros((Nc,Nm,NO,No,NS))          # for appliances in g/unit, nonres. buildings in kg/m²
-            Par_RECC_MC_No[:,:,Sector_app_rge_reg,:,mS]        = np.einsum('c,oOm->Ocmo',np.ones((Nc)), RECC_System.ParameterDict['3_MC_RECC_appliances'].Values[:,:,:])      #3_MC_RECC_appliances has dimensions oam
+            if 'app' in SectorList:
+                Par_RECC_MC_No[:,:,Sector_app_rge_reg,:,mS]        = np.einsum('c,oOm->Ocmo',np.ones((Nc)), RECC_System.ParameterDict['3_MC_RECC_appliances'].Values[:,:,:])      #3_MC_RECC_appliances has dimensions oam
             if 'nrbg' in SectorList:
                 Par_RECC_MC_No[:,:,Sector_nrbg_rge_reg,:,mS]       = np.einsum('c,o,mN->Ncmo',np.ones((Nc)), np.ones((No)), RECC_System.ParameterDict['3_MC_RECC_Nonresbuildings_g'].Values[:,:])  #3_MC_RECC_Nonresbuildings_g has dimensions mN
-            # Units: Vehicles: kg/unit, Buildings: kg/m2  
+            # Units: Vehicles: kg/unit, Buildings: kg/m2 
+            #2026-01-27 tis sector with material flows/stocks
+            #if 'tis' in SectorList: #2026-01 #Unit: kg/kg; MC for inflows and historic stock only; for outflows use MC information contained in 1_F_Outflow_RECC_FinalProducts_IMAGE_TranspInf  
+            #   Par_RECC_MC_Nr[:,:,Sector_tis_rge,:,mS,mR,:]      = np.einsum('cmKr,t->Kcmrt',RECC_System.ParameterDict['3_MC_RECC_IMAGE_TranspInf'].Values[:,:,:,:,mS,mR],np.ones((Nt)))
             
             # historic element composition of materials:
             Par_Element_Composition_of_Materials_m   = np.zeros((Nc,Nm,Ne)) # Unit: 1. Aspects: cme, produced in age-cohort c. Applies to new manufactured goods.
@@ -2009,7 +2461,7 @@ def main():
             # Reduce cement content by up to percentage indicate in 3_SHA_CementContentReduction parameter:
             if ScriptConfig['Include_REStrategy_UsingLessMaterialByDesign'] == 'True':
                 Par_RECC_MC_Nr[115::,Cement_loc,:,:,mS,mR,:] = Par_RECC_MC_Nr[115::,Cement_loc,:,:,mS,mR,:] * (1 - RECC_System.ParameterDict['3_SHA_CementContentReduction'].Values[Cement_loc] * np.einsum('oc,gt->cgot',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[mR,:,:,mS],np.ones((Ng,Nt)))).copy()
-    
+
             Par_FabYieldLoss = np.einsum('mwggto->mwgto',RECC_System.ParameterDict['4_PY_Manufacturing'].Values) # take diagonal of product = manufacturing process
             
             # Consider Fabrication yield improvement and reduction in cement content of concrete and plaster
@@ -2025,7 +2477,8 @@ def main():
             Par_FabYield_total_inv  = np.divide(1, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0) # mgto
             # Determine total element composition of products (c: age-cohort), needs to be updated for future age-cohorts, is done below after material cycle computation.
             Par_3_MC_Stock_ByElement_Nr = np.einsum('cmgrt,cme->tcrgme',Par_RECC_MC_Nr[:,:,:,:,mS,mR,:],Par_Element_Composition_of_Materials_m) # Unit: vehicles: kg/item, buildings: kg/m².
-            Par_3_MC_Stock_ByElement_Nl = np.einsum('cmLl,cme->clLme',Par_RECC_MC_Nl[:,:,:,:,mS],    Par_Element_Composition_of_Materials_m) # Unit: ind: kt/GW
+            #CHECK Par_3_MC_Stock_ByElement_Nl
+            '''Par_3_MC_Stock_ByElement_Nl = np.einsum('cmLl,cme->clLme',Par_RECC_MC_Nl[:,:,:,:,mS],    Par_Element_Composition_of_Materials_m) # Unit: ind: kt/GW'''
             Par_3_MC_Stock_ByElement_No = np.einsum('cmOo,cme->coOme',Par_RECC_MC_No[:,:,:,:,mS],    Par_Element_Composition_of_Materials_m) # Unit: app: g/unit, nrbg: kg/m²
             # Consider EoL recovery rate improvement:
             if ScriptConfig['Include_REStrategy_EoL_RR_Improvement'] == 'True':
@@ -2043,11 +2496,22 @@ def main():
             
             # Calculate reuse factor
             # For vehicles, scenarios already included in target table output!
-            ReUseFactor_tmprS = np.einsum('mprtS->tmprS',RECC_System.ParameterDict['6_PR_ReUse_Veh'].Values/100)
-            # For Buildings, scenarios obtained from RES scaleup curves
-            ReUseFactor_tmBrS = np.einsum('tmBr,S->tmBrS',np.einsum('tr,mBr->tmBr',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['6_PR_ReUse_Bld'].Values),np.ones((NS)))
-            ReUseFactor_tmNrS = np.einsum('tmNr,S->tmNrS',np.einsum('tr,mNr->tmNr',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['6_PR_ReUse_nonresBld'].Values),np.ones((NS)))
-            
+            if 'pav' in SectorList:
+                ReUseFactor_tmprS = np.einsum('mprtS->tmprS',RECC_System.ParameterDict['6_PR_ReUse_Veh'].Values/100)
+            # For Buildings, scenarios obtained from RES scaleup curves - deprecated
+            #ReUseFactor_tmBrS = np.einsum('tmBr,S->tmBrS',np.einsum('tr,mBr->tmBr',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['6_PR_ReUse_Bld'].Values),np.ones((NS)))
+            #ReUseFactor_tmNrS = np.einsum('tmNr,S->tmNrS',np.einsum('tr,mNr->tmNr',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['6_PR_ReUse_nonresBld'].Values),np.ones((NS)))
+            # For Buildings, (CIRCOMOD) scenarios included in parameter files.
+            if 'reb' in SectorList: 
+                ReUseFactor_tmBrS = np.einsum('mBrt,S->tmBrS',RECC_System.ParameterDict['6_PR_ReUse_Bld'].Values,np.ones((NS))) #2025-06-04, ch: temporal scale up already included in parameter file, no change over S
+            if 'nrb' in SectorList:
+                ReUseFactor_tmNrS = np.einsum('mNrt,S->tmNrS',RECC_System.ParameterDict['6_PR_ReUse_nonresBld'].Values,np.ones((NS))) #2025-06-04, ch: temporal scale up already included in parameter file, no change over S
+            if 'tis' in SectorList: #2026-01 add tis reuse
+                ReUseFactor_tmKrS = np.einsum('mKrt,S->tmKrS',RECC_System.ParameterDict['6_PR_ReUse_Tis'].Values,np.ones((NS))) #2025-06-04, ch: temporal scale up already included in parameter file, no change over S
+            if 'ind' in SectorList:
+                ReUseFactor_tmIrS = np.einsum('mIrt,S->tmIrS',RECC_System.ParameterDict['6_PR_ReUse_Ind_electricity_inf'].Values,np.ones((NS))) #2026-03-17, ch: add ind reuse; temporal scale up already included in parameter file, no change over S
+
+
             Mylog.info('Translate total flows into individual materials and elements, for 2015 and historic age-cohorts.')
             if 'pav' in SectorList:
                 # convert product stocks and flows to material stocks and flows, only for chemical element position 'all':
@@ -2056,7 +2520,7 @@ def main():
                 np.einsum('tcrpme,tcpr->tcrpme',Par_3_MC_Stock_ByElement_Nr[:,:,:,Sector_pav_rge,:,:],Stock_Detail_UsePhase_p)/1000   # Indices='t,c,r,p,m,e'
                 # Outflow, 'all' elements only:
                 RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_pav_rge,:,0] = \
-                np.einsum('pcmrt,tcpr->ptcrm',Par_RECC_MC_Nr[:,:,Sector_pav_rge,:,mS,mR,:],Outflow_Detail_UsePhase_p)/1000 # all elements, Indices='t,c,r,p,m'
+                np.einsum('pcmrt,tcpr->ptcrm',Par_RECC_MC_Nr[:,:,Sector_pav_rge,:,mS,mR,:],Outflow_Detail_UsePhase_p)/1000 # all elements, Indices='t,c,r,p,m' #TODO 2025-17-11 mg: why element dimension only for stock in the passenger calculations?
                 # Inflow as mass balance, to account for renovation material inflows to other age-cohorts than the current one (t=c).
                 RECC_System.FlowDict['F_6_7'].Values[1::,:,Sector_pav_rge,:,0]   = \
                 np.einsum('ptcrm->ptrm',np.diff(RECC_System.StockDict['S_7'].Values[:,:,:,Sector_pav_rge,:,0],1,axis=1)) + np.einsum('ptcrm->ptrm',RECC_System.FlowDict['F_7_8'].Values[1::,:,:,Sector_pav_rge,:,0])
@@ -2096,37 +2560,112 @@ def main():
                     F_6_7_new[mmt,:,Sector_nrb_rge,:,0] = np.einsum('Nr,Nrm->Nrm',Inflow_Detail_UsePhase_N[mmt,:,:],Par_3_MC_Stock_ByElement_Nr[mmt,SwitchTime+mmt-1,:,Sector_nrb_rge,:,0])/1000
                 # Check_nrb = (RECC_System.FlowDict['F_6_7'].Values[1::,0,Sector_nrb_rge,:,0] - F_6_7_new[1::,0,Sector_nrb_rge,:,0] - F_6_7_ren[1::,:,0,Sector_nrb_rge,:,0].sum(axis=2)) # must be 0.
                 RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_nrb_rge,:,0]   = np.einsum('Ntrm->Ntrm',F_6_7_new[:,:,Sector_nrb_rge,:,0]) + np.einsum('Ntcrm->Ntrm',F_6_7_ren[:,:,:,Sector_nrb_rge,:,0])
-                            
-            # 1_Nl_No) Inflow, outflow and stock first year for Nl and No regional aggregation and Sector I and a
-            RECC_System.FlowDict['F_6_7_Nl'].Values[0,:,Sector_ind_rge_reg,:,:]   = \
-            np.einsum('Ilme,Il ->Ilme',Par_3_MC_Stock_ByElement_Nl[SwitchTime-1,:,Sector_ind_rge_reg,:,:],Inflow_Detail_UsePhase_I[0,:,:])/1000 # all elements, Indices='t,l,I,m,e'  
-            RECC_System.FlowDict['F_6_7_No'].Values[0,:,Sector_app_rge_reg,:,:]   = \
-            np.einsum('aome,ao->aome',Par_3_MC_Stock_ByElement_No[SwitchTime-1,:,Sector_app_rge_reg,:,:],Inflow_Detail_UsePhase_a[0,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'  
+            
+            if 'ind' in SectorList:
+                # convert product stocks and flows to material stocks and flows, only for chemical element position 'all':
+                # Stock elemental composition, historic for each element and for future years: 'all' elements only
+                RECC_System.StockDict['S_7'].Values[:,:,:,Sector_ind_rge,:,:] = \
+                np.einsum('tcrIme,tcIr->tcrIme',Par_3_MC_Stock_ByElement_Nr[:,:,:,Sector_ind_rge,:,:],Stock_Detail_UsePhase_I)/1000   # Indices='t,c,r,I,m,e' # division by /1000 to reach desried reporting of Mt
+                # Outflow, 'all' elements only:
+                RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_ind_rge,:,0] = \
+                np.einsum('Itcrm,tcIr->Itcrm',Par_3_MC_Stock_ByElement_Nr[:,:,:,Sector_ind_rge,:,0],Outflow_Detail_UsePhase_I)/1000 # all elements, Indices='t,c,r,I,m'
+                # Inflow as mass balance, to account for renovation material inflows to other age-cohorts than the current one (t=c). # TODO: 2025-17-11 mg: why calculating the np.diff and why not also considering the elemental composition?
+                RECC_System.FlowDict['F_6_7'].Values[1::,:,Sector_ind_rge,:,0]   = \
+                np.einsum('Itcrm->Itrm',np.diff(RECC_System.StockDict['S_7'].Values[:,:,:,Sector_ind_rge,:,0],1,axis=1)) + np.einsum('Itcrm->Itrm',RECC_System.FlowDict['F_7_8'].Values[1::,:,:,Sector_ind_rge,:,0])    
+                # inflow of materials in new products, for checking:
+                #for mmt in range(0,Nt):
+                #    F_6_7_new[mmt,:,Sector_ind_rge,:,0] = np.einsum('Ir,Irm->Irm',Inflow_Detail_UsePhase_I[mmt,:,:],Par_3_MC_Stock_ByElement_Nr[mmt,SwitchTime+mmt-1,:,Sector_ind_rge,:,0])/1000
+                #Check_ind = (RECC_System.FlowDict['F_6_7'].Values[1::,0,Sector_ind_rge,:,0] - F_6_7_new[1::,0,Sector_ind_rge,:,0]).sum() # must be 0.
+            #2026-01-27 tis imported material flows and stock
+            if 'tis' in SectorList:
+                # convert product stocks and flows to material stocks and flows, only for chemical element position 'all':
+                # Stock elemental composition, historic for each element and for future years: 'all' elements only
+                # inflow of materials in new products
+                F_6_7_new[:,:,Sector_tis_rge,:,0] = np.einsum('tKrm->Ktrm',Inflow_Detail_UsePhase_K_tKrm[:,:,:,:])/1000 #convert from kt to Mt
+                #Add cement and concrete aggregate split
+                F_6_7_new[:,:,Sector_tis_rge,Cement_loc,:] = \
+                    F_6_7_new[:,:,Sector_tis_rge,Cement_loc,:].copy() \
+                    + F_6_7_new[:,:,Sector_tis_rge,Concrete_loc,:].copy() \
+                        * ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]
+                F_6_7_new[:,:,Sector_tis_rge,ConcrAgg_loc,:] = \
+                    F_6_7_new[:,:,Sector_tis_rge,Concrete_loc,:].copy() \
+                        * (1-ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc])
+                
+                RECC_System.FlowDict['F_6_7'].Values[:,:,Sector_tis_rge,:,0]   = np.einsum('Ktrm->Ktrm',F_6_7_new[:,:,Sector_tis_rge,:,0])
+                # Outflow, 'all' elements only:
+                tis_RECC_System_Flow_F_7_8_trKme[:,:,:,:,0] = np.einsum('tKrm->trKm',Outflow_Detail_UsePhase_K_tKrm)/1000 #convert from kt to Mt
+                #Split concrete into cement and aggregates:
+                tis_RECC_System_Flow_F_7_8_trKme[:,:,:,Cement_loc,:] = \
+                    tis_RECC_System_Flow_F_7_8_trKme[:,:,:,Cement_loc,:].copy() \
+                    + tis_RECC_System_Flow_F_7_8_trKme[:,:,:,Concrete_loc,:].copy() \
+                        * ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]
+                tis_RECC_System_Flow_F_7_8_trKme[:,:,:,ConcrAgg_loc,:] = \
+                    tis_RECC_System_Flow_F_7_8_trKme[:,:,:,Concrete_loc,:].copy() \
+                        * (1-ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc])
+                
+                # Stock: material composition based on 2015 stock MC + RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:] - actual tis material outflows 
+                # Add historic stock material compostion 
+                tis_RECC_System_Stock_S_7_trKme[0,:,:,:,:] = \
+                    np.einsum('Krm,me->rKme',Stock_Detail_UsePhase_K_tKrm[0,:,:,:], \
+                    Par_Element_Composition_of_Materials_m[115,:,:])/1000 #material element composition for all c 0:116 the same
+                #Split concrete into cement and aggregates:
+                tis_RECC_System_Stock_S_7_trKme[:,:,:,Cement_loc,:] = \
+                    tis_RECC_System_Stock_S_7_trKme[:,:,:,Cement_loc,:].copy() \
+                    + tis_RECC_System_Stock_S_7_trKme[:,:,:,Concrete_loc,:].copy() \
+                        * ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc]
+                tis_RECC_System_Stock_S_7_trKme[:,:,:,ConcrAgg_loc,:] = \
+                    tis_RECC_System_Stock_S_7_trKme[:,:,:,Concrete_loc,:].copy() \
+                        * (1-ParameterDict['3_MC_CementContentConcrete'].Values[Cement_loc,Concrete_loc])
+                    
+                # Add future year material composition based on RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:] - actual tis material outflows; 'all' elements only
+                for t in range(1,Nt):
+                    tis_RECC_System_Stock_S_7_trKme[t,:,:,:,0] = tis_RECC_System_Stock_S_7_trKme[t-1,:,:,:,0] # copy last year's stock
+                    tis_RECC_System_Stock_S_7_trKme[t,:,:,:,0] += np.einsum('Krm->rKm',RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,0]) # add inflow
+                    tis_RECC_System_Stock_S_7_trKme[t,:,:,:,0] -= tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,0]
+            
+            # 1_Nl_No) Inflow, outflow and stock first year for Nl and No regional aggregation and Sector I and a            
+            ''' # remove eleven region industry representation
+            if 'ind' in SectorList:
+                    RECC_System.FlowDict['F_6_7_Nl'].Values[0,:,Sector_ind_rge_reg,:,:]   = \
+                np.einsum('Ilme,Il ->Ilme',Par_3_MC_Stock_ByElement_Nl[SwitchTime-1,:,Sector_ind_rge_reg,:,:],Inflow_Detail_UsePhase_I[0,:,:])/1000 # all elements, Indices='t,l,I,m,e'  '''
+            if 'app' in SectorList:
+                RECC_System.FlowDict['F_6_7_No'].Values[0,:,Sector_app_rge_reg,:,:]   = \
+                np.einsum('aome,ao->aome',Par_3_MC_Stock_ByElement_No[SwitchTime-1,:,Sector_app_rge_reg,:,:],Inflow_Detail_UsePhase_a[0,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'  
             if 'nrbg' in SectorList:
                 RECC_System.FlowDict['F_6_7_No'].Values[0,:,Sector_nrbg_rge_reg,:,:]   = \
                 np.einsum('Nome,No->Nome',Par_3_MC_Stock_ByElement_No[SwitchTime-1,:,Sector_nrbg_rge_reg,:,:],Inflow_Detail_UsePhase_Ng[0,:,:])/1000 # all elements, Indices='t,o,N,m,e'  
-        
-            RECC_System.FlowDict['F_7_8_Nl'].Values[0,0:SwitchTime,:,Sector_ind_rge_reg,:,:] = \
-            np.einsum('clIme,cpl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:SwitchTime,:,Sector_ind_rge_reg,:,:],Outflow_Detail_UsePhase_I[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,l,I,m,e'
-            RECC_System.FlowDict['F_7_8_No'].Values[0,0:SwitchTime,:,Sector_app_rge_reg,:,:] = \
-            np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:SwitchTime,:,Sector_app_rge_reg,:,:],Outflow_Detail_UsePhase_a[0,0:SwitchTime,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'
+            ''' #remove eleven region industry representation
+            if 'ind' in SectorList: 
+                RECC_System.FlowDict['F_7_8_Nl'].Values[0,0:SwitchTime,:,Sector_ind_rge_reg,:,:] = \
+                np.einsum('clIme,cpl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:SwitchTime,:,Sector_ind_rge_reg,:,:],Outflow_Detail_UsePhase_I[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,l,I,m,e'
+            '''
+            if 'app' in SectorList: 
+                RECC_System.FlowDict['F_7_8_No'].Values[0,0:SwitchTime,:,Sector_app_rge_reg,:,:] = \
+                np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:SwitchTime,:,Sector_app_rge_reg,:,:],Outflow_Detail_UsePhase_a[0,0:SwitchTime,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'
             if 'nrbg' in SectorList:
                 RECC_System.FlowDict['F_7_8_No'].Values[0,0:SwitchTime,:,Sector_nrbg_rge_reg,:,:] = \
                 np.einsum('coNme,cNo->Ncome',Par_3_MC_Stock_ByElement_No[0:SwitchTime,:,Sector_nrbg_rge_reg,:,:],Outflow_Detail_UsePhase_Ng[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,o,N,m,e'
-        
-            RECC_System.StockDict['S_7_Nl'].Values[0,0:SwitchTime,:,Sector_ind_rge_reg,:,:] = \
-            np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:SwitchTime,:,Sector_ind_rge_reg,:,:],Stock_Detail_UsePhase_I[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,l,p,m,e'
-            RECC_System.StockDict['S_7_No'].Values[0,0:SwitchTime,:,Sector_app_rge_reg,:,:] = \
-            np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:SwitchTime,:,Sector_app_rge_reg,:,:],Stock_Detail_UsePhase_a[0,0:SwitchTime,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'
+            ''' #remove eleven region industry representation
+            if 'ind' in SectorList: 
+                RECC_System.StockDict['S_7_Nl'].Values[0,0:SwitchTime,:,Sector_ind_rge_reg,:,:] = \
+                np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:SwitchTime,:,Sector_ind_rge_reg,:,:],Stock_Detail_UsePhase_I[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,l,p,m,e'
+            '''
+            if 'app' in SectorList: 
+                RECC_System.StockDict['S_7_No'].Values[0,0:SwitchTime,:,Sector_app_rge_reg,:,:] = \
+                np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:SwitchTime,:,Sector_app_rge_reg,:,:],Stock_Detail_UsePhase_a[0,0:SwitchTime,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'
             if 'nrbg' in SectorList:
                 RECC_System.StockDict['S_7_No'].Values[0,0:SwitchTime,:,Sector_nrbg_rge_reg,:,:] = \
                 np.einsum('coNme,cNo->Ncome',Par_3_MC_Stock_ByElement_No[0:SwitchTime,:,Sector_nrbg_rge_reg,:,:],Stock_Detail_UsePhase_Ng[0,0:SwitchTime,:,:])/1000 # all elements, Indices='t,o,N,m,e'
-    
+
             # 2) Inflow, future years, all elements only
-            RECC_System.FlowDict['F_6_7_Nl'].Values[1::,:,Sector_ind_rge_reg,:,0]   = \
-            np.einsum('Itlm,tIl->Itlm',Par_3_MC_Stock_ByElement_Nl[SwitchTime::,:,Sector_ind_rge_reg,:,0],Inflow_Detail_UsePhase_I[1::,:,:])/1000 # all elements, Indices='t,l,I,m'  
-            RECC_System.FlowDict['F_6_7_No'].Values[1::,:,Sector_app_rge_reg,:,0]   = \
-            np.einsum('atom,tao->atom',Par_3_MC_Stock_ByElement_No[SwitchTime::,:,Sector_app_rge_reg,:,0],Inflow_Detail_UsePhase_a[1::,:,:])/1000000000000 # all elements, Indices='t,o,a,m'  
+            ''' #remove eleven region industry representation
+            if 'ind' in SectorList: 
+                RECC_System.FlowDict['F_6_7_Nl'].Values[1::,:,Sector_ind_rge_reg,:,0]   = \
+                np.einsum('Itlm,tIl->Itlm',Par_3_MC_Stock_ByElement_Nl[SwitchTime::,:,Sector_ind_rge_reg,:,0],Inflow_Detail_UsePhase_I[1::,:,:])/1000 # all elements, Indices='t,l,I,m'  
+            '''
+            if 'app' in SectorList: 
+                RECC_System.FlowDict['F_6_7_No'].Values[1::,:,Sector_app_rge_reg,:,0]   = \
+                np.einsum('atom,tao->atom',Par_3_MC_Stock_ByElement_No[SwitchTime::,:,Sector_app_rge_reg,:,0],Inflow_Detail_UsePhase_a[1::,:,:])/1000000000000 # all elements, Indices='t,o,a,m'  
             if 'nrbg' in SectorList:
                 RECC_System.FlowDict['F_6_7_No'].Values[1::,:,Sector_nrbg_rge_reg,:,0]   = \
                 np.einsum('Ntom,tNo->Ntom',Par_3_MC_Stock_ByElement_No[SwitchTime::,:,Sector_nrbg_rge_reg,:,0],Inflow_Detail_UsePhase_Ng[1::,:,:])/1000 # all elements, Indices='t,o,N,m'              
@@ -2144,7 +2683,8 @@ def main():
                 # Split flows into materials and chemical elements.
                 # Calculate use phase outflow and obsolete stock formation
                 # ObsStockFormation = ObsStockFormationFactor(t,g,r) * Outflow_Detail_UsePhase(t,c,g,r), currently not implemented. 
-                
+                #Par_3_MC_Stock_ByElement_Nr original dimensions: tcrgme
+
                 if 'pav' in SectorList:
                     RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_pav_rge,:,:] = \
                     np.einsum('pcrme,cpr->pcrme',Par_3_MC_Stock_ByElement_Nr[t-1,0:CohortOffset,:,Sector_pav_rge,:,:],Outflow_Detail_UsePhase_p[t,0:CohortOffset,:,:])/1000 # All elements.
@@ -2154,26 +2694,59 @@ def main():
                 if 'nrb' in SectorList:
                     RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_nrb_rge,:,:] = \
                     np.einsum('Ncrme,cNr->Ncrme',Par_3_MC_Stock_ByElement_Nr[t-1,0:CohortOffset,:,Sector_nrb_rge,:,:],Outflow_Detail_UsePhase_N[t,0:CohortOffset,:,:])/1000 # All elements.
-    
+                if 'ind' in SectorList:
+                    RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_ind_rge,:,:] = \
+                    np.einsum('Icrme,cIr->Icrme',Par_3_MC_Stock_ByElement_Nr[t-1,0:CohortOffset,:,Sector_ind_rge,:,:],Outflow_Detail_UsePhase_I[t,0:CohortOffset,:,:])/1000 # All elements.
+                #2026-01-27 tis sector: for outflow in year t add element composition of age-cohort from year t-1 (proxy for changing material composition)
+                # TODO: or set material element comp to 2015 values to
+                if 'tis' in SectorList:  
+                    avg_tis_prod_LT = 1 # Set assumed lifetime to assign age-cohort to EoL outflows to approximate material element composition
+                    tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,:] = np.einsum('rKm,me->rKme', \
+                        # use tis_RECC_System_Flow_F_7_8_trKme (unit Mt), already containing ConcrAgg/Cement split, instead of Outflow_Detail_UsePhase_K_tKrm, which does not contain ConcrAgg/Cement split
+                        tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,0], \
+                        Par_Element_Composition_of_Materials_m[CohortOffset-avg_tis_prod_LT,:,:]) # All elements; as proxy use material-element composition of previous inflow; unit Mt
+                        #Par_Element_Composition_of_Materials_m[CohortOffset-1,:,:]) # All elements; as proxy use material-element composition of previous year inflow; unit Mt
+                    #tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,:] = np.einsum('Krm,me->rKme', \
+                        #Outflow_Detail_UsePhase_K_tKrm[t,:,:,:], \
+                        #Par_Element_Composition_of_Materials_m[CohortOffset-1,:,:])/1000 # All elements; as proxy use material-element composition of previous year inflow; unit Mt
+
                 # 1_Nl_No)
-                RECC_System.FlowDict['F_7_8_Nl'].Values[t,0:CohortOffset,:,Sector_ind_rge_reg,:,:] = \
-                np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:CohortOffset,:,Sector_ind_rge_reg,:,:],Outflow_Detail_UsePhase_I[t,0:CohortOffset,:,:])/1000 # All elements.
-                RECC_System.FlowDict['F_7_8_No'].Values[t,0:CohortOffset,:,Sector_app_rge_reg,:,:] = \
-                np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:CohortOffset,:,Sector_app_rge_reg,:,:],Outflow_Detail_UsePhase_a[t,0:CohortOffset,:,:])/1000000000000 # All elements.
+                '''if 'ind' in SectorList: 
+                    RECC_System.FlowDict['F_7_8_Nl'].Values[t,0:CohortOffset,:,Sector_ind_rge_reg,:,:] = \
+                    np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:CohortOffset,:,Sector_ind_rge_reg,:,:],Outflow_Detail_UsePhase_I[t,0:CohortOffset,:,:])/1000 # All elements.'''
+                if 'app' in SectorList:
+                    RECC_System.FlowDict['F_7_8_No'].Values[t,0:CohortOffset,:,Sector_app_rge_reg,:,:] = \
+                    np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:CohortOffset,:,Sector_app_rge_reg,:,:],Outflow_Detail_UsePhase_a[t,0:CohortOffset,:,:])/1000000000000 # All elements.
                 if 'nrbg' in SectorList:
                     RECC_System.FlowDict['F_7_8_No'].Values[t,0:CohortOffset,:,Sector_nrbg_rge_reg,:,:] = \
                     np.einsum('coNme,cNo->Ncome',Par_3_MC_Stock_ByElement_No[0:CohortOffset,:,Sector_nrbg_rge_reg,:,:],Outflow_Detail_UsePhase_Ng[t,0:CohortOffset,:,:])/1000 # All elements.
-    
+
                 # RECC_System.FlowDict['F_8_0'].Values = MatContent * ObsStockFormation. Currently 0, already defined.
                             
                 # 2) Consider re-use of materials in product groups (via components), as ReUseFactor(m,g,r,R,t) * RECC_System.FlowDict['F_7_8'].Values(t,c,r,g,m,e)
                 # Distribute material for re-use onto product groups
                 if 'pav' in SectorList:
                     ReUsePotential_Materials_t_m_Veh = np.einsum('mpr,pcrm->m',ReUseFactor_tmprS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_pav_rge,:,0]) # in Mt
+                    ReUse_EoL_Pot_t_m_all[t,:]       += ReUsePotential_Materials_t_m_Veh.copy()
+                    ReUse_EoL_Pot_t_mg[t,:,Sector_pav_rge]     = np.einsum('mpr,pcrm->pm',ReUseFactor_tmprS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_pav_rge,:,0]) # in Mt
                 if 'reb' in SectorList:
                     ReUsePotential_Materials_t_m_Bld = np.einsum('mBr,Bcrm->m',ReUseFactor_tmBrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_reb_rge,:,0]) # in Mt
+                    ReUse_EoL_Pot_t_m_all[t,:]       += ReUsePotential_Materials_t_m_Bld.copy()
+                    ReUse_EoL_Pot_t_mg[t,:,Sector_reb_rge]     = np.einsum('mBr,Bcrm->Bm',ReUseFactor_tmBrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_reb_rge,:,0]) # in Mt
                 if 'nrb' in SectorList:
                     ReUsePotential_Materials_t_m_NRB = np.einsum('mNr,Ncrm->m',ReUseFactor_tmNrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_nrb_rge,:,0]) # in Mt
+                    ReUse_EoL_Pot_t_m_all[t,:]       += ReUsePotential_Materials_t_m_NRB
+                    ReUse_EoL_Pot_t_mg[t,:,Sector_nrb_rge]     = np.einsum('mNr,Ncrm->Nm',ReUseFactor_tmNrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_nrb_rge,:,0]) # in Mt
+                if 'ind' in SectorList: #2026-03-17, ch: add ind reuse
+                    ReUsePotential_Materials_t_m_Ind = np.einsum('mIr,Icrm->m',ReUseFactor_tmIrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_ind_rge,:,0]) # in Mt
+                    ReUse_EoL_Pot_t_m_all[t,:]       += ReUsePotential_Materials_t_m_Ind
+                    ReUse_EoL_Pot_t_mg[t,:,Sector_ind_rge]     = np.einsum('mIr,Icrm->Im',ReUseFactor_tmIrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_ind_rge,:,0]) # in Mt
+                
+                if 'tis' in SectorList: #2026-01 add tis reuse #2026-01-27
+                    ReUsePotential_Materials_t_m_Tis = np.einsum('mKr,rKm->m',ReUseFactor_tmKrS[t,:,:,:,mS],tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,0]) # in Mt
+                    #ReUsePotential_Materials_t_m_Tis = np.einsum('mKr,Kcrm->m',ReUseFactor_tmKrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_tis_rge,:,0]) # in Mt
+                    ReUse_EoL_Pot_t_m_all[t,:]       += ReUsePotential_Materials_t_m_Tis
+                    ReUse_EoL_Pot_t_mg[t,:,Sector_tis_rge]     = np.einsum('mKr,rKm->Km',ReUseFactor_tmKrS[t,:,:,:,mS],tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,0]) # in Mt
                 # in the future, re-use will be a region-to-region parameter depicting, e.g., the export of used vehicles from the EU to Africa.
                 # check whether inflow is big enough for potential to be used, correct otherwise:
                 for mmm in range(0,Nm):
@@ -2192,6 +2765,16 @@ def main():
                         if RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_nrb_rge,mmm,0].sum() < ReUsePotential_Materials_t_m_NRB[mmm]: # if re-use potential is larger than new inflow:
                             if ReUsePotential_Materials_t_m_NRB[mmm] > 0:
                                 ReUsePotential_Materials_t_m_NRB[mmm] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_nrb_rge,mmm,0].sum()
+                    # ind (electricity infrastructure) #2026-03-17, ch: add ind reuse
+                    if 'ind' in SectorList:
+                        if RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_ind_rge,mmm,0].sum() < ReUsePotential_Materials_t_m_Ind[mmm]: # if re-use potential is larger than new inflow:
+                            if ReUsePotential_Materials_t_m_Ind[mmm] > 0:
+                                ReUsePotential_Materials_t_m_Ind[mmm] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_ind_rge,mmm,0].sum()
+                    # transport infrastructure
+                    if 'tis' in SectorList: #2026-01 add tis reuse #2026-01-27 no changes required
+                        if RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,mmm,0].sum() < ReUsePotential_Materials_t_m_Tis[mmm]: # if re-use potential is larger than new inflow:
+                            if ReUsePotential_Materials_t_m_Tis[mmm] > 0:
+                                ReUsePotential_Materials_t_m_Tis[mmm] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,mmm,0].sum()
                     
                 # Vehicles
                 if 'pav' in SectorList:
@@ -2217,38 +2800,86 @@ def main():
                     RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,Sector_nrb_rge,:,:] = \
                     np.einsum('cme,Ncrm->Ncrme', Par_Element_Composition_of_Materials_u[0:CohortOffset,:,:],\
                     np.einsum('m,Ncrm->Ncrm',ReUsePotential_Materials_t_m_NRB,MassShareNRB))  # All elements.
+                # ind (electricity infrastructure) #2026-03-17, ch: add ind reuse
+                if 'ind' in SectorList:
+                    Divisor = np.einsum('m,crI->Icrm',np.einsum('Icrm->m',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_ind_rge,:,0]),np.ones((CohortOffset,Nr,NI)))
+                    MassShareInd = np.divide(RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_ind_rge,:,0], Divisor, out=np.zeros_like(Divisor), where=Divisor!=0) # index: Icrm
+                    # share of combination crg in total mass of m in outflow 7_8
+                    RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,Sector_ind_rge,:,:] = \
+                    np.einsum('cme,Icrm->Icrme', Par_Element_Composition_of_Materials_u[0:CohortOffset,:,:],\
+                    np.einsum('m,Icrm->Icrm',ReUsePotential_Materials_t_m_Ind,MassShareInd))  # All elements.
                 
+                # TODO: check reuse again. mass balance for elements other than "all" does not hold
+                # Use material element composition of 2015 in-use products as proxy (no changes, assuming long-lifetimes for most tis products)
+                if 'tis' in SectorList: #2026-01 add tis reuse #2026-01-27
+                    Divisor = np.einsum('m,rK->rKm', \
+                        np.einsum('rKm->m',tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,0]), \
+                        np.ones((Nr,NK)))
+                    MassShareTis = np.divide(tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,0], \
+                        Divisor, out=np.zeros_like(Divisor), where=Divisor!=0) # index: Kcrm
+                    # share of combination crg in total mass of m in outflow 7_8
+                    tis_RECC_System_Flow_F_8_17_trKme[t,:,:,:,:] = \
+                        np.einsum('me,Krm->rKme', Par_Element_Composition_of_Materials_u[CohortOffset-avg_tis_prod_LT,:,:],\
+                        np.einsum('m,rKm->Krm',ReUsePotential_Materials_t_m_Tis,MassShareTis))    # All elements.
+                        #np.einsum('me,Krm->rKme', Par_Element_Composition_of_Materials_u[CohortOffset-1,:,:],\
+                        #np.einsum('m,rKm->Krm',ReUsePotential_Materials_t_m_Tis,MassShareTis))    # All elements.
+                        
                 # reused material mapped to final consumption region and good, proportional to final consumption breakdown into products and regions.
                 # can be replaced by region-by-region reuse parameter.             
                 Divisor = np.einsum('m,rg->rgm',np.einsum('rgm->m',RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0]),np.ones((Nr,Ng)))
-                InvMass = np.divide(1, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)
+                InvMass = np.divide(1, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)            
                 RECC_System.FlowDict['F_17_6'].Values[t,0:CohortOffset,:,:,:,:] = \
-                np.einsum('cme,rgm->crgme',np.einsum('crgme->cme',RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,:,:,:]),\
-                RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0]*InvMass)
-                
+                    np.einsum('cme,rgm->crgme',np.einsum('crgme->cme',RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,:,:,:]),\
+                    RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0]*InvMass)
+                # TODO: above, tis sector products receiving reuse \
+                    # material from other sectors, but no reuse inflow from tis. \
+                    # tis reuse only within tis products, see lines below
+                #2026-01-27: add tis specific F_17_6
+                if 'tis' in SectorList: #20260131
+                    Divisor = np.einsum('m,rK->rKm',np.einsum('rKm->m',RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,0]),np.ones((Nr,NK)))
+                    InvMass = np.divide(1, Divisor, out=np.zeros_like(Divisor), where=Divisor!=0)
+                    tis_RECC_System_Flow_F_17_6_trKme[t,:,:,:,:] = \
+                        np.einsum('me,rKm->rKme',np.einsum('rKme->me',tis_RECC_System_Flow_F_8_17_trKme[t,:,:,:,:]),\
+                        np.einsum('Krm->rKm',RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,0])*InvMass)
+                    
                 # 3) calculate inflow waste mgt as EoL products - obsolete stock formation - re-use
-                RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:]           = np.einsum('crgme->rgme',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,:,:,:]    - RECC_System.FlowDict['F_8_0'].Values[t,0:CohortOffset,:,:,:,:]    - RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,:,:,:])
-                if len(Sector_11reg_rge) > 0:
-                    RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:]    = np.einsum('clLme->lLme',RECC_System.FlowDict['F_7_8_Nl'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_0_Nl'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_17_Nl'].Values[t,0:CohortOffset,:,:,:,:])
+                #2026-01-27: add tis related flows
+                #RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:]           = np.einsum('crgme->rgme',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,:,:,:]    - RECC_System.FlowDict['F_8_0'].Values[t,0:CohortOffset,:,:,:,:]    - RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,:,:,:])
+                RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:]           = \
+                    np.einsum('crgme->rgme',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,:,:,:] \
+                            - RECC_System.FlowDict['F_8_0'].Values[t,0:CohortOffset,:,:,:,:] \
+                            - RECC_System.FlowDict['F_8_17'].Values[t,0:CohortOffset,:,:,:,:])
+                if 'tis' in SectorList: #20260131 
+                    RECC_System.FlowDict['F_8_9'].Values[t,:,Sector_tis_rge,:,:]           = \
+                        + np.einsum('rKme->Krme',tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,:] \
+                        - tis_RECC_System_Flow_F_8_17_trKme[t,:,:,:,:]) # obsolete stocks not implemented for tis yet
+                '''if len(Sector_11reg_rge) > 0:
+                    RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:]    = np.einsum('clLme->lLme',RECC_System.FlowDict['F_7_8_Nl'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_0_Nl'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_17_Nl'].Values[t,0:CohortOffset,:,:,:,:])'''
                 if len(Sector_1reg_rge) > 0:
                     RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:]    = np.einsum('coOme->oOme',RECC_System.FlowDict['F_7_8_No'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_0_No'].Values[t,0:CohortOffset,:,:,:,:] - RECC_System.FlowDict['F_8_17_No'].Values[t,0:CohortOffset,:,:,:,:])
-            
+                
                 # 4) EoL products to postconsumer scrap: trwe. Add Waste mgt. losses.
-                RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]            = np.einsum('rmgw,rgme->rwe',Par_RECC_EoL_RR[t,:,:,:,:],RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:])    
-                if len(Sector_11reg_rge) > 0:                    
-                    RECC_System.FlowDict['F_9_10_Nl'].Values[t,:,:,:]     = np.einsum('lmLw,lLme->lwe',Par_RECC_EoL_RR_Nl[t,:,:,:,:],RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:])    
+                RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]            = np.einsum('rmgw,rgme->rwe',Par_RECC_EoL_RR[t,:,:,:,:],RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:]) 
+                Collected_Scrap_F_9_10_trgmwSR[t,:,:,:,:,mS,mR] = np.einsum('rmgw,rgm->rgmw',Par_RECC_EoL_RR[t,:,:,:,:],RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,0]) # for reporting of collected scrap by material, good and region
+                '''if len(Sector_11reg_rge) > 0:                    
+                    RECC_System.FlowDict['F_9_10_Nl'].Values[t,:,:,:]     = np.einsum('lmLw,lLme->lwe',Par_RECC_EoL_RR_Nl[t,:,:,:,:],RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:])    '''
                 if len(Sector_1reg_rge) > 0:            
                     RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:]     = np.einsum('omOw,oOme->owe',Par_RECC_EoL_RR_No[t,:,:,:,:],RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:])    
-    
+                # 2025-07 for CIRCOMOD reporting: Material Losses - EoL recovery losses
+                #Material_Losses_EoL_recovery_tm[t,:]                      = np.einsum('rmgw,rgme->m',1-Par_RECC_EoL_RR[t,:,:,:,:],RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,0])
+                
                 # 5) Add re-use flow to inflow and calculate manufacturing output as final consumption - re-use, in Mt/yr, all elements, trgme, element composition not yet known.
-                RECC_System.FlowDict['F_5_6'].Values[t,0,:,:,0]                   = np.einsum('rgm->gm',RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0])    - np.einsum('crgm->gm',RECC_System.FlowDict['F_17_6'].Values[t,:,:,:,:,0])     # global total
-                if len(Sector_11reg_rge) > 0:            
-                    RECC_System.FlowDict['F_5_6'].Values[t,0,Sector_11reg_rge,:,0]    = np.einsum('lLm->Lm',RECC_System.FlowDict['F_6_7_Nl'].Values[t,:,:,:,0]) - np.einsum('clLm->Lm',RECC_System.FlowDict['F_17_6_Nl'].Values[t,:,:,:,:,0])  # global total
+                #2026-01-27: add tis related flows
+                RECC_System.FlowDict['F_5_6'].Values[t,0,:,:,0] = np.einsum('rgm->gm',RECC_System.FlowDict['F_6_7'].Values[t,:,:,:,0])    - np.einsum('crgm->gm',RECC_System.FlowDict['F_17_6'].Values[t,:,:,:,:,0])     # global total
+                if 'tis' in SectorList: #20260131 
+                    RECC_System.FlowDict['F_5_6'].Values[t,0,Sector_tis_rge,:,0] -= np.einsum('rKm->Km',tis_RECC_System_Flow_F_17_6_trKme[t,:,:,:,0]) # subtract reuse flows applying to tis products only
+                '''if len(Sector_11reg_rge) > 0:            
+                    RECC_System.FlowDict['F_5_6'].Values[t,0,Sector_11reg_rge,:,0]    = np.einsum('lLm->Lm',RECC_System.FlowDict['F_6_7_Nl'].Values[t,:,:,:,0]) - np.einsum('clLm->Lm',RECC_System.FlowDict['F_17_6_Nl'].Values[t,:,:,:,:,0])  # global total'''
                 if len(Sector_1reg_rge) > 0:            
                     RECC_System.FlowDict['F_5_6'].Values[t,0,Sector_1reg_rge,:,0]     = np.einsum('oOm->Om',RECC_System.FlowDict['F_6_7_No'].Values[t,:,:,:,0]) - np.einsum('coOm->Om',RECC_System.FlowDict['F_17_6_No'].Values[t,:,:,:,:,0])  # global total
                 Manufacturing_Output[t,:,:,mS,mR]                                 = RECC_System.FlowDict['F_5_6'].Values[t,0,:,:,0].copy()
                 
-                # 6) Calculate total manufacturing input and primary production, all elements, element composition not yet known.
+                # 6) Calculate total manufacturing input and primary production, all elements, element composition not yet known. #continuehere 2025-20-11 mg
                 # Add fabrication scrap diversion, new scrap and calculate remelting.
                 #Manufacturing_Input_m_ref    = np.einsum('mg,gm->m', Par_FabYield_total_inv[:,:,t,0],RECC_System.FlowDict['F_5_6'].Values[t,0,:,:,0]).copy()
                 #Manufacturing_Input_gm_ref   = np.einsum('mg,gm->gm',Par_FabYield_total_inv[:,:,t,0],RECC_System.FlowDict['F_5_6'].Values[t,0,:,:,0]).copy()
@@ -2260,7 +2891,9 @@ def main():
                             
                 # 7) Determine available fabrication scrap diversion and secondary material, total and by element.
                 # Determine fabscrapdiversionpotential: (for steel scrap only acc. to parameter)
+                #2026-01-27 not relevant for tis
                 Fabscrapdiversionpotential_twm                     = np.einsum('wm,ow->wm',np.einsum('o,mwo->wm',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp'].Values[mR,:,t,mS],RECC_System.ParameterDict['6_PR_FabricationScrapDiversion'].Values[:,:,:,mS]),RECC_System.StockDict['S_10'].Values[t-1,t-1,:,:,0]).copy()
+                Fabscrapdiversionpotential_twmSR[t,:,:,mS,mR]      = Fabscrapdiversionpotential_twm.copy() # 2026-03-25, ch: for reporting of fab scrap diversion potential by material and waste scrap.
                 # break down fabscrapdiversionpotential to e:
                 NewScrapElemShares                                 = msf.TableWithFlowsToShares(RECC_System.StockDict['S_10'].Values[t-1,t-1,0,:,1::],axis=1) # element composition of fab scrap
                 Fabscrapdiversionpotential_twme                    = np.zeros((Nt,Nw,Nm,Ne))
@@ -2268,17 +2901,23 @@ def main():
                 Fabscrapdiversionpotential_twme[t,:,:,1::]         = np.einsum('wm,we->wme',Fabscrapdiversionpotential_twm,NewScrapElemShares) # other chemical elements
                 Fabscrapdiversionpotential_tme                     = np.einsum('wme->me',Fabscrapdiversionpotential_twme[t,:,:,:])
                 RECC_System.FlowDict['F_10_12'].Values[t,:,:,:]    = np.einsum('wme,o->ome',Fabscrapdiversionpotential_twme[t,:,:,:],np.ones(No))
-                RECC_System.FlowDict['F_10_9'].Values[t,:,:,:]     = np.einsum('owe->owe',np.einsum('we,o->owe',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:].sum(axis=0) + RECC_System.FlowDict['F_9_10_Nl'].Values[t,:,:,:].sum(axis=0) + RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:].sum(axis=0),np.ones(No)) + RECC_System.StockDict['S_10'].Values[t-1,t-1,:,:,:].copy()) - np.einsum('wme,o->owe',Fabscrapdiversionpotential_twme[t,:,:,:],np.ones(No)).copy()
+                RECC_System.FlowDict['F_10_9'].Values[t,:,:,:]     = np.einsum('owe->owe',np.einsum('we,o->owe',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:].sum(axis=0) + RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:].sum(axis=0),np.ones(No)) + RECC_System.StockDict['S_10'].Values[t-1,t-1,:,:,:].copy()) - np.einsum('wme,o->owe',Fabscrapdiversionpotential_twme[t,:,:,:],np.ones(No)).copy()
+                '''RECC_System.FlowDict['F_10_9'].Values[t,:,:,:]     = np.einsum('owe->owe',np.einsum('we,o->owe',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:].sum(axis=0) + RECC_System.FlowDict['F_9_10_Nl'].Values[t,:,:,:].sum(axis=0) + RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:].sum(axis=0),np.ones(No)) + RECC_System.StockDict['S_10'].Values[t-1,t-1,:,:,:].copy()) - np.einsum('wme,o->owe',Fabscrapdiversionpotential_twme[t,:,:,:],np.ones(No)).copy()'''           
                 RECC_System.FlowDict['F_10_9'].Values[t,:,Woodwaste_loc,Carbon_loc] = 0
                 RECC_System.FlowDict['F_10_9w'].Values[t,:,:,:]    = RECC_System.StockDict['S_10w'].Values[t-1,t-1,:,:,:].copy()
                 RECC_System.FlowDict['F_10_9w'].Values[t,:,Woodwaste_loc,Carbon_loc] += RECC_System.FlowDict['F_9_10'].Values[t,:,Woodwaste_loc,Carbon_loc]            
                 RECC_System.FlowDict['F_9_12'].Values[t,:,:,:]     = np.einsum('owe,wmePo->ome',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:],RECC_System.ParameterDict['4_PY_MaterialProductionRemelting'].Values[:,:,:,:,0,:])
                 RECC_System.FlowDict['F_9_12'].Values[t,:,:,0]     = np.einsum('ome->om',RECC_System.FlowDict['F_9_12'].Values[t,:,:,1::])
+                # 2026-03-25, ch: for Sankey diagrams export scrap entering remelting:
+                Scrap_entering_remelting_F_10_9_twSR[t,:,mS,mR] = RECC_System.FlowDict['F_10_9'].Values[t,0,:,0]
                 # Calculate cascade input from EoL for results:
-                SysVar_EoLCascEntry[t,:,mS,mR]                    += np.einsum('r,r->r',Par_RECC_WoodWaste_Cascading[t,Woodwaste_loc,Wood_loc,Woodwaste_loc,:],RECC_System.FlowDict['F_9_10'].Values[t,:,Woodwaste_loc,Carbon_loc])
-    
+                # SysVar_EoLCascEntry[t,:,mS,mR]                    += np.einsum('r,r->r',Par_RECC_WoodWaste_Cascading[t,Woodwaste_loc,Wood_loc,Woodwaste_loc,:],RECC_System.FlowDict['F_9_10'].Values[t,:,Woodwaste_loc,Carbon_loc])
+                SysVar_EoLCascEntry[t,:,mS,mR]                    += np.einsum('r,r->r',Par_RECC_WoodWaste_Cascading[t,Woodwaste_loc,Wood_loc,Woodwastemgt_loc,:],RECC_System.FlowDict['F_9_10'].Values[t,:,Woodwaste_loc,Carbon_loc]) # 2025-06-10: use Woodwastemgt_loc instead of Woodwaste_loc
+                # 2025-07 for CIRCOMOD reporting: Material Losses - Remelting losses
+                #Material_Losses_Remelting_tm[t,:]                  = np.einsum('owe,wmePo->m',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:],RECC_System.ParameterDict['4_PY_MaterialProductionRemelting'].Values[:,:,:,:,0,:])
+
                 # 8) MARKET BALANCE for secondary materials:
-    
+
                 # a) Use diverted fab scrap first, if possible:
                 DivFabScrap_to_Manuf = np.zeros((Nm,Ne))
                 for mat in range(0,Nm):
@@ -2312,7 +2951,9 @@ def main():
                             StockPileSecondaryMaterialUse[mat,:]   = RECC_System.StockDict['S_12'].Values[t,0,mat,:].copy()
                 RECC_System.StockDict['S_12'].Values[t,0,:,:]      = RECC_System.StockDict['S_12'].Values[t,0,:,:] - StockPileSecondaryMaterialUse.copy()
                 PrimaryProductionDemand = RemainingManufactInputDemand_2 - StockPileSecondaryMaterialUse[:,0]
-                
+                # 2026-03-25, ch: for reporting of use of stock-piled secondary material by material.
+                StockPileSecondaryMaterialUse_tmSR[t,:,mS,mR] = StockPileSecondaryMaterialUse[:,0].copy() 
+
                 # d) Convert internal calculations to system variables:
                 RECC_System.FlowDict['F_12_5'].Values[t,0,:,:]     = DivFabScrap_to_Manuf + SecondaryMaterialUse + StockPileSecondaryMaterialUse
                 RECC_System.FlowDict['F_4_5'].Values[t,:,:]        = np.einsum('m,me->me',PrimaryProductionDemand,RECC_System.ParameterDict['3_MC_Elements_Materials_Primary'].Values)
@@ -2320,7 +2961,21 @@ def main():
                     RECC_System.FlowDict['F_12_0'].Values[t,0,:,:] = Non_DivFabScrap.copy() + Non_UsedSecMaterial.copy() 
                 else:
                     RECC_System.StockDict['S_12'].Values[t,0,:,:] += Non_DivFabScrap.copy() + Non_UsedSecMaterial.copy()
-             
+                # 2025-07-10, ch: CM reporting of diverted scrap consumption in manufacturing and final consumption
+                DivertedScrap_to_Manuf[t,:,mS,mR]                  = DivFabScrap_to_Manuf[:,0].copy() # 2025-07-10, ch: for CM reporting, diverted scrap to manufacturing
+                DivFabScrap_to_Manuf_gme                           = np.einsum('me,gm->gme',DivFabScrap_to_Manuf,Manufacturing_Input_Split_gm)# 2025-07-10, ch: for CM reporting: Diverted Scrap into g, assuming diverted scarp consumption in all sectors
+                DivertedScrap_final_cons[t,:,mS,mR]                = (np.einsum('gm,mg->m',DivFabScrap_to_Manuf_gme[:,:,0],1-Par_FabYieldLoss_total[:,:,t,0])).copy() # 2025-07-10, ch: for CM reporting: Total diverted scrap ending up in final consumption
+                DivertedScrap_final_cons_tmgSR[t,:,:,mS,mR]        = (np.einsum('gm,mg->mg',DivFabScrap_to_Manuf_gme[:,:,0],1-Par_FabYieldLoss_total[:,:,t,0])).copy() # 2026-02-19
+                # CM reporting: recycled material consumption in manufacturing and in final consumption
+                RecycledMat_to_Manuf_me                            = SecondaryMaterialUse + StockPileSecondaryMaterialUse #does not include diverted scrap
+                RecycledMat_to_Manuf_tm[t,:]                       = RecycledMat_to_Manuf_me[:,0].copy()
+                RecycledMat_to_Manuf_gme                           = np.einsum('me,gm->gme',RecycledMat_to_Manuf_me,Manufacturing_Input_Split_gm)
+                RecycledMat_final_cons_tmg[t,:,:]                  = (np.einsum('gm,mg->mg',RecycledMat_to_Manuf_gme[:,:,0],1-Par_FabYieldLoss_total[:,:,t,0])).copy() #2026-01-15: add aspect g
+                # CM reporting: primary material in final consumption
+                PrimaryProductionDemand_gm                         = np.einsum('m,gm->gm',PrimaryProductionDemand,Manufacturing_Input_Split_gm)
+                Primary_final_cons_tm[t,:]                         = (np.einsum('gm,mg->m',PrimaryProductionDemand_gm,1-Par_FabYieldLoss_total[:,:,t,0])).copy()
+                Primary_final_cons_tmg[t,:,:]                      = (np.einsum('gm,mg->mg',PrimaryProductionDemand_gm,1-Par_FabYieldLoss_total[:,:,t,0])).copy() #2026-02-19: add aspect g
+
                 # e) Element composition of material flows:         
                 Manufacturing_Input_me_final                       = RECC_System.FlowDict['F_4_5'].Values[t,:,:] + RECC_System.FlowDict['F_12_5'].Values[t,0,:,:]
                 Manufacturing_Input_gme_final                      = np.einsum('gm,me->gme',Manufacturing_Input_Split_gm,Manufacturing_Input_me_final)
@@ -2330,14 +2985,14 @@ def main():
                 Element_Material_Composition[t,:,:,mS,mR]          = Element_Material_Composition_Manufacturing.copy()
                 Par_Element_Composition_of_Materials_m[t+115,:,:]  = Element_Material_Composition_Manufacturing.copy()
                 Par_Element_Composition_of_Materials_u[t+115,:,:]  = Element_Material_Composition_Manufacturing.copy()
-    
+
                 # End of 8)MARKET BALANCE for secondary material.
-    
+
                 # 9) Primary production (wood is calulated separately)
                 RECC_System.FlowDict['F_3_4'].Values[t,:,:]        = RECC_System.FlowDict['F_4_5'].Values[t,:,:].copy()
                 RECC_System.FlowDict['F_0_3'].Values[t,:,:]        = RECC_System.FlowDict['F_3_4'].Values[t,:,:].copy() 
                 RECC_System.FlowDict['F_0_3'].Values[t,Wood_loc,Carbon_loc] = 0
-    
+
                 # Total roundwood and sawmill losses for construction wood production, by region
                 # First, estimate regional split of construction wood use by final demand:
                 WoodUse_Divisor = np.einsum(',r->r',RECC_System.FlowDict['F_6_7'].Values[t,:,:,Wood_loc,0].sum(),np.ones(Nr))
@@ -2359,11 +3014,12 @@ def main():
                 Element_Material_Composition_con[t,:,:,mS,mR]      = Element_Material_Composition_cons.copy()
                 
                 Par_Element_Composition_of_Materials_c[t,:,:]      = Element_Material_Composition_cons.copy()
-                Par_3_MC_Stock_ByElement_Nl[CohortOffset,:,:,:,:]  = np.einsum('mLl,me->lLme',Par_RECC_MC_Nl[CohortOffset,:,:,:,mS],Par_Element_Composition_of_Materials_c[t,:,:]) # clLme
+                #CHECK Par_3_MC_Stock_ByElement_Nl
+                '''Par_3_MC_Stock_ByElement_Nl[CohortOffset,:,:,:,:]  = np.einsum('mLl,me->lLme',Par_RECC_MC_Nl[CohortOffset,:,:,:,mS],Par_Element_Composition_of_Materials_c[t,:,:]) # clLme'''
                 Par_3_MC_Stock_ByElement_No[CohortOffset,:,:,:,:]  = np.einsum('mOo,me->oOme',Par_RECC_MC_No[CohortOffset,:,:,:,mS],Par_Element_Composition_of_Materials_c[t,:,:]) # cOome                    
                 
                 # 11) Calculate manufacturing scrap 
-                RECC_System.FlowDict['F_5_10'].Values[t,0,:,:]     = np.einsum('gme,mwg->we',Manufacturing_Input_gme_final,Par_FabYieldLoss[:,:,:,t,0]) 
+                RECC_System.FlowDict['F_5_10'].Values[t,0,:,:]     = np.einsum('gme,mwg->we',Manufacturing_Input_gme_final,Par_FabYieldLoss[:,:,:,t,0]) # 2026-03-18, ch: include yield losses for concr. agg., cement, etc.  (before 03/2026: yield loss only considered for concrete, not concrete aggregates)
                 # Fabrication scrap, to be recycled next year:
                 RECC_System.StockDict['S_10'].Values[t,t,:,:,:]    = RECC_System.FlowDict['F_5_10'].Values[t,:,:,:].copy()
                 # Remove wood waste, which is treated separately:
@@ -2376,12 +3032,12 @@ def main():
                 if 'pav' in SectorList:
                     # update mat. composition by element for current year and latest age-cohort
                     Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset,:,Sector_pav_rge,:,:] = Par_3_MC_Stock_ByElement_Nr[t-1,0:CohortOffset,:,Sector_pav_rge,:,:]
-                    Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_pav_rge,:,:]   = np.einsum('me,Bmr->Brme',Par_Element_Composition_of_Materials_c[t,:,:],Par_RECC_MC_Nr[CohortOffset,:,Sector_pav_rge,:,mS,mR,t])
+                    Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_pav_rge,:,:]   = np.einsum('me,pmr->prme',Par_Element_Composition_of_Materials_c[t,:,:],Par_RECC_MC_Nr[CohortOffset,:,Sector_pav_rge,:,mS,mR,t])
                     RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_pav_rge,:,:]   = \
                     np.einsum('prme,pr->prme',Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_pav_rge,:,:],Inflow_Detail_UsePhase_p[t,:,:])/1000 # all elements, Indices='t,r,p,m,e'
                     RECC_System.StockDict['S_7'].Values[t,0:CohortOffset+1,:,Sector_pav_rge,:,:] = \
                     np.einsum('pcrme,cpr->pcrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset+1,:,Sector_pav_rge,:,:],Stock_Detail_UsePhase_p[t,0:CohortOffset+1,:,:])/1000 # All elements.
-    
+
                 if 'reb' in SectorList:
                     # update mat. composition by element for current year and latest age-cohort
                     Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_reb_rge,:,:]   = np.einsum('me,Bmr->Brme',Par_Element_Composition_of_Materials_c[t,:,:],Par_RECC_MC_Nr[SwitchTime+t-1,:,Sector_reb_rge,:,mS,mR,t])
@@ -2423,57 +3079,112 @@ def main():
                     # Update stock: break down material into elements:                
                     RECC_System.StockDict['S_7'].Values[t,0:CohortOffset +1,:,Sector_nrb_rge,:,:] = \
                     np.einsum('Ncrme,cNr->Ncrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset +1,:,Sector_nrb_rge,:,:],Stock_Detail_UsePhase_N[t,0:CohortOffset +1,:,:])/1000
+                
+                if 'ind' in SectorList:
+                    # update mat. composition by element for current year and latest age-cohort
+                    Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset,:,Sector_ind_rge,:,:] = Par_3_MC_Stock_ByElement_Nr[t-1,0:CohortOffset,:,Sector_ind_rge,:,:]
+                    Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_ind_rge,:,:]   = np.einsum('me,Imr->Irme',Par_Element_Composition_of_Materials_c[t,:,:],Par_RECC_MC_Nr[CohortOffset,:,Sector_ind_rge,:,mS,mR,t])
+                    RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_ind_rge,:,:]   = \
+                    np.einsum('Irme,Ir->Irme',Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_ind_rge,:,:],Inflow_Detail_UsePhase_I[t,:,:])/1000 # all elements, Indices='t,r,I,m,e'
+                    RECC_System.StockDict['S_7'].Values[t,0:CohortOffset+1,:,Sector_ind_rge,:,:] = \
+                    np.einsum('Icrme,cIr->Icrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset+1,:,Sector_ind_rge,:,:],Stock_Detail_UsePhase_I[t,0:CohortOffset+1,:,:])/1000 # All elements.
                     
-                RECC_System.FlowDict['F_6_7_Nl'].Values[t,:,:,:,:]   = \
-                np.einsum('lIme,Il->lIme',Par_3_MC_Stock_ByElement_Nl[CohortOffset,:,:,:,:],Inflow_Detail_UsePhase_I[t,:,:])/1000 # all elements, Indices='t,l,I,m,e'                
-                RECC_System.FlowDict['F_6_7_No'].Values[t,:,Sector_app_rge_reg,:,:]   = \
-                np.einsum('aome,ao->aome',Par_3_MC_Stock_ByElement_No[CohortOffset,:,Sector_app_rge_reg,:,:], Inflow_Detail_UsePhase_a[t,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'                
+                    '''RECC_System.FlowDict['F_6_7_Nl'].Values[t,:,:,:,:]   = \
+                    np.einsum('lIme,Il->lIme',Par_3_MC_Stock_ByElement_Nl[CohortOffset,:,:,:,:],Inflow_Detail_UsePhase_I[t,:,:])/1000 # all elements, Indices='t,l,I,m,e'                '''
+                
+                #2026-01-27 tis sector
+                if 'tis' in SectorList:
+                    # Par_3_MC_Stock_ByElement_Nr and Par_RECC_MC_Nr not used for tis
+                    # update mat. composition by element for current year and latest age-cohort
+                    #Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset,:,Sector_tis_rge,:,:] = Par_3_MC_Stock_ByElement_Nr[t-1,0:CohortOffset,:,Sector_tis_rge,:,:] # needed?
+                    #Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_tis_rge,:,:]   = np.einsum('me,Kmr->Krme',Par_Element_Composition_of_Materials_c[t,:,:],Par_RECC_MC_Nr[CohortOffset,:,Sector_tis_rge,:,mS,mR,t]) 
+                    # use RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,0] (unit Mt), containing ConcrAgg/Cement split, instead of Inflow_Detail_UsePhase_K_tKrm[t,:,:,:], not containing ConcrAgg/Cement split
+                    RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:]   = \
+                    np.einsum('me,Krm->Krme',Par_Element_Composition_of_Materials_c[t,:,:],RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,0]) # all elements, Indices='t,r,K,m,e'
+                    #np.einsum('me,Krm->Krme',Par_Element_Composition_of_Materials_c[t,:,:],Inflow_Detail_UsePhase_K_tKrm[t,:,:,:])/1000 # all elements, Indices='t,r,K,m,e'
+                    # Material composition of tis stock based on 2015 stock MC + RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:] - actual tis material outflows
+                    tis_RECC_System_Stock_S_7_trKme[t,:,:,:,:] = tis_RECC_System_Stock_S_7_trKme[t-1,:,:,:,:] # copy last year's stock, for t0 RECC_System.StockDict['S_7'] created above
+                    tis_RECC_System_Stock_S_7_trKme[t,:,:,:,:] += np.einsum('Krme->rKme',RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,:,:]) # add inflow
+                    tis_RECC_System_Stock_S_7_trKme[t,:,:,:,:] -= tis_RECC_System_Flow_F_7_8_trKme[t,:,:,:,:] # subtract outflow, now with all elements (assigned above)    
+                
+                '''if 'ind' in SectorList:
+                    RECC_System.FlowDict['F_6_7_Nl'].Values[t,:,:,:,:]   = \
+                    np.einsum('lIme,Il->lIme',Par_3_MC_Stock_ByElement_Nl[CohortOffset,:,:,:,:],Inflow_Detail_UsePhase_I[t,:,:])/1000 # all elements, Indices='t,l,I,m,e'                '''
+                if 'app' in SectorList:
+                    RECC_System.FlowDict['F_6_7_No'].Values[t,:,Sector_app_rge_reg,:,:]   = \
+                    np.einsum('aome,ao->aome',Par_3_MC_Stock_ByElement_No[CohortOffset,:,Sector_app_rge_reg,:,:], Inflow_Detail_UsePhase_a[t,:,:])/1000000000000 # all elements, Indices='t,o,a,m,e'                
                 
                 if 'nrbg' in SectorList: # results for global region o are on position 0 of r index.
                     RECC_System.FlowDict['F_6_7_No'].Values[t,:,Sector_nrbg_rge_reg,:,:]   = \
                     np.einsum('Nome,No->Nome',Par_3_MC_Stock_ByElement_No[CohortOffset,:,Sector_nrbg_rge_reg,:,:],Inflow_Detail_UsePhase_Ng[t,:,:])/1000 # all elements, Indices='t,o,N,m,e'                
-                    
-                RECC_System.StockDict['S_7_Nl'].Values[t,0:CohortOffset +1,:,Sector_ind_rge_reg,:,:] = \
-                np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:CohortOffset +1,:,Sector_ind_rge_reg,:,:],Stock_Detail_UsePhase_I[t,0:CohortOffset +1,:,:])/1000 # All elements. In Mt
-                RECC_System.StockDict['S_7_No'].Values[t,0:CohortOffset +1,:,Sector_app_rge_reg,:,:] = \
-                np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:CohortOffset +1,:,Sector_app_rge_reg,:,:],Stock_Detail_UsePhase_a[t,0:CohortOffset +1,:,:])/1000000000000 # All elements.In Mt
+                '''if 'ind' in SectorList:    
+                    RECC_System.StockDict['S_7_Nl'].Values[t,0:CohortOffset +1,:,Sector_ind_rge_reg,:,:] = \
+                    np.einsum('clIme,cIl->Iclme',Par_3_MC_Stock_ByElement_Nl[0:CohortOffset +1,:,Sector_ind_rge_reg,:,:],Stock_Detail_UsePhase_I[t,0:CohortOffset +1,:,:])/1000 # All elements. In Mt'''
+                if 'app' in SectorList:
+                    RECC_System.StockDict['S_7_No'].Values[t,0:CohortOffset +1,:,Sector_app_rge_reg,:,:] = \
+                    np.einsum('coame,cao->acome',Par_3_MC_Stock_ByElement_No[0:CohortOffset +1,:,Sector_app_rge_reg,:,:],Stock_Detail_UsePhase_a[t,0:CohortOffset +1,:,:])/1000000000000 # All elements.In Mt
                 if 'nrbg' in SectorList: # results for global region o are on position 0 of r index.
                     RECC_System.StockDict['S_7_No'].Values[t,0:CohortOffset +1,:,Sector_nrbg_rge_reg,:,:] = \
                     np.einsum('coNme,cNo->Ncome',Par_3_MC_Stock_ByElement_No[0:CohortOffset +1,:,Sector_nrbg_rge_reg,:,:],Stock_Detail_UsePhase_Ng[t,0:CohortOffset +1,:,:])/1000 # All elements.In Mt
-                  
+                
                 # 13) Calculate wood cascading
                 # Add cascading material to cascading stock:
-                RECC_System.StockDict['S_9'].Values[t,t,:,:,:] = np.einsum('r,rwe->rwe',Par_RECC_WoodWaste_Cascading[t,Woodwaste_loc,Wood_loc,Woodwaste_loc,:],RECC_System.FlowDict['F_10_9w'].Values[t,:,:,:])
-                WoodCascadingInflow[t,:,mS,mR]                 = (44/12) * (1 / ParameterDict['3_MC_CO2FromWoodCombustion'].Values[CO2_loc,Wood_loc]) * np.einsum('r,r->r',    Par_RECC_WoodWaste_Cascading[t,Woodwaste_loc,Wood_loc,Woodwaste_loc,:],RECC_System.FlowDict['F_10_9w'].Values[t,:,Woodwaste_loc,Carbon_loc])
+                RECC_System.StockDict['S_9'].Values[t,t,:,:,:] = np.einsum('r,rwe->rwe',Par_RECC_WoodWaste_Cascading[t,Woodwaste_loc,Wood_loc,Woodwastemgt_loc,:],RECC_System.FlowDict['F_10_9w'].Values[t,:,:,:]) # 2025-06-10: use Woodwastemgt_loc instead of Woodwaste_loc
+                WoodCascadingInflow[t,:,mS,mR]                 = (44/12) * (1 / ParameterDict['3_MC_CO2FromWoodCombustion'].Values[CO2_loc,Wood_loc]) * np.einsum('r,r->r',    Par_RECC_WoodWaste_Cascading[t,Woodwaste_loc,Wood_loc,Woodwastemgt_loc,:],RECC_System.FlowDict['F_10_9w'].Values[t,:,Woodwaste_loc,Carbon_loc]) # 2025-06-10: use Woodwastemgt_loc instead of Woodwaste_loc
                 # Carry forward cascading stock:
                 RECC_System.StockDict['S_9'].Values[t,0:t,:,:,:] = RECC_System.StockDict['S_9'].Values[t-1,0:t,:,:,:]
-                clt = int(ParameterDict['3_LT_Wood_Cascade'].Values) # cascading lifetime (fixed)
+                #clt = int(ParameterDict['3_LT_Wood_Cascade'].Values) # cascading lifetime (fixed)
+                clt = int(ParameterDict['3_LT_Wood_Cascade'].Values.item()) # cascading lifetime (fixed) #2026-01-02, 0-dimensional array into scalar
                 if t > clt: # need to be far enough in the future to release cascading stocks from 2016 and thereafter
                     casc_release = RECC_System.StockDict['S_9'].Values[t,t-clt,:,:,:].copy()
                     RECC_System.StockDict['S_9'].Values[t,t-clt,:,:,:] = 0
                     SysVar_WoodWasteIncineration[t,:,:,:,mS,mR] += casc_release
                     SysVar_CascadeRelease[t,:,:,:,mS,mR]        += casc_release # record cascade release separately
                 # Send wood material to final combustion, both from the current year (no cascading) and after cascading
-                SysVar_WoodWasteIncineration[t,:,:,:,mS,mR] += np.einsum('r,rwe->rwe',1 - Par_RECC_WoodWaste_Cascading[t,Woodwaste_loc,Wood_loc,Woodwaste_loc,:],RECC_System.FlowDict['F_10_9w'].Values[t,:,:,:])
+                SysVar_WoodWasteIncineration[t,:,:,:,mS,mR] += np.einsum('r,rwe->rwe',1 - Par_RECC_WoodWaste_Cascading[t,Woodwaste_loc,Wood_loc,Woodwastemgt_loc,:],RECC_System.FlowDict['F_10_9w'].Values[t,:,:,:]) # 2025-06-10: use Woodwastemgt_loc instead of Woodwaste_loc
                 # SysVar_WoodWasteIncineration contains carbon flows whose related CO2 emissions are already accounted for as use phase direct emissions. Calculate to determine system-wide C release after wood use.
-                
-                # 14) Calculate waste mgt. losses.
+
+                # 14) Calculate waste mgt. losses. #2026-01-19, ch: double counting of concrete and concrete aggregates + cement required here for consistent mass balance
                 RECC_System.FlowDict['F_9_0'].Values[t,:]          = np.einsum('rgme->e',RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:])    - np.einsum('rwe->e',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]) \
-                                                                   + np.einsum('lLme->e',RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:]) - np.einsum('lwe->e',RECC_System.FlowDict['F_9_10_Nl'].Values[t,:,:,:]) \
-                                                                   + np.einsum('oOme->e',RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:]) - np.einsum('owe->e',RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:]) \
-                                                                   + np.einsum('rwe->e',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:])      - np.einsum('ome->e',RECC_System.FlowDict['F_9_12'].Values[t,:,:,:]) \
-                                                                   + np.einsum('rwe->e',SysVar_WoodWasteIncineration[t,:,:,:,mS,mR])
-                
+                                                                + np.einsum('oOme->e',RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:]) - np.einsum('owe->e',RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:]) \
+                                                                + np.einsum('rwe->e',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:])      - np.einsum('ome->e',RECC_System.FlowDict['F_9_12'].Values[t,:,:,:]) \
+                                                                + np.einsum('rwe->e',SysVar_WoodWasteIncineration[t,:,:,:,mS,mR])
+                '''RECC_System.FlowDict['F_9_0'].Values[t,:]          = np.einsum('rgme->e',RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:])    - np.einsum('rwe->e',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]) \
+                                                                + np.einsum('lLme->e',RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:]) - np.einsum('lwe->e',RECC_System.FlowDict['F_9_10_Nl'].Values[t,:,:,:]) \
+                                                                + np.einsum('oOme->e',RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:]) - np.einsum('owe->e',RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:]) \
+                                                                + np.einsum('rwe->e',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:])      - np.einsum('ome->e',RECC_System.FlowDict['F_9_12'].Values[t,:,:,:]) \
+                                                                + np.einsum('rwe->e',SysVar_WoodWasteIncineration[t,:,:,:,mS,mR])'''
+                #2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+                # No double counting in aspect w, because cement and concrete aggregates not considered seperately in EoL recovery (parameter 4_PY_EoL_RecoveryRate)
+                F_9_0_excl_concrete[t,:]                           = np.einsum('rgme->e',RECC_System.FlowDict['F_8_9'].Values[t,:,:,:,:]) - np.einsum('rge->e',RECC_System.FlowDict['F_8_9'].Values[t,:,:,Concrete_loc,:])  \
+                                                                - np.einsum('rwe->e',RECC_System.FlowDict['F_9_10'].Values[t,:,:,:]) \
+                                                                + np.einsum('lLme->e',RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,:,:]) - np.einsum('lLe->e',RECC_System.FlowDict['F_8_9_Nl'].Values[t,:,:,Concrete_loc,:]) \
+                                                                - np.einsum('lwe->e',RECC_System.FlowDict['F_9_10_Nl'].Values[t,:,:,:]) \
+                                                                + np.einsum('oOme->e',RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,:,:]) - np.einsum('oOe->e',RECC_System.FlowDict['F_8_9_No'].Values[t,:,:,Concrete_loc,:]) \
+                                                                - np.einsum('owe->e',RECC_System.FlowDict['F_9_10_No'].Values[t,:,:,:]) \
+                                                                + np.einsum('rwe->e',RECC_System.FlowDict['F_10_9'].Values[t,:,:,:])    \
+                                                                - (np.einsum('ome->e',RECC_System.FlowDict['F_9_12'].Values[t,:,:,:]) - np.einsum('oe->e',RECC_System.FlowDict['F_9_12'].Values[t,:,Concrete_loc,:]))  \
+                                                                + np.einsum('rwe->e',SysVar_WoodWasteIncineration[t,:,:,:,mS,mR])
+
+
                 # 15) Calculate stock changes
                 RECC_System.StockDict['dS_7'].Values[t,:,:,:,:,:]     = RECC_System.StockDict['S_7'].Values[t,:,:,:,:,:]    - RECC_System.StockDict['S_7'].Values[t-1,:,:,:,:,:]
-                RECC_System.StockDict['dS_7_Nl'].Values[t,:,:,:,:,:]  = RECC_System.StockDict['S_7_Nl'].Values[t,:,:,:,:,:] - RECC_System.StockDict['S_7_Nl'].Values[t-1,:,:,:,:,:]
+                '''RECC_System.StockDict['dS_7_Nl'].Values[t,:,:,:,:,:]  = RECC_System.StockDict['S_7_Nl'].Values[t,:,:,:,:,:] - RECC_System.StockDict['S_7_Nl'].Values[t-1,:,:,:,:,:]'''
                 RECC_System.StockDict['dS_7_No'].Values[t,:,:,:,:,:]  = RECC_System.StockDict['S_7_No'].Values[t,:,:,:,:,:] - RECC_System.StockDict['S_7_No'].Values[t-1,:,:,:,:,:]            
                 RECC_System.StockDict['dS_9'].Values[t,:,:,:,:]       = RECC_System.StockDict['S_9'].Values[t,:,:,:,:]      - RECC_System.StockDict['S_9'].Values[t-1,:,:,:,:]
                 RECC_System.StockDict['dS_10'].Values[t,:,:,:]        = RECC_System.StockDict['S_10'].Values[t,t,:,:,:]     - RECC_System.StockDict['S_10'].Values[t-1,t-1,:,:,:]
                 RECC_System.StockDict['dS_10w'].Values[t,:,:,:]       = RECC_System.StockDict['S_10w'].Values[t,t,:,:,:]    - RECC_System.StockDict['S_10w'].Values[t-1,t-1,:,:,:]
                 RECC_System.StockDict['dS_12'].Values[t,:,:,:]        = RECC_System.StockDict['S_12'].Values[t,:,:,:]       - RECC_System.StockDict['S_12'].Values[t-1,:,:,:]
                 RECC_System.StockDict['dS_0'].Values[t,:]             = RECC_System.FlowDict['F_9_0'].Values[t,:]           + np.einsum('rme->e',RECC_System.FlowDict['F_12_0'].Values[t,:,:,:]) + np.einsum('crgme->e',RECC_System.FlowDict['F_8_0'].Values[t,:,:,:,:,:]) - np.einsum('me->e',RECC_System.FlowDict['F_0_3'].Values[t,:,:])
+                #2026-01-27 tis without age-cohorts
+                tis_RECC_System_Stock_dS_7_trKme[t,:,:,:,:]           = tis_RECC_System_Stock_S_7_trKme[t,:,:,:,:]          - tis_RECC_System_Stock_S_7_trKme[t-1,:,:,:,:]
                 
+                # 2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+                dS_0_excl_concrete[t,:]                               = F_9_0_excl_concrete[t,:] \
+                                                                        + np.einsum('rme->e',RECC_System.FlowDict['F_12_0'].Values[t,:,:,:]) - np.einsum('re->e',RECC_System.FlowDict['F_12_0'].Values[t,:,Concrete_loc,:]) \
+                                                                        + np.einsum('crgme->e',RECC_System.FlowDict['F_8_0'].Values[t,:,:,:,:,:]) - np.einsum('crge->e',RECC_System.FlowDict['F_8_0'].Values[t,:,:,:,Concrete_loc,:])\
+                                                                        - (np.einsum('me->e',RECC_System.FlowDict['F_0_3'].Values[t,:,:]) - np.einsum('e->e',RECC_System.FlowDict['F_0_3'].Values[t,Concrete_loc,:]))
+
             # Diagnostics:
             # Tbd.
                 
@@ -2490,9 +3201,16 @@ def main():
             # SysVar_StockServiceProvision_UsePhase_nrb = np.einsum('cNVr,tcNr->tcNrV', RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS], Stock_Detail_UsePhase_N)
             # Unit: million km/yr for vehicles, million m2 for buildings by three use types: heating, cooling, and DHW.
             # Aggreated computation of building service for export:
-            SysVar_StockServiceProvision_UsePhase_reb_agg = np.einsum('tcBVr,tcBr->tV',RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,:,mS],     Stock_Detail_UsePhase_B)
-            SysVar_StockServiceProvision_UsePhase_nrb_agg = np.einsum('cNVr,tcNr->tV' ,RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS], Stock_Detail_UsePhase_N)
-            
+            if 'reb' in SectorList:
+                SysVar_StockServiceProvision_UsePhase_reb_agg = np.einsum('tcBVr,tcBr->tV',RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,:,mS],     Stock_Detail_UsePhase_B)
+            if 'nrb' in SectorList:
+                SysVar_StockServiceProvision_UsePhase_nrb_agg = np.einsum('cNVr,tcNr->tV' ,RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS], Stock_Detail_UsePhase_N)
+            # Reporting additional results for CIRCOMOD scenario comparisons etc (2025-01-20, ch): building service per region
+            if 'reb' in SectorList:
+                SysVar_StockServiceProvision_UsePhase_reb_pr = np.einsum('tcBVr,tcBr->trV',RECC_System.ParameterDict['3_IO_Buildings_UsePhase'].Values[:,:,:,:,:,mS],     Stock_Detail_UsePhase_B)
+            if 'nrb' in SectorList:
+                SysVar_StockServiceProvision_UsePhase_nrb_pr = np.einsum('cNVr,tcNr->trV' ,RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS], Stock_Detail_UsePhase_N)
+
             # B) Calculate total operational energy use, by sector
             # Removed to save computation time and memory.
             
@@ -2517,6 +3235,28 @@ def main():
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.einsum('cNVnrt,cNVr,tcNr->trNn', ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values,RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS],Stock_Detail_UsePhase_N, optimize = True)
                 SysVar_EnergyDemand_UsePhase_ByService_nrb        = np.einsum('cNVnrt,cNVr,tcNr->trV',  ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values,RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS],Stock_Detail_UsePhase_N, optimize = True)
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all += np.einsum('trNn->tnr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
+                ## EI_Products_UsePhase_nonresbuildings_t_uf
+                SysVar_EnergyDemand_useful_UsePhase_ByEnergyCarrier_nrb  = np.einsum('cNVnrt,cNVr,tcNr->trNn', EI_Products_UsePhase_nonresbuildings_t_uf,RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS],Stock_Detail_UsePhase_N, optimize = True)
+                SysVar_EnergyDemand_useful_UsePhase_ByService_nrb        = np.einsum('cNVnrt,cNVr,tcNr->trV',  EI_Products_UsePhase_nonresbuildings_t_uf,RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS],Stock_Detail_UsePhase_N, optimize = True)
+                SysVar_EnergyDemand_useful_UsePhase_ByNV_nrb        = np.einsum('cNVnrt,cNVr,tcNr->trNV',  EI_Products_UsePhase_nonresbuildings_t_uf,RECC_System.ParameterDict['3_IO_NonResBuildings_UsePhase'].Values[:,:,:,:,mS],Stock_Detail_UsePhase_N, optimize = True)
+                Divisor_nrb = np.einsum('tcNr,V->trNV',Stock_Detail_UsePhase_N,np.ones(NV))
+                SysVar_EI_useful_UsePhase_ByNV_nrb                  = np.divide(SysVar_EnergyDemand_useful_UsePhase_ByNV_nrb,Divisor_nrb,where=Divisor_nrb!=0)
+                Divisor_nrb_all = np.einsum('tcNr,V->trV',Stock_Detail_UsePhase_N[:,:,0:24,:],np.ones(NV))
+                Divisor_off = np.einsum('tcNr,V->trV',Stock_Detail_UsePhase_N[:,:,0:4,:],np.ones(NV))
+                Divisor_com = np.einsum('tcNr,V->trV',Stock_Detail_UsePhase_N[:,:,4:8,:],np.ones(NV))
+                Divisor_edu = np.einsum('tcNr,V->trV',Stock_Detail_UsePhase_N[:,:,8:12,:],np.ones(NV))
+                Divisor_hea = np.einsum('tcNr,V->trV',Stock_Detail_UsePhase_N[:,:,12:16,:],np.ones(NV))
+                Divisor_hot = np.einsum('tcNr,V->trV',Stock_Detail_UsePhase_N[:,:,16:20,:],np.ones(NV))
+                Divisor_oth = np.einsum('tcNr,V->trV',Stock_Detail_UsePhase_N[:,:,20:24,:],np.ones(NV))
+                SysVar_EI_useful_UsePhase_ByNV_nrb_all                  = np.divide(np.einsum('trNV->trV',SysVar_EnergyDemand_useful_UsePhase_ByNV_nrb[:,:,0:24,:]),Divisor_nrb_all,where=Divisor_nrb_all!=0)
+                SysVar_EI_useful_UsePhase_ByNV_nrb_off                  = np.divide(np.einsum('trNV->trV',SysVar_EnergyDemand_useful_UsePhase_ByNV_nrb[:,:,0:4,:]),Divisor_off,where=Divisor_off!=0)
+                SysVar_EI_useful_UsePhase_ByNV_nrb_com                  = np.divide(np.einsum('trNV->trV',SysVar_EnergyDemand_useful_UsePhase_ByNV_nrb[:,:,4:8,:]),Divisor_com,where=Divisor_com!=0)
+                SysVar_EI_useful_UsePhase_ByNV_nrb_edu                  = np.divide(np.einsum('trNV->trV',SysVar_EnergyDemand_useful_UsePhase_ByNV_nrb[:,:,8:12,:]),Divisor_edu,where=Divisor_edu!=0)
+                SysVar_EI_useful_UsePhase_ByNV_nrb_hea                  = np.divide(np.einsum('trNV->trV',SysVar_EnergyDemand_useful_UsePhase_ByNV_nrb[:,:,12:16,:]),Divisor_hea,where=Divisor_hea!=0)
+                SysVar_EI_useful_UsePhase_ByNV_nrb_hot                  = np.divide(np.einsum('trNV->trV',SysVar_EnergyDemand_useful_UsePhase_ByNV_nrb[:,:,16:20,:]),Divisor_hot,where=Divisor_hot!=0)
+                SysVar_EI_useful_UsePhase_ByNV_nrb_oth                  = np.divide(np.einsum('trNV->trV',SysVar_EnergyDemand_useful_UsePhase_ByNV_nrb[:,:,20:24,:]),Divisor_oth,where=Divisor_oth!=0)
+
+                #SysVar_EnergyDemand_useful_UsePhase_ByEnergyCarrier_all += np.einsum('trNn->tnr',SysVar_EnergyDemand_useful_UsePhase_ByEnergyCarrier_nrb)
             else:
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb  = np.zeros((Nt,Nr,NN,Nn))
                 SysVar_EnergyDemand_UsePhase_ByService_nrb        = np.zeros((Nt,Nr,NV))
@@ -2542,9 +3282,12 @@ def main():
                 SysVar_EnergyDemand_Manufacturing += np.einsum('In,tIr->tn',RECC_System.ParameterDict['4_EI_ManufacturingEnergyIntensity'].Values[Sector_ind_rge,:,110,-1],Inflow_Detail_UsePhase_I) * 1e-6 # conversion factor: 1e-6, as TJ/GW    = 10e-6 MJ/GW. 
             if 'app' in SectorList:
                 SysVar_EnergyDemand_Manufacturing += np.einsum('an,tar->tn',RECC_System.ParameterDict['4_EI_ManufacturingEnergyIntensity'].Values[Sector_app_rge,:,110,-1],Inflow_Detail_UsePhase_a) * 1e-6 # conversion factor: 1e-6, as TJ/item  = 10e-6 MJ/items. 
+            # TODO: #2026-01 add tis sector (not relevant for material cycle calculations)
             SysVar_EnergyDemand_WasteMgt       = 1000 * (np.einsum('wn,trw->tn',RECC_System.ParameterDict['4_EI_WasteMgtEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_10'].Values[:,:,:,0]) +\
-                                                        np.einsum('wn,trw->tn', RECC_System.ParameterDict['4_EI_WasteMgtEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_10_Nl'].Values[:,:,:,0]) +\
                                                         np.einsum('wn,trw->tn', RECC_System.ParameterDict['4_EI_WasteMgtEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_10_No'].Values[:,:,:,0]))
+            '''SysVar_EnergyDemand_WasteMgt       = 1000 * (np.einsum('wn,trw->tn',RECC_System.ParameterDict['4_EI_WasteMgtEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_10'].Values[:,:,:,0]) +\
+                                                                np.einsum('wn,trw->tn', RECC_System.ParameterDict['4_EI_WasteMgtEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_10_Nl'].Values[:,:,:,0]) +\
+                                                                np.einsum('wn,trw->tn', RECC_System.ParameterDict['4_EI_WasteMgtEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_10_No'].Values[:,:,:,0]))'''        
             SysVar_EnergyDemand_Remelting      = 1000 * np.einsum('mn,trm->tn', RECC_System.ParameterDict['4_EI_RemeltingEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_12'].Values[:,:,:,0])
             SysVar_EnergyDemand_Remelting_m    = 1000 * np.einsum('mn,trm->tnm',RECC_System.ParameterDict['4_EI_RemeltingEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_12'].Values[:,:,:,0])
             
@@ -2590,7 +3333,8 @@ def main():
             SysVar_EnergySupply_9_16_El_trn                        = np.zeros((Nt,Nr,Nn))
             SysVar_EnergySupply_9_16_El_trn[:,:,Electric_loc]      = EnergySupplyReduction_Electr_tr
             SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all[:,-1] = SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all[:,0:-1].sum(axis=1)
-            # Unit: TJ/yr.        
+            #SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,-1] = SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,0:-1].sum(axis=1) #2026-01-22, hmli, circomod: calculate energy demand in use-phase of all energy carriers
+        # Unit: TJ/yr.
             SysVar_EnergySavings_WasteToEnergy = np.zeros((Nt,Nn))
             SysVar_EnergySavings_WasteToEnergy[:,Electric_loc]     = EnergySubst_WtE_EL[:,mS,mR].copy()
             SysVar_EnergySavings_WasteToEnergy[:,NatuGas_loc]      = EnergySubst_WtE_NG[:,mS,mR].copy()
@@ -2656,8 +3400,127 @@ def main():
             #BalAbs = -1 # means that mass bal. computation was commented out to save computation time.
             Bal = RECC_System.MassBalance()
             BalAbs = np.abs(Bal).sum()
-            Mylog.info('Total mass balance deviation (np.abs(Bal).sum() for socioeconomic scenario ' + SName + ' and RE scenario ' + RName + ': ' + str(BalAbs) + ' Mt.')                    
-    
+            #Mylog.info('Total mass balance deviation (np.abs(Bal).sum() for socioeconomic scenario ' + SName + ' and RE scenario ' + RName + ': ' + str(BalAbs) + ' Mt.')                    
+            #2026-01-27 Add tis sector flows and stock changes that are \
+            # not covered in RECC_System to RECC_System mass balance;
+            # tis sector without age-cohorts: \
+            # S_7, dS_7, F_7_8, F_8_17, F_17_6 outside of RECC system
+            if 'tis' in SectorList: 
+                Bal_incl_tis = Bal
+                Bal_incl_tis[:,7,:] -= np.einsum('trKme->te', tis_RECC_System_Flow_F_7_8_trKme)  # F_7_8 out of P7
+                Bal_incl_tis[:,8,:] += np.einsum('trKme->te', tis_RECC_System_Flow_F_7_8_trKme)  # F_7_8 into P8
+                Bal_incl_tis[:,8,:] -= np.einsum('trKme->te', tis_RECC_System_Flow_F_8_17_trKme)  # F_8_17 out of P8
+                Bal_incl_tis[:,17,:] += np.einsum('trKme->te', tis_RECC_System_Flow_F_8_17_trKme)  # F_8_17 into P17
+                Bal_incl_tis[:,17,:] -= np.einsum('trKme->te', tis_RECC_System_Flow_F_17_6_trKme)  # F_17_6 out of P17
+                Bal_incl_tis[:,6,:] += np.einsum('trKme->te', tis_RECC_System_Flow_F_17_6_trKme)  # F_17_6 into P6
+                Bal_incl_tis[:,7,:] -= np.einsum('trKme->te', tis_RECC_System_Stock_dS_7_trKme)  # net stock change or addition to stock, P7
+                Bal_incl_tis[:,0,:] += np.einsum('trKme->te', tis_RECC_System_Stock_dS_7_trKme)  # add stock changes to process with number 0; net stock change or addition to stock
+                
+                BalAbs_incl_tis = np.abs(Bal_incl_tis).sum()
+                BalAbs_incl_tis_element_all_only = np.abs(Bal_incl_tis[:,:,0]).sum()
+                
+                Mylog.info('IMAGE transport infrastructure sector (tis) included in this model run, \
+    but partially outside of RECC_System.')
+                Mylog.info('Total mass balance deviation, taking into account tis flows and stock changes over all individual elements, \
+    (np.abs(Bal_incl_tis).sum()) for socioeconomic scenario ' + SName + ' and RE scenario ' + RName + ': ' + str(BalAbs_incl_tis) + ' Mt.')  
+                Mylog.info('Total mass balance deviation, taking into account tis flows and stock changes, over total mass only (element "all"), \
+    (np.abs(Bal_incl_tis_element_all_only).sum()) for socioeconomic scenario ' + SName + ' and RE scenario ' + RName + ': ' + str(BalAbs_incl_tis_element_all_only) + ' Mt.')                     
+            else: 
+                Mylog.info('Total mass balance deviation (np.abs(Bal).sum() for socioeconomic scenario ' + SName + ' and RE scenario ' + RName + ': ' + str(BalAbs) + ' Mt.')                    
+            
+                """
+                #2026-01-29, additional checks of balance (problem lies with reuse)
+                # Mass balance for Process 6 and Process 0 not met in case of reuse
+                # Element composition of metals change over time due to trap elements etc
+                # In historic stock, all other elements then Fe | Al (in case of steel|wrought Al) 
+                # accounted for as Ot element; in newly produced steel and wrought Al, 0.1 and 1% Cu, respectively.
+                F_6_7_FE = np.einsum('Ktm->t',RECC_System.FlowDict['F_6_7'].Values[:,0,Sector_tis_rge,:,4])
+                F_x_6_FE = RECC_System.FlowDict['F_5_6'].Values[:,0,:,:,4].sum(axis=1).sum(axis=1)+np.einsum('trKm->t', tis_RECC_System_Flow_F_17_6_trKme[:,:,:,:,4])
+                # Difference of Fe going into P6 and leaving P6:
+                dS_6_FE = F_x_6_FE - F_6_7_FE
+                
+                F_6_7_Al = np.einsum('Ktm->t',RECC_System.FlowDict['F_6_7'].Values[:,0,Sector_tis_rge,:,2])
+                F_x_6_Al = RECC_System.FlowDict['F_5_6'].Values[:,0,:,:,2].sum(axis=1).sum(axis=1)+np.einsum('trKm->t', tis_RECC_System_Flow_F_17_6_trKme[:,:,:,:,2])
+                dS_6_Al = F_x_6_Al - F_6_7_Al
+                
+                F_6_7_Cu = np.einsum('Ktm->t',RECC_System.FlowDict['F_6_7'].Values[:,0,Sector_tis_rge,:,5])
+                F_x_6_Cu = RECC_System.FlowDict['F_5_6'].Values[:,0,:,:,5].sum(axis=1).sum(axis=1)+np.einsum('trKm->t', tis_RECC_System_Flow_F_17_6_trKme[:,:,:,:,5])
+                dS_6_Cu = F_x_6_Cu - F_6_7_Cu
+                
+                F_6_7_Ot = np.einsum('Ktm->t',RECC_System.FlowDict['F_6_7'].Values[:,0,Sector_tis_rge,:,7])
+                F_x_6_Ot = RECC_System.FlowDict['F_5_6'].Values[:,0,:,:,7].sum(axis=1).sum(axis=1)+np.einsum('trKm->t', tis_RECC_System_Flow_F_17_6_trKme[:,:,:,:,7])
+                dS_6_Ot = F_x_6_Ot - F_6_7_Ot
+
+                Bal_tis_e0_only = \
+                    RECC_System.FlowDict['F_0_3'].Values[:,:,0].sum() \
+                    - (tis_RECC_System_Stock_dS_7_trKme[:,:,:,:,0].sum() \
+                        + RECC_System.StockDict['dS_9'].Values[:,:,:,:,0].sum() \
+                        + RECC_System.StockDict['dS_10'].Values[:,:,:,0].sum() \
+                        + RECC_System.StockDict['dS_10w'].Values[:,:,:,0].sum() \
+                        + RECC_System.StockDict['dS_12'].Values[:,:,:,0].sum() \
+                        ) \
+                    - (RECC_System.FlowDict['F_8_0'].Values[:,:,:,:,:,0].sum() \
+                        + RECC_System.FlowDict['F_9_0'].Values[:,0].sum() \
+                        + RECC_System.FlowDict['F_12_0'].Values[:,:,:,0].sum() \
+                        )
+                Bal_tis_e_total = \
+                    RECC_System.FlowDict['F_0_3'].Values[:,:,:].sum() \
+                    - (tis_RECC_System_Stock_dS_7_trKme[:,:,:,:,:].sum() \
+                        + RECC_System.StockDict['dS_9'].Values[:,:,:,:,:].sum() \
+                        + RECC_System.StockDict['dS_10'].Values[:,:,:,:].sum() \
+                        + RECC_System.StockDict['dS_10w'].Values[:,:,:,:].sum() \
+                        + RECC_System.StockDict['dS_12'].Values[:,:,:,:].sum() \
+                        ) \
+                    - (RECC_System.FlowDict['F_8_0'].Values[:,:,:,:,:,:].sum() \
+                        + RECC_System.FlowDict['F_9_0'].Values[:,:].sum() \
+                        + RECC_System.FlowDict['F_12_0'].Values[:,:,:,:].sum() \
+                        )
+                Bal_tis_e7_only = \
+                    RECC_System.FlowDict['F_0_3'].Values[:,:,7].sum() \
+                    - (tis_RECC_System_Stock_dS_7_trKme[:,:,:,:,7].sum() \
+                        + RECC_System.StockDict['dS_9'].Values[:,:,:,:,7].sum() \
+                        + RECC_System.StockDict['dS_10'].Values[:,:,:,7].sum() \
+                        + RECC_System.StockDict['dS_10w'].Values[:,:,:,7].sum() \
+                        + RECC_System.StockDict['dS_12'].Values[:,:,:,7].sum() \
+                        ) \
+                    - (RECC_System.FlowDict['F_8_0'].Values[:,:,:,:,:,7].sum() \
+                        + RECC_System.FlowDict['F_9_0'].Values[:,7].sum() \
+                        + RECC_System.FlowDict['F_12_0'].Values[:,:,:,7].sum() \
+                        )
+                        
+                Bal_tis_per_element = np.zeros((Ne))
+                Bal_tis_per_element[:] = \
+                    RECC_System.FlowDict['F_0_3'].Values[:,:,:].sum(axis=0).sum(axis=0) \
+                    - (tis_RECC_System_Stock_dS_7_trKme[:,:,:,:,:].sum(axis=0).sum(axis=0).sum(axis=0).sum(axis=0) \
+                        + RECC_System.StockDict['dS_9'].Values[:,:,:,:,:].sum(axis=0).sum(axis=0).sum(axis=0).sum(axis=0) \
+                        + RECC_System.StockDict['dS_10'].Values[:,:,:,:].sum(axis=0).sum(axis=0).sum(axis=0) \
+                        + RECC_System.StockDict['dS_10w'].Values[:,:,:,:].sum(axis=0).sum(axis=0).sum(axis=0) \
+                        + RECC_System.StockDict['dS_12'].Values[:,:,:,:].sum(axis=0).sum(axis=0).sum(axis=0) \
+                        ) \
+                    - (RECC_System.FlowDict['F_8_0'].Values[:,:,:,:,:,:].sum(axis=0).sum(axis=0).sum(axis=0).sum(axis=0).sum(axis=0) \
+                        + RECC_System.FlowDict['F_9_0'].Values[:,:].sum(axis=0) \
+                        + RECC_System.FlowDict['F_12_0'].Values[:,:,:,:].sum(axis=0).sum(axis=0).sum(axis=0) \
+                        )
+
+                # mimic MassBalance(), however, only for flows / dS outside of RECC system
+                # dS_7 (P_Res=7, Type=1), F_7_8, F_8_17, F_17_6  
+                #    --> 4 "processes" (P7 = 0 (index here), P8 = 1, P17 = 2, P6 = 3)
+                #        + 1 process (add stock change to prcess 0) P0 = 4
+                Bal_tis = np.zeros((Nt,5,Ne)) #for all t, four processes, all elements
+                Bal_tis[:,0,:] -= np.einsum('trKme->te', tis_RECC_System_Flow_F_7_8_trKme)  # F_7_8 out of P7
+                Bal_tis[:,1,:] += np.einsum('trKme->te', tis_RECC_System_Flow_F_7_8_trKme)  # F_7_8 into P8
+                Bal_tis[:,1,:] -= np.einsum('trKme->te', tis_RECC_System_Flow_F_8_17_trKme)  # F_8_17 out of P8
+                Bal_tis[:,2,:] += np.einsum('trKme->te', tis_RECC_System_Flow_F_8_17_trKme)  # F_8_17 into P17
+                Bal_tis[:,2,:] -= np.einsum('trKme->te', tis_RECC_System_Flow_F_17_6_trKme)  # F_17_6 out of P17
+                Bal_tis[:,3,:] += np.einsum('trKme->te', tis_RECC_System_Flow_F_17_6_trKme)  # F_17_6 into P6
+                Bal_tis[:,0,:] -= np.einsum('trKme->te', tis_RECC_System_Stock_dS_7_trKme)  # net stock change or addition to stock, P7
+                Bal_tis[:,4,:] += np.einsum('trKme->te', tis_RECC_System_Stock_dS_7_trKme)  # add stock changes to process with number 0; net stock change or addition to stock
+                
+                BalAbs_tis = np.abs(Bal_tis).sum()
+                
+                """
+                    
+
             # H) Calculate direct combustion-related GHG emissions in the use phase (resulting from the combustion of energy carriers in processes)
             # Unit: Mt/yr. 1 kg/MJ = 1kt/TJ
             SysExt_DirectImpacts_UsePhase_Vehicles      = 0.001 * np.einsum('Xn,xX,trpn->xtrp',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
@@ -2669,7 +3532,7 @@ def main():
             SysExt_DirectImpacts_WasteMgt               = 0.001 * np.einsum('Xn,xX,tn->xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_WasteMgt) + SysVar_WtE_CO2_xt # include WtE emissions
             SysExt_DirectImpacts_Remelting              = 0.001 * np.einsum('Xn,xX,tn->xt'    ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_Remelting)
             SysExt_DirectImpacts_Remelting_m            = 0.001 * np.einsum('Xn,xX,tnm->xtm'  ,RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_Remelting_m)
-    
+
             # I) Calculate process emissions in industry.
             # Double-counting is avoided since there are no process extensions for concrete, only for cement and aggregates.
             # Because of different material production technolgies, aspects m and P don't have a 1-to-1 correspondance anymore. 
@@ -2686,14 +3549,14 @@ def main():
             # J) Calculate emissions from energy supply
             # Unit: 1 billion (1e9) impact units: Mt CO2-eq, Mt of material, km³ of water, 1000 km² of land.        
             SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings      = 0.001 * np.einsum('nxrt,trBn->xt',RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) \
-                                                                           + 0.001 * np.einsum('nxrt,trNn->xt',RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb) \
-                                                                           + 0.001 * np.einsum('nxot,toNn->xt',RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg)
+                                                                        + 0.001 * np.einsum('nxrt,trNn->xt',RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb) \
+                                                                        + 0.001 * np.einsum('nxot,toNn->xt',RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg)
             if 'reb' in SectorList or 'nrb' in SectorList: # only if buildings are covered                                                                   
                 SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings -= 0.001 * np.einsum('nxrt,trn->xt', RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergySupply_9_16_NG_trn + SysVar_EnergySupply_9_16_El_trn) # subtract impacts that do not occur because some energy is supplied from WtE.
             
             SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_EL   = 0.001 * np.einsum('xrt,trB->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,Electric_loc]) \
-                                                                           + 0.001 * np.einsum('xrt,trN->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,Electric_loc]) \
-                                                                           + 0.001 * np.einsum('xot,toN->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[Electric_loc,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg[:,:,:,Electric_loc])
+                                                                        + 0.001 * np.einsum('xrt,trN->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,Electric_loc]) \
+                                                                        + 0.001 * np.einsum('xot,toN->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_o'].Values[Electric_loc,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg[:,:,:,Electric_loc])
             if 'reb' in SectorList or 'nrb' in SectorList: # only if buildings are covered                                                                       
                 SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_EL -= 0.001 * np.einsum('nxrt,trn->xt', RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergySupply_9_16_El_trn) # subtract impacts that do not occur because some energy is supplied from WtE.    
             
@@ -2836,22 +3699,45 @@ def main():
             
             # Mass flows
             Material_Inflow[:,:,:,mS,mR]                = np.einsum('trgm->tgm',RECC_System.FlowDict['F_6_7'].Values[:,:,:,:,0]).copy()
-            if 'ind' in SectorList:
-                Material_Inflow[:,Sector_11reg_rge,:,mS,mR] = np.einsum('tlLm->Ltm',RECC_System.FlowDict['F_6_7_Nl'].Values[:,:,:,:,0]).copy()
+            '''if 'ind' in SectorList:
+                Material_Inflow[:,Sector_11reg_rge,:,mS,mR] = np.einsum('tlLm->Ltm',RECC_System.FlowDict['F_6_7_Nl'].Values[:,:,:,:,0]).copy()'''
             if 'app' in SectorList or 'nrbg' in SectorList:
                 Material_Inflow[:,Sector_1reg_rge,:,mS,mR]  = np.einsum('toOm->Otm',RECC_System.FlowDict['F_6_7_No'].Values[:,:,:,:,0]).copy()            
-            Scrap_Outflow[:,:,mS,mR]                    = np.einsum('trw->tw',RECC_System.FlowDict['F_9_10'].Values[:,:,:,0]).copy() + np.einsum('trw->tw',RECC_System.FlowDict['F_9_10_Nl'].Values[:,:,:,0]).copy() + np.einsum('trw->tw',RECC_System.FlowDict['F_9_10_No'].Values[:,:,:,0]).copy()
+            Scrap_Outflow[:,:,mS,mR]                    = np.einsum('trw->tw',RECC_System.FlowDict['F_9_10'].Values[:,:,:,0]).copy() + np.einsum('trw->tw',RECC_System.FlowDict['F_9_10_No'].Values[:,:,:,0]).copy()
+            '''Scrap_Outflow[:,:,mS,mR]                    = np.einsum('trw->tw',RECC_System.FlowDict['F_9_10'].Values[:,:,:,0]).copy() + np.einsum('trw->tw',RECC_System.FlowDict['F_9_10_Nl'].Values[:,:,:,0]).copy() + np.einsum('trw->tw',RECC_System.FlowDict['F_9_10_No'].Values[:,:,:,0]).copy()'''        
             PrimaryProduction[:,:,mS,mR]                = RECC_System.FlowDict['F_3_4'].Values[:,:,0].copy()
-            SecondaryProduct[:,:,mS,mR]                 = RECC_System.FlowDict['F_9_12'].Values[:,0,:,0].copy()
+            SecondaryProduct[:,:,mS,mR]                 = RECC_System.FlowDict['F_9_12'].Values[:,0,:,0].copy() #does not include diverted scrap; diverted scrap is bypassing remelting (F_10_12)
             SecondaryExport[:,:,mS,mR]                  = RECC_System.FlowDict['F_12_0'].Values[:,0,:,0].copy() 
             SecondaryProduct_EoL_Pot[:,:,mS,mR]         = SecondaryProduct_EoL_Potential[:,:,0]
+            # Diverted scrap to manufacturing and diverted scrap in final consumption, see code section 'Calculate material stocks and flows, material cycles, determine elemental composition.', subsection 8, above
+            RecycledMat_to_Manuf[:,:,mS,mR]             = RecycledMat_to_Manuf_tm.copy() # is SecondaryMaterialUse + StockPileSecondaryMaterialUse; does not include diverted scrap
+            RecycledMat_final_cons_tmgSR[:,:,:,mS,mR]   = RecycledMat_final_cons_tmg.copy() #2026-01-15: add g aspect
+            Primary_final_cons[:,:,mS,mR]               = Primary_final_cons_tm.copy()
+            Primary_final_cons_tmgSR[:,:,:,mS,mR]       = Primary_final_cons_tmg.copy() #2026-02-19: add g aspect
             RenovationMaterialInflow_7[:,:,mS,mR]       = np.einsum('tcrgm->tm',F_6_7_ren[:,:,:,:,:,0]).copy()
             FabricationScrap[:,:,mS,mR]                 = RECC_System.FlowDict['F_5_10'].Values[:,0,:,0].copy()
-            ReUse_Materials[:,:,mS,mR]                  = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_17_6'].Values[:,:,:,:,:,0]) + np.einsum('tclLm->tm',RECC_System.FlowDict['F_17_6_Nl'].Values[:,:,:,:,:,0]) + np.einsum('tcoOm->tm',RECC_System.FlowDict['F_17_6_No'].Values[:,:,:,:,:,0])
+            ReUse_Materials_EoL_Pot[:,:,mS,mR]          = ReUse_EoL_Pot_t_m_all.copy()
+            ReUse_Materials_EoL_Pot_g[:,:,:,mS,mR]      = ReUse_EoL_Pot_t_mg.copy() #2026-03-16: add g aspect
+            ReUse_Materials[:,:,mS,mR]                  = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_17_6'].Values[:,:,:,:,:,0]) \
+                + np.einsum('tcoOm->tm',RECC_System.FlowDict['F_17_6_No'].Values[:,:,:,:,:,0]) \
+                + np.einsum('trKm->tm',tis_RECC_System_Flow_F_17_6_trKme[:,:,:,:,0])  #2026-01-27 add tis
+            '''ReUse_Materials[:,:,mS,mR]                  = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_17_6'].Values[:,:,:,:,:,0]) \
+                + np.einsum('tclLm->tm',RECC_System.FlowDict['F_17_6_Nl'].Values[:,:,:,:,:,0]) \
+                + np.einsum('tcoOm->tm',RECC_System.FlowDict['F_17_6_No'].Values[:,:,:,:,:,0])'''            
+            ReUse_Materials_tmg[:,:,:,mS,mR]            = np.einsum('tcrgm->tmg',RECC_System.FlowDict['F_17_6'].Values[:,:,:,:,:,0]) #2026-01-15, ch: add aspect g; no reporting for sectors with other regional resolution
+            if 'tis' in SectorList:
+                ReUse_Materials_tmg[:,:,Sector_tis_rge,mS,mR] += np.einsum('trKm->tmK',tis_RECC_System_Flow_F_17_6_trKme[:,:,:,:,0]) #2026-01-27 add tis; #2026-03-17, ch: correct tis reuse materials: tis products can also contain reused material from other sectors. 
             Carbon_IndustrialRoundwood_bld[:,:,mS,mR]   = SysVar_RoundwoodConstruc_c_1_2_r[:,:,mS,mR].copy()
             Carbon_Wood_Inflow[:,:,mS,mR]               = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44 * (np.einsum('trg->tr', RECC_System.FlowDict['F_6_7'].Values[:,:,:,Wood_loc,0]).copy())
-            Carbon_Wood_Outflow[:,:,mS,mR]              = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44 * (np.einsum('tcrg->tr',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,Wood_loc,0]).copy())
-            Carbon_Wood_Stock[:,:,mS,mR]                = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44 * (np.einsum('tcrg->tr',RECC_System.StockDict['S_7'].Values[:,:,:,:,Wood_loc,0]).copy())
+            if 'tis' in SectorList: #2026-01-27 add F_7_8 tis
+                Carbon_Wood_Outflow[:,:,mS,mR]          = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44 * ((np.einsum('tcrg->tr',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,Wood_loc,0]).copy()) + (np.einsum('trK->tr',tis_RECC_System_Flow_F_7_8_trKme[:,:,:,Wood_loc,0]).copy()))
+            else:
+                Carbon_Wood_Outflow[:,:,mS,mR]          = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44 * (np.einsum('tcrg->tr',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,Wood_loc,0]).copy())
+            Carbon_Wood_Stock[:,:,mS,mR]                = RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] \
+                * 12/44 * (np.einsum('tcrg->tr',RECC_System.StockDict['S_7'].Values[:,:,:,:,Wood_loc,0]).copy() \
+                        + np.einsum('trK->tr',tis_RECC_System_Stock_S_7_trKme[:,:,:,Wood_loc,0]).copy()) 
+                    
+            
             WoodCascadingStock[:,:,mS,mR]               = np.einsum('tcrw->tr',RECC_System.StockDict['S_9'].Values[:,:,:,:,Carbon_loc])
             Cement_Inflow[:,:,mS,mR]                    = np.einsum('trg->tr', RECC_System.FlowDict['F_6_7'].Values[:,:,:,Cement_loc,0]).copy()
             # Energy flows
@@ -2869,35 +3755,111 @@ def main():
             EnergyCons_UP_serv_nrb[:,:,Cooling_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_nrb[:,:,Cooling_loc].copy()
             EnergyCons_UP_serv_nrb[:,:,DomstHW_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_nrb[:,:,DomstHW_loc].copy()
             EnergyCons_UP_total[:,:,mS,mR]              = np.einsum('tnr->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all)
-            EnergyCons_UP_reb[:,:,mS,mR]                = np.einsum('trBn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
-            EnergyCons_UP_nrb[:,:,mS,mR]                = np.einsum('trNn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
+            if 'pav' in SectorList:  #2026-01-22，hmli，circomod: only if passenger vehicles sector modelled
+                EnergyCons_UP_pav[:,:,mS,mR]                 = np.einsum('trpn->tn', SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav).copy() #2026-01-22,hmli,circomod: energy demand in use-phase in pav by fuel type
+            if 'reb' in SectorList:  #2026-01-22，hmli，circomod: only if residential buildings sector modelled
+                EnergyCons_UP_reb[:,:,mS,mR]                = np.einsum('trBn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb).copy()
+            if 'nrb' in SectorList:  # 2026-01-22，hmli，circomod: only if non-residential buildings sector modelled
+                EnergyCons_UP_nrb[:,:,mS,mR]                = np.einsum('trNn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb).copy()
             EnergyCons_total[:,:,mS,mR]                 = SysVar_TotalEnergyDemand_16_all.copy()
+            #2025-07-23, ch: for estimation of TIMES nrb future EI
+            if 'nrb' in SectorList:
+                EnergyCons_useful_UP_serv_nrb[:,:,:,Heating_loc,mS,mR]   = SysVar_EnergyDemand_useful_UsePhase_ByNV_nrb[:,:,:,Heating_loc].copy()
+                EnergyCons_useful_UP_serv_nrb[:,:,:,Cooling_loc,mS,mR]   = SysVar_EnergyDemand_useful_UsePhase_ByNV_nrb[:,:,:,Cooling_loc].copy()
+                EI_useful_UP_serv_nrb[:,:,:,Heating_loc,mS,mR]           = SysVar_EI_useful_UsePhase_ByNV_nrb[:,:,:,Heating_loc].copy()
+                EI_useful_UP_serv_nrb[:,:,:,Cooling_loc,mS,mR]           = SysVar_EI_useful_UsePhase_ByNV_nrb[:,:,:,Cooling_loc].copy() # trNVSR
+                EI_useful_UP_serv_nrb_all[:,:,Heating_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_all[:,:,Heating_loc].copy() # trVSR
+                EI_useful_UP_serv_nrb_off[:,:,Heating_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_off[:,:,Heating_loc].copy()        
+                EI_useful_UP_serv_nrb_com[:,:,Heating_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_com[:,:,Heating_loc].copy()        
+                EI_useful_UP_serv_nrb_edu[:,:,Heating_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_edu[:,:,Heating_loc].copy()
+                EI_useful_UP_serv_nrb_hea[:,:,Heating_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_hea[:,:,Heating_loc].copy()
+                EI_useful_UP_serv_nrb_hot[:,:,Heating_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_hot[:,:,Heating_loc].copy()     
+                EI_useful_UP_serv_nrb_oth[:,:,Heating_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_oth[:,:,Heating_loc].copy()  
+                EI_useful_UP_serv_nrb_all[:,:,Cooling_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_all[:,:,Cooling_loc].copy() # trVSR
+                EI_useful_UP_serv_nrb_off[:,:,Cooling_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_off[:,:,Cooling_loc].copy()        
+                EI_useful_UP_serv_nrb_com[:,:,Cooling_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_com[:,:,Cooling_loc].copy()        
+                EI_useful_UP_serv_nrb_edu[:,:,Cooling_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_edu[:,:,Cooling_loc].copy()
+                EI_useful_UP_serv_nrb_hea[:,:,Cooling_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_hea[:,:,Cooling_loc].copy()
+                EI_useful_UP_serv_nrb_hot[:,:,Cooling_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_hot[:,:,Cooling_loc].copy()     
+                EI_useful_UP_serv_nrb_oth[:,:,Cooling_loc,mS,mR]         = SysVar_EI_useful_UsePhase_ByNV_nrb_oth[:,:,Cooling_loc].copy() 
+            
+            #2025-10 Emission reporting for building sector based on RECC-TIMES coupling
+            # scope 1: emissions as reported in TIMES (?)
+            # scope 2: TIMES
+            # scope 3: 
+                # Material production: total material production (primary + recycled)[RECC] * 3_EI_EmissionIntensity_Materials_o [TIMES]
+            # need region average emission intensty for materials here (no country specific production)   
+            if 'reb' in SectorList or 'nrb' in SectorList or 'tis' in SectorList: #2026-01-27: is not sector specific, but requires parameter 3_EI_EmissionIntensity_Materials_o (based on TIMES-EU results)
+                MaterialProduction_CO2[:,:,mS,mR] = np.einsum('omt,tm ->tm',ParameterDict['3_EI_EmissionIntensity_Materials_o'].Values[:,mR,:,:],(RecycledMat_to_Manuf_tm[:,:]+Primary_final_cons_tm[:,:])).copy() #tmSR
+                    # Manufacturing: 'Impacts_Manufact_5di_all' includes scope 1-3 emissions related to manufacturing, with scope 2 emissions based on electricity mix in region 'r' (in case RECC is run for a single region)
+                    # Waste Management: includes so far only end-of-life scrap/material recovery for aluminium and steel
+
+            
+
             # Service flows
-            Passenger_km[:,mS,mR]                       = np.einsum('rt,tr->t',RECC_System.ParameterDict['1_F_Function_Future'].Values[Sector_pav_loc,:,:,mS],RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]).copy()
+            if 'pav' in SectorList:
+                Passenger_km[:,mS,mR]                       = np.einsum('rt,tr->t',RECC_System.ParameterDict['1_F_Function_Future'].Values[Sector_pav_loc,:,:,mS],RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]).copy()
+                # Reporting additional results for CIRCOMOD scenario comparisons etc (2025-01-20, ch): building service per region
+                Passenger_km_pr[:,:,mS,mR]                  = np.einsum('rt,tr->tr',RECC_System.ParameterDict['1_F_Function_Future'].Values[Sector_pav_loc,:,:,mS],RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]).copy()
+
             # Hop over to save memory:
             # Vehicle_km[:,mS,mR]                         = np.einsum('tcpr->t',SysVar_StockServiceProvision_UsePhase_pav[:,:,:,:,Service_Driving])
-            Vehicle_km[:,mS,mR]                         = np.einsum('rt,tcpr->t', RECC_System.ParameterDict['3_IO_Vehicles_UsePhase_eff' ].Values[Service_Drivg,:,:,mS],   Stock_Detail_UsePhase_p)
-            Service_IO_ResBuildings[:,:,mS,mR]          = SysVar_StockServiceProvision_UsePhase_reb_agg.copy()
-            Service_IO_NonResBuildings[:,:,mS,mR]       = SysVar_StockServiceProvision_UsePhase_nrb_agg.copy()
+            if 'pav' in SectorList:
+                Vehicle_km[:,mS,mR]                         = np.einsum('rt,tcpr->t', RECC_System.ParameterDict['3_IO_Vehicles_UsePhase_eff' ].Values[Service_Drivg,:,:,mS],   Stock_Detail_UsePhase_p)
+            if 'reb' in SectorList:         
+                Service_IO_ResBuildings[:,:,mS,mR]          = SysVar_StockServiceProvision_UsePhase_reb_agg.copy()
+            if 'nrb' in SectorList:
+                Service_IO_NonResBuildings[:,:,mS,mR]       = SysVar_StockServiceProvision_UsePhase_nrb_agg.copy()
+            # Reporting additional results for CIRCOMOD scenario comparisons etc (2025-01-20, ch): building service per region
+            if 'reb' in SectorList:    
+                Service_IO_ResBuildings_pr[:,:,:,mS,mR]          = SysVar_StockServiceProvision_UsePhase_reb_pr.copy()
+            if 'nrb' in SectorList:
+                Service_IO_NonResBuildings_pr[:,:,:,mS,mR]       = SysVar_StockServiceProvision_UsePhase_nrb_pr.copy()
+
             # Parameters    
             if 'pav' in SectorList:
                 Vehicle_FuelEff[:,:,:,mS,mR]            = np.einsum('tpnr->tpr',RECC_System.ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[SwitchTime-1::,:,Service_Drivg,:,:,mS])
             if 'reb' in SectorList:
                 ResBuildng_EnergyCons[:,:,:,mS,mR]      = np.einsum('VtBnr->tBr',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchTime-1::,:,Service_Reb,:,:,mS,mR])
             GWP_bio_Credit[:,mS,mR]                     = SysVar_GHGEms_GWP_bio[0,:].copy()
-            # Product flows
-            EoL_Products_for_WasteMgt[:,:,mS,mR]        = np.einsum('trgm->tg', RECC_System.FlowDict['F_8_9'].Values[:,:,:,:,0]).copy()
-            Outflow_Products_Usephase_all[:,:,mS,mR]    = np.einsum('tcrgm->tg',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy()
-            if 'ind' in SectorList:
-                EoL_Products_for_WasteMgt[:,Sector_11reg_rge,mS,mR]        = np.einsum('tlLm->tL', RECC_System.FlowDict['F_8_9_Nl'].Values[:,:,:,:,0]).copy()
-                Outflow_Products_Usephase_all[:,Sector_11reg_rge,mS,mR]    = np.einsum('tclLm->tL',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy()   
+            # Product flows (2026-01-19, ch: misleading names. This is total mass per product, not number of products)
+            # 2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+            EoL_Products_for_WasteMgt[:,:,mS,mR]        = np.einsum('trgm->tg', RECC_System.FlowDict['F_8_9'].Values[:,:,:,:,0]).copy() - np.einsum('trg->tg',RECC_System.FlowDict['F_8_9'].Values[:,:,:,Concrete_loc,0]).copy()
+            # 2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+            if 'tis' in SectorList: #2026-01-27 add tis F_7_8
+                Outflow_Products_Usephase_all[:,:,mS,mR]    = np.einsum('tcrgm->tg',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() \
+                    - np.einsum('tcrg->tg',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,Concrete_loc,0]).copy()  # 2025-01-21, ch: misleading name! Unit is Mt/yr, not units of goods
+                Outflow_Products_Usephase_all[:,Sector_tis_rge,mS,mR] = np.einsum('trKm->tK',tis_RECC_System_Flow_F_7_8_trKme[:,:,:,:,0]).copy() \
+                    - np.einsum('trK->tK',tis_RECC_System_Flow_F_7_8_trKme[:,:,:,Concrete_loc,0]).copy()
+            else:
+                Outflow_Products_Usephase_all[:,:,mS,mR]    = np.einsum('tcrgm->tg',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() - np.einsum('tcrg->tg',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,Concrete_loc,0]).copy()  # 2025-01-21, ch: misleading name! Unit is Mt/yr, not units of goods
+            '''if 'ind' in SectorList:
+                # 2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+                EoL_Products_for_WasteMgt[:,Sector_11reg_rge,mS,mR]        = np.einsum('tlLm->tL',RECC_System.FlowDict['F_8_9_Nl'].Values[:,:,:,:,0]).copy() - np.einsum('tlL->tL',RECC_System.FlowDict['F_8_9_Nl'].Values[:,:,:,Concrete_loc,0]).copy()
+                Outflow_Products_Usephase_all[:,Sector_11reg_rge,mS,mR]    = np.einsum('tclLm->tL',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy() - np.einsum('tclL->tL', RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,Concrete_loc,0]).copy()
+            '''
             if 'app' in SectorList or 'nrbg' in SectorList:
-                EoL_Products_for_WasteMgt[:,Sector_1reg_rge,mS,mR]         = np.einsum('toOm->tO', RECC_System.FlowDict['F_8_9_No'].Values[:,:,:,:,0]).copy()
-                Outflow_Products_Usephase_all[:,Sector_1reg_rge,mS,mR]     = np.einsum('tcoOm->tO',RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy()               
-            Outflow_Materials_Usephase_all[:,:,mS,mR]   = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() + np.einsum('tclLm->tm',RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy() + np.einsum('tcoOm->tm',RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy()
-            WasteMgtLosses_To_Landfill[:,:,mS,mR]       = RECC_System.FlowDict['F_9_0'].Values.copy()
-            StockCurves_Mat[:,:,mS,mR]                  = np.einsum('tcrgm->tm',RECC_System.StockDict['S_7'].Values[:,:,:,:,:,0]).copy() + np.einsum('tclLm->tm',RECC_System.StockDict['S_7_Nl'].Values[:,:,:,:,:,0]).copy() + np.einsum('tcoOm->tm',RECC_System.StockDict['S_7_No'].Values[:,:,:,:,:,0]).copy()
-            
+                # 2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+                EoL_Products_for_WasteMgt[:,Sector_1reg_rge,mS,mR]         = np.einsum('toOm->tO',RECC_System.FlowDict['F_8_9_No'].Values[:,:,:,:,0]).copy() - np.einsum('toO->tO',RECC_System.FlowDict['F_8_9_No'].Values[:,:,:,Concrete_loc,0]).copy()
+                Outflow_Products_Usephase_all[:,Sector_1reg_rge,mS,mR]     = np.einsum('tcoOm->tO',RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy() - np.einsum('tcoO->tO', RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,Concrete_loc,0]).copy()
+            if 'tis' in SectorList: #2026-01-27 add tis F_7_8
+                Outflow_Materials_Usephase_all[:,:,mS,mR] = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy()\
+                    + np.einsum('trKm->tm',tis_RECC_System_Flow_F_7_8_trKme[:,:,:,:,0]).copy()\
+                    + np.einsum('tcoOm->tm', RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy()  # + np.einsum('tclLm->tm', RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy()
+            else:
+                Outflow_Materials_Usephase_all[:,:,mS,mR] = np.einsum('tcrgm->tm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() \
+                    + np.einsum('tclLm->tm', RECC_System.FlowDict['F_7_8_Nl'].Values[:,:,:,:,:,0]).copy() \
+                    + np.einsum('tcoOm->tm', RECC_System.FlowDict['F_7_8_No'].Values[:,:,:,:,:,0]).copy()
+            # 2026-01-19, ch: subtract mass of concrete flows (for aspect m), otherwise double counting because mass of concrete already covered by sum of concrete aggregates and cement contained in concrete
+            # WasteMgtLosses_To_Landfill[:,:,mS,mR]       = RECC_System.FlowDict['F_9_0'].Values.copy()
+            WasteMgtLosses_To_Landfill[:, :, mS,mR]      = F_9_0_excl_concrete.copy()  # 2026-01-19: replace system flow by reporting flow
+            StockCurves_Mat[:,:,mS,mR]                   = np.einsum('tcrgm->tm',RECC_System.StockDict['S_7'].Values[:,:,:,:,:,0]).copy() \
+                + np.einsum('tcoOm->tm',RECC_System.StockDict['S_7_No'].Values[:,:,:,:,:,0]).copy() \
+                + np.einsum('trKm -> tm', tis_RECC_System_Stock_S_7_trKme[:,:,:,:,0]).copy() #2027-01-27 add tis
+                # + np.einsum('tclLm->tm', RECC_System.StockDict['S_7_Nl'].Values[:,:,:,:,:,0]).copy() \
+            StockCurves_Mat_rge[:,:,:,mS,mR]             = np.einsum('tcrgm->tgm',RECC_System.StockDict['S_7'].Values[:,:,:,:,:,0]).copy()
+            if 'tis' in SectorList: #20260131
+                StockCurves_Mat_rge[:,Sector_tis_rge,:,mS,mR] = np.einsum('trKm->Ktm',tis_RECC_System_Stock_S_7_trKme[:,:,:,:,0]).copy() #2027-01-27 add tis
             if 'pav' in SectorList:
                 Stock_2020_pav[:,:,mS,mR]               = Stock_2020_decline_p.sum(axis=1)
             if 'reb' in SectorList:
@@ -2906,7 +3868,33 @@ def main():
             if 'nrb' in SectorList:
                 Stock_2020_nrb[:,:,mS,mR]               = Stock_2020_decline_N.sum(axis=1)               
                 StockCurves_Mat_nrb[:,:,mS,mR]          = np.einsum('gtcrm->tm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_nrb_rge,:,0])
+            if 'ind' in SectorList:
+                Stock_2020_ind[:,:,mS,mR]               = Stock_2020_decline_I.sum(axis=1) 
+                StockCurves_Mat_ind[:,:,mS,mR]          = np.einsum('gtcrm->tm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_ind_rge,:,0])
             
+            # Additional reporting for CIRCOMOD, 2025-01-20, ch
+            Material_Inflow_pr_pg[:,:,:,:,mS,mR]                = RECC_System.FlowDict['F_6_7'].Values[:,:,:,:,0].copy()
+            if 'tis' in SectorList: #2026-01-27 add tis F_7_8           
+                Outflow_Materials_Usephase_pr_pg[:,:,:,:,mS,mR]     = \
+                    np.einsum('tcrgm->trgm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() #ch, 2025-01-20: outflow of material per product and region for CIRCOMOD result export
+                Outflow_Materials_Usephase_pr_pg[:,:,Sector_tis_rge,:,mS,mR]     = \
+                    np.einsum('trKm->Ktrm',tis_RECC_System_Flow_F_7_8_trKme[:,:,:,:,0]).copy()                
+            else:
+                Outflow_Materials_Usephase_pr_pg[:,:,:,:,mS,mR]     = np.einsum('tcrgm->trgm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() #ch, 2025-01-20: outflow of material per product and region for CIRCOMOD result export
+            if 'pav' in SectorList:
+                StockCurves_Mat_pav_pr[:,:,:,mS,mR]     = np.einsum('gtcrm->trm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_pav_rge,:,0])
+            if 'reb' in SectorList:
+                StockCurves_Mat_reb_pr[:,:,:,mS,mR]     = np.einsum('gtcrm->trm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_reb_rge,:,0])
+            if 'nrb' in SectorList:
+                StockCurves_Mat_nrb_pr[:,:,:,mS,mR]     = np.einsum('gtcrm->trm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_nrb_rge,:,0])
+                # 2025-07-23, ch: for reporting of useful energy EI change in nrb to feed information into TIMES
+                EI_useful_nonres[:,:,:,:,:,mS,mR]       = np.einsum('cNVnrt->trcNV',EI_Products_UsePhase_nonresbuildings_t_uf) #cNVnrt
+                EI_final_nonres[:,:,:,:,:,mS,mR]        = np.einsum('cNVnrt->trcNV',RECC_System.ParameterDict['3_EI_Products_UsePhase_nonresbuildings_t'].Values[:,:,:,:,:,:])
+            if 'tis' in SectorList:
+                StockCurves_Mat_tis_pr[:,:,:,mS,mR]     = np.einsum('trKm->trm',tis_RECC_System_Stock_S_7_trKme[:,:,:,:,0])
+            if 'ind' in SectorList:
+                StockCurves_Mat_ind_pr[:,:,:,mS,mR]     = np.einsum('gtcrm->trm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_ind_rge,:,0])
+
             # Extract calibration for SSP1:
             if mS == 1:
                 E_Calib_Vehicles  = np.einsum('trgn->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,0:7])
@@ -2915,7 +3903,10 @@ def main():
             
             # Determine exit flags            
             ExitFlags['Positive_Inflow_F6_7_R32_SSP_'  + str(mS) + '_RCP_' + str(mR)] = np.isclose(RECC_System.FlowDict['F_6_7'].Values.min(),0, IsClose_Remainder_Small)
-            ExitFlags['Positive_Outflow_F7_8_R32_SSP_' + str(mS) + '_RCP_' + str(mR)] = np.isclose(RECC_System.FlowDict['F_7_8'].Values.min(),0, IsClose_Remainder_Small)  
+            if 'tis' in SectorList:
+                ExitFlags['Positive_Outflow_F7_8_R32_SSP_' + str(mS) + '_RCP_' + str(mR)] = np.isclose(RECC_System.FlowDict['F_7_8'].Values.min()+tis_RECC_System_Flow_F_7_8_trKme.min(),0, IsClose_Remainder_Small)  
+            else:
+                ExitFlags['Positive_Outflow_F7_8_R32_SSP_' + str(mS) + '_RCP_' + str(mR)] = np.isclose(RECC_System.FlowDict['F_7_8'].Values.min(),0, IsClose_Remainder_Small)  
             ExitFlags['Positive_Inflow_F8_9_R32_SSP_'  + str(mS) + '_RCP_' + str(mR)] = np.isclose(RECC_System.FlowDict['F_8_9'].Values.min(),0, IsClose_Remainder_Small)
             
             # del RECC_System # Delete system when done, clear memory.
@@ -2926,32 +3917,35 @@ def main():
     Mylog.info('## 5 - Evaluate results, save, and close')
     Mylog.info('### 5.0 - Check data and results for boundary constraints and plausibility. Exit flags.')
     Mylog.info('Model input')          
-    
-    ExitFlags['3_SHA_LightWeighting_Vehicles_min']             = ParameterDict['3_SHA_LightWeighting_Vehicles'].Values.min() >= 0
-    ExitFlags['3_SHA_LightWeighting_Vehicles_max']             = ParameterDict['3_SHA_LightWeighting_Vehicles'].Values.max()/100 <= 1 # unit is % not 1!
-    ExitFlags['3_SHA_DownSizing_Vehicles_min']                 = ParameterDict['3_SHA_DownSizing_Vehicles'].Values.min() >= 0
-    ExitFlags['3_SHA_DownSizing_Vehicles_max']                 = ParameterDict['3_SHA_DownSizing_Vehicles'].Values.max() <= 1
-    ExitFlags['3_SHA_TypeSplit_Vehicles_min']                  = ParameterDict['3_SHA_TypeSplit_Vehicles'].Values.min() >= 0
-    ExitFlags['3_SHA_TypeSplit_Vehicles_max']                  = ParameterDict['3_SHA_TypeSplit_Vehicles'].Values.max() <= 1
-    ExitFlags['3_SHA_TypeSplit_Vehicles_sum']                  = np.isclose(ParameterDict['3_SHA_TypeSplit_Vehicles'].Values.sum(),Nr*NR*Nt, IsClose_Remainder_Large)
-    ExitFlags['3_SHA_TypeSplit_Buildings_min']                 = ParameterDict['3_SHA_TypeSplit_Buildings'].Values.min() >= 0
-    ExitFlags['3_SHA_TypeSplit_Buildings_max']                 = ParameterDict['3_SHA_TypeSplit_Buildings'].Values.max() <= 1
-    ExitFlags['3_SHA_TypeSplit_Buildings_sum']                 = np.isclose(ParameterDict['3_SHA_TypeSplit_Buildings'].Values.sum(),Nr*Nt*NS*NR, IsClose_Remainder_Large)
-    ExitFlags['3_SHA_TypeSplit_NonResBuildings_min']           = ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values.min() >= 0
-    ExitFlags['3_SHA_TypeSplit_NonResBuildings_max']           = ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values.max() <= 1
-    ExitFlags['3_SHA_TypeSplit_NonResBuildings_sum']           = np.isclose(ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values.sum(),Nr*Nt*NS*NR, IsClose_Remainder_Large)
+
+    if 'pav' in SectorList:
+        ExitFlags['3_SHA_LightWeighting_Vehicles_min']             = ParameterDict['3_SHA_LightWeighting_Vehicles'].Values.min() >= 0
+        ExitFlags['3_SHA_LightWeighting_Vehicles_max']             = ParameterDict['3_SHA_LightWeighting_Vehicles'].Values.max()/100 <= 1 # unit is % not 1!
+        ExitFlags['3_SHA_DownSizing_Vehicles_min']                 = ParameterDict['3_SHA_DownSizing_Vehicles'].Values.min() >= 0
+        ExitFlags['3_SHA_DownSizing_Vehicles_max']                 = ParameterDict['3_SHA_DownSizing_Vehicles'].Values.max() <= 1
+        ExitFlags['3_SHA_TypeSplit_Vehicles_min']                  = ParameterDict['3_SHA_TypeSplit_Vehicles'].Values.min() >= 0
+        ExitFlags['3_SHA_TypeSplit_Vehicles_max']                  = ParameterDict['3_SHA_TypeSplit_Vehicles'].Values.max() <= 1
+        ExitFlags['3_SHA_TypeSplit_Vehicles_sum']                  = np.isclose(ParameterDict['3_SHA_TypeSplit_Vehicles'].Values.sum(),Nr*NR*Nt, IsClose_Remainder_Large)
+    if 'reb' in SectorList: #2026-06
+        ExitFlags['3_SHA_TypeSplit_Buildings_min']                 = ParameterDict['3_SHA_TypeSplit_Buildings'].Values.min() >= 0
+        ExitFlags['3_SHA_TypeSplit_Buildings_max']                 = ParameterDict['3_SHA_TypeSplit_Buildings'].Values.max() <= 1
+        ExitFlags['3_SHA_TypeSplit_Buildings_sum']                 = np.isclose(ParameterDict['3_SHA_TypeSplit_Buildings'].Values.sum(),Nr*Nt*NS*NR, IsClose_Remainder_Large)
+    if 'nrb' in SectorList: #2026-06
+        ExitFlags['3_SHA_TypeSplit_NonResBuildings_min']           = ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values.min() >= 0
+        ExitFlags['3_SHA_TypeSplit_NonResBuildings_max']           = ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values.max() <= 1
+        ExitFlags['3_SHA_TypeSplit_NonResBuildings_sum']           = np.isclose(ParameterDict['3_SHA_TypeSplit_NonResBuildings'].Values.sum(),Nr*Nt*NS*NR, IsClose_Remainder_Large)
     ExitFlags['LTE_Renovation_Consistency']                    = bool(ScriptConfig['Include_REStrategy_LifeTimeExtension']) & bool(ScriptConfig['Include_Renovation_reb']) & bool(ScriptConfig['Include_Renovation_nrb'])
     ExitFlags['Secondary_Material_Flows_Positive']             = SecondaryProduct.min() >= 0
-    
+
     Mylog.info('Model exit flags:')
     for key in ExitFlags:
         Mylog.info(key + ': ' + str(ExitFlags[key]))
         
     Mylog.info('Model output')
-               
+            
     Mylog.info('### 5.1 - Create plots and include in logfiles')
     Mylog.info('Plot and export results')
-    
+
     book = openpyxl.Workbook() # Model results in iamc style (row: specifier, columns: years)
     ws1 = book.active
     ws1.title = 'Cover'
@@ -2962,7 +3956,7 @@ def main():
         ws1.cell(row=m, column=2).value = x
         ws1.cell(row=m, column=3).value = ScriptConfig[x]
         m +=1
-    
+
     ws2 = book.create_sheet('Model_Results')
     ColLabels = ['Indicator','Unit','Region','System_location','RE scen','SocEc scen','ClimPol scen']
     for m in range(0,len(ColLabels)):
@@ -2971,7 +3965,7 @@ def main():
     for n in range(m+1,m+1+Nt):
         ws2.cell(row=1, column=n+1).value = int(IndexTable.Classification[IndexTable.index.get_loc('Time')].Items[n-m-1])
         ws2.cell(row=1, column=m+1).font  = openpyxl.styles.Font(bold=True)
-    
+
     # GHG overview, bulk materials, material footprint
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[GWP100_loc,:,:,:],2,len(ColLabels),'GHG emissions, system-wide _3579di (excl. forests)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_13579di[GWP100_loc,:,:,:],newrowoffset, len(ColLabels),'GHG emissions, system-wide _13579di (incl. forests)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -2983,49 +3977,63 @@ def main():
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[Land_loc,:,:,:],newrowoffset,    len(ColLabels),'Land footprint, system-wide _3579di','1000 km² of land',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_System_3579di[Water_loc,:,:,:],newrowoffset,   len(ColLabels),'Water footprint, system-wide _3579di','km³ of water',ScriptConfig['RegionalScope'],'all processes','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, primary material production _3di','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'Process and direct emissions in process 3 and related energy supply','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,8,:,:],newrowoffset,len(ColLabels),'Cement production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,0:4,:,:].sum(axis=1),newrowoffset, len(ColLabels),'Primary steel production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,8,:,:],newrowoffset,len(ColLabels),'Cement production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,0:4,:,:].sum(axis=1),newrowoffset, len(ColLabels),'Primary steel production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # final material consumption, fab scrap
     for m in range(0,Nm):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow[:,:,m,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials: ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[m],'Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,0:4,:,:]),newrowoffset,len(ColLabels),'Final consumption of materials: iron&steel (4 groups)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,4:6,:,:]),newrowoffset,len(ColLabels),'Final consumption of materials: aluminium (2 groups)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,[0,1,2,3,4,5,6,10],:,:]),newrowoffset,len(ColLabels),'Final consumption of metals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,[8,12,13],:,:]),newrowoffset,len(ColLabels),'Final consumption of non-metallic minerals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,[9],:,:]),newrowoffset,len(ColLabels),'Final consumption of biomaterials/wood (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,[7],:,:]),newrowoffset,len(ColLabels),'Final consumption of plastics (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow[:,:,m,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials: ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[m],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,0:4,:,:]),newrowoffset,len(ColLabels),'Final consumption of materials: iron&steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,4:6,:,:]),newrowoffset,len(ColLabels),'Final consumption of materials: aluminium (2 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,[0,1,2,3,4,5,6,10],:,:]),newrowoffset,len(ColLabels),'Final consumption of metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,[8,12,13],:,:]),newrowoffset,len(ColLabels),'Final consumption of non-metallic minerals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,[9],:,:]),newrowoffset,len(ColLabels),'Final consumption of biomaterials/wood (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tgmSR->tSR',Material_Inflow[:,:,[7],:,:]),newrowoffset,len(ColLabels),'Final consumption of plastics (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     for m in range(0,Nw):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,FabricationScrap[:,m,:,:],newrowoffset,len(ColLabels),'Fabrication scrap: ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[m],'Mt / yr',ScriptConfig['RegionalScope'],'F_5_10','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,FabricationScrap[:,m,:,:],newrowoffset,len(ColLabels),'Fabrication scrap: ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[m],'Mt/yr',ScriptConfig['RegionalScope'],'F_5_10','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # secondary materials
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,0:4,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Secondary steel','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,4:6,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Secondary Al','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,6,:,:],newrowoffset,len(ColLabels),'Secondary copper','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,[0,1,2,3,4,5,6,10],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Secondary production of metals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,[8,12,13],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Secondary production of non-metallic mineralic materials (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,9,:,:],newrowoffset,len(ColLabels),'Secondary production of biomaterials/wood (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,7,:,:],newrowoffset,len(ColLabels),'Secondary production of plastics (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,0:4,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Secondary steel','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,4:6,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Secondary Al','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,6,:,:],newrowoffset,len(ColLabels),'Secondary copper','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,[0,1,2,3,4,5,6,10],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Secondary production of metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,[8,12,13],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Secondary production of non-metallic mineralic materials (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,9,:,:],newrowoffset,len(ColLabels),'Secondary production of biomaterials/wood (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,7,:,:],newrowoffset,len(ColLabels),'Secondary production of plastics (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_UsePhase_7d[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, use phase _7d','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_OtherThanUsePhaseDirect[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, other than use phase direct: all industries and energy supply','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # GHG emissions, detail
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('trSR->tSR',Impacts_Vehicles_Direct[GWP100_loc,:,:,:,:]),newrowoffset,len(ColLabels),'GHG emissions, vehicles, use phase _7d','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_7_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('trSR->tSR',Impacts_ReBuildgs_Direct[GWP100_loc,:,:,:,:]),newrowoffset,len(ColLabels),'GHG emissions, res. buildings, use phase _7d','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_7_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('trSR->tSR',Impacts_NRBuildgs_Direct[GWP100_loc,:,:,:,:]),newrowoffset,len(ColLabels),'GHG emissions, non-res. buildings, use phase _7d','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_7_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_Vehicles_indir[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, vehicles, energy supply _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_AllBuildings_indir[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, res+non-res buildings, energy supply _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'pav' in SectorList:
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('trSR->tSR',Impacts_Vehicles_Direct[GWP100_loc,:,:,:,:]),newrowoffset,len(ColLabels),'GHG emissions, vehicles, use phase _7d','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_7_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'reb' in SectorList: #2026-01-22，hmli，circomod: only if residential buildings sector modelled
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('trSR->tSR',Impacts_ReBuildgs_Direct[GWP100_loc,:,:,:,:]),newrowoffset,len(ColLabels),'GHG emissions, res. buildings, use phase _7d','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_7_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'nrb' in SectorList: #2026-01-22，hmli，circomod: only if non-residential buildings sector modelled
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('trSR->tSR',Impacts_NRBuildgs_Direct[GWP100_loc,:,:,:,:]),newrowoffset,len(ColLabels),'GHG emissions, non-res. buildings, use phase _7d','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_7_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'pav' in SectorList:
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_Vehicles_indir[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, vehicles, energy supply _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'reb' in SectorList or 'nrb' in SectorList: #2026-01-22，hmli，circomod: only if buildings sector modelled
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_AllBuildings_indir[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, res+non-res buildings, energy supply _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_Manufact_5di_all[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, manufacturing _5i, all','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_5_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_WasteMgt_9di_all[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, waste mgt. and remelting _9di, all','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_9_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,4:6,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary Al production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,6,:,:],newrowoffset,len(ColLabels),'Primary Cu production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,4:6,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary Al production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,6,:,:],newrowoffset,len(ColLabels),'Primary Cu production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_Materials_3di_9di[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, material cycle industries and their energy supply _3di_9di','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_3_0 and related energy supply emissions','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # energy flows
     for nn in range(0,Nn):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_total[:,nn,:,:],newrowoffset,len(ColLabels),'energy supply, system-wide, excl. internal WtE: ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'TJ / yr',ScriptConfig['RegionalScope'],'F_15_x','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #if 'pav' in SectorList:  # 2026-01-22, hmli, circomod: aggregat energy group and use passenger vehicles for testing without affecting the results of building sector #20260216 not sector specific
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2, np.einsum('tnSR->tSR',EnergyCons_total[:,[0,1,2,3,4,5,6],:,:]), newrowoffset,len(ColLabels),'energy supply, system-wide, excl. internal WtE: total (aggregate energy group)','TJ / yr', ScriptConfig['RegionalScope'], 'F_15_x', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
     for nn in range(0,Nn):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_total[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, use phase: ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'TJ / yr',ScriptConfig['RegionalScope'],'F_15_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_reb[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, use phase, res. buildings: ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'TJ / yr',ScriptConfig['RegionalScope'],'F_15_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_nrb[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, use phase, nonres. buildings: ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'TJ / yr',ScriptConfig['RegionalScope'],'F_15_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Vh,newrowoffset,len(ColLabels),'Energy cons., use phase, vehicles','TJ/yr',ScriptConfig['RegionalScope'],'E_16_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Bd,newrowoffset,len(ColLabels),'Energy cons., use phase, res+non-res buildings','TJ/yr',ScriptConfig['RegionalScope'],'E_16_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        if 'pav' in SectorList: #2026-01-22，hmli，circomod: only if vehicle sector modelled
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_pav[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, use phase, vehicles: ' +IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'TJ / yr', ScriptConfig['RegionalScope'], 'F_15_7', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-22, hmli, circomod: add energy consumption in use phase by energy type for vehicles.
+        if 'reb' in SectorList: #2026-01-22，hmli，circomod: only if residential buildings sector modelled
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_reb[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, use phase, res. buildings: ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'TJ / yr',ScriptConfig['RegionalScope'],'F_15_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        if 'nrb' in SectorList: #2026-01-22，hmli，circomod: only if non-residential buildings sector modelled
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_nrb[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, use phase, nonres. buildings: ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'TJ / yr',ScriptConfig['RegionalScope'],'F_15_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'pav' in SectorList: #2026-01-22，hmli，circomod: only if vehicle sector modelled
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Vh,newrowoffset,len(ColLabels),'Energy cons., use phase, vehicles','TJ/yr',ScriptConfig['RegionalScope'],'E_16_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'reb' in SectorList or 'nrb' in SectorList: #2026-01-22，hmli，circomod: only if buildings sector modelled
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Bd,newrowoffset,len(ColLabels),'Energy cons., use phase, res+non-res buildings','TJ/yr',ScriptConfig['RegionalScope'],'E_16_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_Mn,newrowoffset,len(ColLabels),'Energy cons., manufacturing','TJ/yr',ScriptConfig['RegionalScope'],'E_16_5','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_Wm,newrowoffset,len(ColLabels),'Energy cons., waste mgt. and remelting','TJ/yr',ScriptConfig['RegionalScope'],'E_16_9','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_PP,newrowoffset,len(ColLabels),'Energy cons., primary material production (all materials and energy carriers)','TJ/yr',ScriptConfig['RegionalScope'],'E_16_3','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -3061,11 +4069,26 @@ def main():
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Totl[:,Sector_nrb_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, nonres. buildings','million m2',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
         for mr in range(0,Nr):
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,Stock_2020_nrb[:,mr,:,:],newrowoffset,len(ColLabels),'Stock curve of all pre 2021 age-cohorts, non-res. blds.','Vehicles: million, Buildings: million m²',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    if 'tis' in SectorList:
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Totl[:,Sector_tis_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, IMAGE transport infrastructure','kt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'ind' in SectorList:
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Totl[:,Sector_ind_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, power sector','GW',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        for mr in range(0,Nr):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Stock_2020_ind[:,mr,:,:],newrowoffset,len(ColLabels),'Stock curve of all pre 2021 age-cohorts, power sector','GW',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+        
     for mg in range(0,Ng):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million, Buildings: million m2',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million, Buildings: million m2, TranspInf: kt, PowerSec: GW',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     for mm in range(0,Nm):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat[:,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+<<<<<<< HEAD
     #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) 
+=======
+    #if 'pav' in SectorList:  # 2026-01-22, hmli, circomod: aggregate materials group and use passenger vehicles for testing without affecting the results of building sector #20260216 not sector specific
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2, StockCurves_Mat[:,[0,1,2,3],:,:].sum(axis=1), newrowoffset,len(ColLabels),'In-use stock, iron and steel (4 groups)','Mt', ScriptConfig['RegionalScope'], 'S_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2, StockCurves_Mat[:,[4,5],:,:].sum(axis=1), newrowoffset,len(ColLabels),'In-use stock, aluminum (2 groups)','Mt', ScriptConfig['RegionalScope'], 'S_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+    #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+>>>>>>> 80a44448d6fa680fdb39b8539842092820be6a60
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat.sum(axis=1)-StockCurves_Mat[:,Concrete_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # 2025-07-10, ch: subtract 'concrete' from 'all materials', otherwise doublecounting
     if 'reb' in SectorList:
         for mm in range(0,Nm):
@@ -3076,7 +4099,23 @@ def main():
         for mm in range(0,Nm):
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb[:,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, nrb, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
         #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nrb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+<<<<<<< HEAD
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb.sum(axis=1)-StockCurves_Mat[:,Concrete_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, nrb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    # 2025-07-10, ch: subtract 'concrete' from 'all materials', otherwise doublecounting
+=======
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb.sum(axis=1)-StockCurves_Mat_nrb[:,Concrete_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, nrb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    # 2026-02-21: 'StockCurves_Mat' corrected to 'StockCurves_Mat_nrb'; 2025-07-10, ch: subtract 'concrete' from 'all materials', otherwise doublecounting
+    if 'tis' in SectorList:
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_tis_pr[:,:,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_reb.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, reb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_tis_pr.sum(axis=1).sum(axis=1)-StockCurves_Mat_tis_pr[:,:,Concrete_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # 2025-07-10, ch: subtract 'concrete' from 'all materials', otherwise doublecounting
+    if 'ind' in SectorList:
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_ind_pr[:,:,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_reb.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, reb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_ind_pr.sum(axis=1).sum(axis=1)-StockCurves_Mat_ind_pr[:,:,Concrete_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # 2025-07-10, ch: subtract 'concrete' from 'all materials', otherwise doublecounting
+
+
+>>>>>>> 80a44448d6fa680fdb39b8539842092820be6a60
     #per capita stocks per sector
     for mr in range(0,Nr):
         for mG in range(0,NG):
@@ -3101,14 +4140,16 @@ def main():
             for mB in range(0,len(Sector_reb_rge)): # building lightweighting parameter is modified by script, result exported here.
                 newrowoffset = msf.xlsxExportAdd_tAB(ws2,ParameterDict['3_SHA_LightWeighting_Buildings'].Values[mB,mr,:,:,:],newrowoffset,len(ColLabels),'Share of newly built light-weighted ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_reb_rge[mB]],'%',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     #passenger and vehicle km, building service
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Passenger_km,newrowoffset,len(ColLabels),'passenger-km supplied by pass. vehicles','million km/yr',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Vehicle_km,newrowoffset,len(ColLabels),'vehicle-km driven by pass. vehicles','million km/yr',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'pav' in SectorList:
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Passenger_km,newrowoffset,len(ColLabels),'passenger-km supplied by pass. vehicles','million km/yr',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Vehicle_km,newrowoffset,len(ColLabels),'vehicle-km driven by pass. vehicles','million km/yr',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    """ # covered below by region specific reporting for Service_IO_ResBuildings_pr
     if 'reb' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_ResBuildings[:,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total heated floor space, res. buildings','million m2',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_ResBuildings[:,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total cooled floor space, res. buildings','million m2',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'nrb' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_NonResBuildings[:,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total heated floor space, nonres. buildings','million m2',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_NonResBuildings[:,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total cooled floor space, nonres. buildings','million m2',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_NonResBuildings[:,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total cooled floor space, nonres. buildings','million m2',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)"""
     # Use phase indirect GHG, primary prodution GHG, material cycle and recycling credit
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_UsePhase_7i_Scope2_El[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, use phase scope 2 (electricity) _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (electricity, for use phase energy)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_UsePhase_7i_OtherIndir[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, use phase other indirect (non-el.) _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (other than el., for use phase energy)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -3117,37 +4158,43 @@ def main():
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_ForestCO2Uptake[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG sequestration by forests (w. neg. sign)','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'Process 1','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_EnergyRecoveryWasteWood[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions from energy recovery from waste wood (WtE), does not include fuel wood use.','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'waste mgt. and energy supply','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # Primary and secondary material production, if not included above already
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,0,:,:], newrowoffset,len(ColLabels),'Primary construction grade steel production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,1,:,:], newrowoffset,len(ColLabels),'Primary automotive steel production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,2,:,:], newrowoffset,len(ColLabels),'Primary stainless production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,3,:,:], newrowoffset,len(ColLabels),'Primary cast iron production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,4,:,:], newrowoffset,len(ColLabels),'Primary wrought Al production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,5,:,:], newrowoffset,len(ColLabels),'Primary cast Al production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,7,:,:], newrowoffset,len(ColLabels),'Primary plastics production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,9,:,:], newrowoffset,len(ColLabels),'Construction wood, structural, from industrial roundwood','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,10,:,:],newrowoffset,len(ColLabels),'Primary zinc production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,[0,1,2,3,4,5,6,10],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary production of metals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,[8,12,13],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary production of non-metallic mineral materials (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,0,:,:],  newrowoffset,len(ColLabels),'Secondary construction steel','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,1,:,:],  newrowoffset,len(ColLabels),'Secondary automotive steel','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,2,:,:],  newrowoffset,len(ColLabels),'Secondary stainless steel','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,3,:,:],  newrowoffset,len(ColLabels),'Secondary cast iron','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,4,:,:],  newrowoffset,len(ColLabels),'Secondary wrought Al','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,5,:,:],  newrowoffset,len(ColLabels),'Secondary cast Al','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,7,:,:],  newrowoffset,len(ColLabels),'Secondary plastics','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,9,:,:],  newrowoffset,len(ColLabels),'Recycled wood','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,10,:,:], newrowoffset,len(ColLabels),'Recycled zinc','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,11,:,:], newrowoffset,len(ColLabels),'Recycled concrete','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,0,:,:],  newrowoffset,len(ColLabels),'Potential for secondary construction steel from EoL products','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,1,:,:],  newrowoffset,len(ColLabels),'Potential for secondary automotive steel from EoL products','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,2,:,:],  newrowoffset,len(ColLabels),'Potential for secondary stainless steel from EoL products','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,3,:,:],  newrowoffset,len(ColLabels),'Potential for secondary cast iron from EoL products','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,4,:,:],  newrowoffset,len(ColLabels),'Potential for secondary wrought Al from EoL products','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,5,:,:],  newrowoffset,len(ColLabels),'Potential for secondary cast Al from EoL products','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,7,:,:],  newrowoffset,len(ColLabels),'Potential for secondary plastics from EoL products','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,9,:,:],  newrowoffset,len(ColLabels),'Potential for recycled wood from EoL products','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,10,:,:], newrowoffset,len(ColLabels),'Potential for recycled zinc from EoL products','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,11,:,:], newrowoffset,len(ColLabels),'Potential for recycled concrete from EoL products','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,0,:,:], newrowoffset,len(ColLabels),'Primary construction grade steel production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,1,:,:], newrowoffset,len(ColLabels),'Primary automotive steel production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,2,:,:], newrowoffset,len(ColLabels),'Primary stainless production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,3,:,:], newrowoffset,len(ColLabels),'Primary cast iron production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,4,:,:], newrowoffset,len(ColLabels),'Primary wrought Al production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,5,:,:], newrowoffset,len(ColLabels),'Primary cast Al production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,7,:,:], newrowoffset,len(ColLabels),'Primary plastics production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,9,:,:], newrowoffset,len(ColLabels),'Construction wood, structural, from industrial roundwood','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,10,:,:],newrowoffset,len(ColLabels),'Primary zinc production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,[0,1,2,3,4,5,6,10],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary production of metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,[8,12,13],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary production of non-metallic mineral materials (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #if 'pav' in SectorList: #2026-01-22, hmli, circomod: aggregate materials group and use passenger vehicles for testing without affecting the results of building sector #20260216 not sector specific
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,[4,5,6,10],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Primary production of Non-Ferrous Metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+    ''' # 2026-03-25, ch: removed here; exported below as 'Potential for recycled material from EoL products, [Engineering materials]' and 'Secondary material production, [Engineering materials]'
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,0,:,:],  newrowoffset,len(ColLabels),'Secondary construction steel','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,1,:,:],  newrowoffset,len(ColLabels),'Secondary automotive steel','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,2,:,:],  newrowoffset,len(ColLabels),'Secondary stainless steel','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,3,:,:],  newrowoffset,len(ColLabels),'Secondary cast iron','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,4,:,:],  newrowoffset,len(ColLabels),'Secondary wrought Al','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,5,:,:],  newrowoffset,len(ColLabels),'Secondary cast Al','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,7,:,:],  newrowoffset,len(ColLabels),'Secondary plastics','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,9,:,:],  newrowoffset,len(ColLabels),'Recycled wood','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,10,:,:], newrowoffset,len(ColLabels),'Recycled zinc','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,11,:,:], newrowoffset,len(ColLabels),'Recycled concrete','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,0,:,:],  newrowoffset,len(ColLabels),'Potential for secondary construction steel from EoL products','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,1,:,:],  newrowoffset,len(ColLabels),'Potential for secondary automotive steel from EoL products','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,2,:,:],  newrowoffset,len(ColLabels),'Potential for secondary stainless steel from EoL products','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,3,:,:],  newrowoffset,len(ColLabels),'Potential for secondary cast iron from EoL products','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,4,:,:],  newrowoffset,len(ColLabels),'Potential for secondary wrought Al from EoL products','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,5,:,:],  newrowoffset,len(ColLabels),'Potential for secondary cast Al from EoL products','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,6,:,:],  newrowoffset,len(ColLabels),'Potential for secondary copper electric grade from EoL products','Mt / yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #added by hml,Jan 8 2026
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,7,:,:],  newrowoffset,len(ColLabels),'Potential for secondary plastics from EoL products','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,9,:,:],  newrowoffset,len(ColLabels),'Potential for recycled wood from EoL products','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,10,:,:], newrowoffset,len(ColLabels),'Potential for recycled zinc from EoL products','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,11,:,:], newrowoffset,len(ColLabels),'Potential for recycled concrete from EoL products','Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    '''
     # GHG of primary and secondary material production
     for mm in range(0,Nm):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_PrimaryMaterial_3di_m[GWP100_loc,:,mm,:,:],newrowoffset,len(ColLabels),'GHG emissions, production of primary _3di_' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'Env. extension of F_3_4','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -3155,7 +4202,7 @@ def main():
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_SecondaryMetal_di_m[GWP100_loc,:,mm,:,:],newrowoffset,len(ColLabels),'GHG emissions, production of secondary _di_' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'E_9_0 (part) and associated em. in E_15_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # inflow and outflow of commodities
     for mg in range(0,Ng):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'final consumption (use phase inflow), ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'final consumption (use phase inflow), ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr, TranspInf: kt/yr, PowerSec: GW/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'pav' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod[:,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), all drive technologies together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'reb' in SectorList:
@@ -3171,25 +4218,37 @@ def main():
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), all nonres. building types together','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'decommissioned buildings (use phase outflow), all nonres. building types together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
         for mr in range(0,Nr):
-            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'decommissioned buildings (use phase outflow), all nonres. building types together','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'decommissioned buildings (use phase outflow), all nonres. building types together','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     for mg in range(0,Ng):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'EoL products (use phase outflow), ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'EoL products (use phase outflow), ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr, TranspInf: kt/yr, PowerSec: GW/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'pav' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), all drive technologies together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'reb' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), all res. building types together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
     if 'nrb' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), all nonres. building types together','Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
+    if 'ind' in SectorList:
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod[:,Sector_ind_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), all power technologies together','GW/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod[:,Sector_ind_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), all power technologies together','GW/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # Material reuse
     for mm in range(0,Nm):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials[:,mm,:,:],newrowoffset,len(ColLabels),'ReUse of materials in products, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',ReUse_Materials[:,[0,1,2,3,4,5,6,10],:,:]),newrowoffset,len(ColLabels),'Reuse of metals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',ReUse_Materials[:,[8,12,13],:,:]),newrowoffset,len(ColLabels),'Reuse of non-metallic minerals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',ReUse_Materials[:,[9],:,:]),newrowoffset,len(ColLabels),'Reuse of biomaterials/wood (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',ReUse_Materials[:,[7],:,:]),newrowoffset,len(ColLabels),'Reuse of plastics (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)                    
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_EoL_Pot[:,mm,:,:],newrowoffset,len(ColLabels),'ReUse potential of materials from EoL products, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2025-07 added for CIRCOMOD reporting
+        # add reuse potential per sector
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_EoL_Pot_g[:,mm,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse potential of materials from EoL products, pav, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-16 reuse potential by sector
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_EoL_Pot_g[:,mm,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse potential of materials from EoL products, reb, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-16 reuse potential by sector
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_EoL_Pot_g[:,mm,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse potential of materials from EoL products, nrb, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-16 reuse potential by sector
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_EoL_Pot_g[:,mm,Sector_ind_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse potential of materials from EoL products, ind, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-16 reuse potential by sector
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_EoL_Pot_g[:,mm,Sector_tis_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse potential of materials from EoL products, tis, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-16 reuse potential by sector
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',ReUse_Materials[:,[0,1,2,3,4,5,6,10],:,:]),newrowoffset,len(ColLabels),'Reuse of metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    #newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',ReUse_Materials[:,[8,12,13],:,:]),newrowoffset,len(ColLabels),'Reuse of non-metallic minerals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    #20260131   newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',ReUse_Materials[:,[8,12,13,14,16,17,18],:,:]),newrowoffset,len(ColLabels),'Reuse of non-metallic minerals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    #2026-01-27 add glass, aggregates (other than in concrete), asphalt and stone
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',ReUse_Materials[:,[9],:,:]),newrowoffset,len(ColLabels),'Reuse of biomaterials/wood (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',ReUse_Materials[:,[7],:,:]),newrowoffset,len(ColLabels),'Reuse of plastics (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)                    
     # carbon in wood inflow, stock, and outflow
-    for mr in range(0,Nr):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_IndustrialRoundwood_bld[:,mr,:,:],newrowoffset,len(ColLabels),'Industrial roundwood, hard and softwood, for processing into structural wood elements for residential and non-residential buildings','Mt/yr of C (carbon)',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_1_2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    if 'reb' in SectorList or 'nrb' in SectorList:  # 2026-01-12，hmli，circomod: only if buildings sector modelled
+        for mr in range(0,Nr):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_IndustrialRoundwood_bld[:,mr,:,:],newrowoffset,len(ColLabels),'Industrial roundwood, hard and softwood, for processing into structural wood elements for residential and non-residential buildings','Mt/yr of C (carbon)',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_1_2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Fuelwood_bld,newrowoffset,len(ColLabels),'Fuelwood, hard and softwood, for use in building heating and hot water only (no cooking fuel).','Mt/yr of C (carbon)',ScriptConfig['RegionalScope'],'F_1_2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Fuelwood_el, newrowoffset,len(ColLabels),'Fuelwood, hard and softwood, for use in electricity generation.','Mt/yr of C (carbon)',ScriptConfig['RegionalScope'],'F_1_2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Fuelwood_release, newrowoffset,len(ColLabels),'Total wood C outflow from fuelwood, in form of CO2.','Mt/yr of C (carbon)',ScriptConfig['RegionalScope'],'F_x_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)            
@@ -3206,7 +4265,7 @@ def main():
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,SysVar_WoodWasteIncineration[:,mr,Woodwaste_loc,Carbon_loc,:,:], newrowoffset,len(ColLabels),'Total carbon in wood waste for inc., by region, source of total biogenic CO2','Mt C / yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part) (S_9 in model code)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,SysVar_CascadeRelease[:,mr,Woodwaste_loc,Carbon_loc,:,:], newrowoffset,len(ColLabels),'Carbon in outflow of cascading stock, by region','Mt C / yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part) (S_9 in model code)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,SysVar_WoodWaste_Gas_El[:,mr,:,:], newrowoffset,len(ColLabels),'Carbon in wood waste for inc. (WtE), by region, excluding fuel wood subst.','Mt C / yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part) (S_9 in model code)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Carbon_Wood_Inflow[:,mr,:,:], newrowoffset,len(ColLabels),'Cement, final consumption/inflow by region','Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Cement_Inflow[:,mr,:,:], newrowoffset,len(ColLabels),'Cement, final consumption/inflow by region','Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    #2026-01-27 correct, here cement inflow, not wood inflow
     # specific energy consumption of vehicles and buildings
     if 'pav' in SectorList:
         for mr in range(0,Nr):
@@ -3219,65 +4278,84 @@ def main():
     # specific energy consumption of vehicles and buildings
     for mr in range(0,Nr):
         # driving
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_pav[:,mr,Service_Drivg,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, pass. vehs., driving','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-        # heating
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_reb[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, res. bld. heating','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_nrb[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, nonres. bld. heating','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-        # cooling
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_reb[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, res. bld. cooling','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_nrb[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, nonres. bld. cooling','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-        # domestic hot water (DHW)
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_reb[:,mr,DomstHW_loc,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, res. bld. DHW','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_nrb[:,mr,DomstHW_loc,:,:],newrowoffset,len(ColLabels),'Total use pase energy consumption, nonres. bld. DHW','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        if 'pav' in SectorList:
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_pav[:,mr,Service_Drivg,:,:],newrowoffset,len(ColLabels),'Total use phase energy consumption, pass. vehs., driving','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+        if 'reb' in SectorList or 'nrb' in SectorList:  # 2026-01-22，hmli，circomod: only if buildings sector modelled
+            # heating
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_reb[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total use phase energy consumption, res. bld. heating','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_nrb[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total use phase energy consumption, nonres. bld. heating','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            # cooling
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_reb[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total use phase energy consumption, res. bld. cooling','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_nrb[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total use phase energy consumption, nonres. bld. cooling','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            # domestic hot water (DHW)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_reb[:,mr,DomstHW_loc,:,:],newrowoffset,len(ColLabels),'Total use phase energy consumption, res. bld. DHW','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_nrb[:,mr,DomstHW_loc,:,:],newrowoffset,len(ColLabels),'Total use phase energy consumption, nonres. bld. DHW','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # GWP by energy carrier, vehicles and residential buildings
     # for mr in range(0,Nr):
     #     for mn in range(0,Nn):
     #         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_ByEnergyCarrier_UsePhase_d[0,:,mr,mn,:,:] + Impacts_ByEnergyCarrier_UsePhase_i[0,:,mr,mn,:,:],newrowoffset,len(ColLabels),'GWP by energy carrier, use phase direct + indirect, all sectors covered by model run, ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[mn],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase and scope 2','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # carbon credit from longterm biomass storage
-    # newrowoffset = msf.xlsxExportAdd_tAB(ws2,GWP_bio_Credit,newrowoffset,len(ColLabels),'GWP_bio_usephase','Mt / yr',ScriptConfig['RegionalScope'],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
+    # newrowoffset = msf.xlsxExportAdd_tAB(ws2,GWP_bio_Credit,newrowoffset,len(ColLabels),'GWP_bio_usephase','Mt/yr',ScriptConfig['RegionalScope'],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
     # Excess secondary material export    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,0,:,:], newrowoffset,len(ColLabels),'Export of Secondary construction steel','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,1,:,:], newrowoffset,len(ColLabels),'Export of Secondary automotive steel','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,2,:,:], newrowoffset,len(ColLabels),'Export of Secondary stainless steel','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,3,:,:], newrowoffset,len(ColLabels),'Export of Secondary cast iron','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,4,:,:], newrowoffset,len(ColLabels),'Export of Secondary wrought Al','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,5,:,:], newrowoffset,len(ColLabels),'Export of Secondary cast Al','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,6,:,:], newrowoffset,len(ColLabels),'Export of Secondary copper','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,7,:,:], newrowoffset,len(ColLabels),'Export of Secondary plastics','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,8,:,:], newrowoffset,len(ColLabels),'Export of Secondary cement','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,9,:,:], newrowoffset,len(ColLabels),'Export of Recycled wood','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,10,:,:],newrowoffset,len(ColLabels),'Export of Recycled zinc','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,11,:,:],newrowoffset,len(ColLabels),'Export of Recycled concrete','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,12,:,:],newrowoffset,len(ColLabels),'Export of Secondary concrete aggregates','Mt / yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,0,:,:], newrowoffset,len(ColLabels),'Export of Secondary construction steel','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,1,:,:], newrowoffset,len(ColLabels),'Export of Secondary automotive steel','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,2,:,:], newrowoffset,len(ColLabels),'Export of Secondary stainless steel','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,3,:,:], newrowoffset,len(ColLabels),'Export of Secondary cast iron','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,4,:,:], newrowoffset,len(ColLabels),'Export of Secondary wrought Al','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,5,:,:], newrowoffset,len(ColLabels),'Export of Secondary cast Al','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,6,:,:], newrowoffset,len(ColLabels),'Export of Secondary copper','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,7,:,:], newrowoffset,len(ColLabels),'Export of Secondary plastics','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,8,:,:], newrowoffset,len(ColLabels),'Export of Secondary cement','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,9,:,:], newrowoffset,len(ColLabels),'Export of Recycled wood','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,10,:,:],newrowoffset,len(ColLabels),'Export of Recycled zinc','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,11,:,:],newrowoffset,len(ColLabels),'Export of Recycled concrete','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryExport[:,12,:,:],newrowoffset,len(ColLabels),'Export of Secondary concrete aggregates','Mt/yr',ScriptConfig['RegionalScope'],'F_12_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # manufacturing output by materials
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,0,:,:].sum(axis=1), newrowoffset,len(ColLabels),'construction steel in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,1,:,:].sum(axis=1), newrowoffset,len(ColLabels),'automotive steel in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,2,:,:].sum(axis=1), newrowoffset,len(ColLabels),'stainless steel in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,3,:,:].sum(axis=1), newrowoffset,len(ColLabels),'cast iron in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,4,:,:].sum(axis=1), newrowoffset,len(ColLabels),'wrought Al in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,5,:,:].sum(axis=1), newrowoffset,len(ColLabels),'cast Al in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,6,:,:].sum(axis=1), newrowoffset,len(ColLabels),'copper in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,7,:,:].sum(axis=1), newrowoffset,len(ColLabels),'plastics in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,8,:,:].sum(axis=1), newrowoffset,len(ColLabels),'cement in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,9,:,:].sum(axis=1), newrowoffset,len(ColLabels),'wood in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,10,:,:].sum(axis=1),newrowoffset,len(ColLabels),'zinc in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,11,:,:].sum(axis=1),newrowoffset,len(ColLabels),'concrete in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,12,:,:].sum(axis=1),newrowoffset,len(ColLabels),'concrete aggregates in manufactured goods','Mt / yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,0,:,:].sum(axis=1), newrowoffset,len(ColLabels),'construction steel in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,1,:,:].sum(axis=1), newrowoffset,len(ColLabels),'automotive steel in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,2,:,:].sum(axis=1), newrowoffset,len(ColLabels),'stainless steel in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,3,:,:].sum(axis=1), newrowoffset,len(ColLabels),'cast iron in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,4,:,:].sum(axis=1), newrowoffset,len(ColLabels),'wrought Al in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,5,:,:].sum(axis=1), newrowoffset,len(ColLabels),'cast Al in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,6,:,:].sum(axis=1), newrowoffset,len(ColLabels),'copper in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,7,:,:].sum(axis=1), newrowoffset,len(ColLabels),'plastics in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,8,:,:].sum(axis=1), newrowoffset,len(ColLabels),'cement in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,9,:,:].sum(axis=1), newrowoffset,len(ColLabels),'wood in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,10,:,:].sum(axis=1),newrowoffset,len(ColLabels),'zinc in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,11,:,:].sum(axis=1),newrowoffset,len(ColLabels),'concrete in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,12,:,:].sum(axis=1),newrowoffset,len(ColLabels),'concrete aggregates in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,13,:,:].sum(axis=1), newrowoffset,len(ColLabels),'bricks in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,14,:,:].sum(axis=1), newrowoffset,len(ColLabels),'glass in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,15,:,:].sum(axis=1), newrowoffset,len(ColLabels),'insulation material in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #20260131   newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,16,:,:].sum(axis=1),newrowoffset,len(ColLabels),'aggregates (other than in concrete) in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #20260131   newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,17,:,:].sum(axis=1),newrowoffset,len(ColLabels),'asphalt in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #20260131   newrowoffset = msf.xlsxExportAdd_tAB(ws2,Manufacturing_Output[:,:,18,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ston in manufactured goods','Mt/yr',ScriptConfig['RegionalScope'],'F_5_6 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
     # postconsumer scrap
     for m in range(0,Nw):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Scrap_Outflow[:,m,:,:],newrowoffset,len(ColLabels),'Postconsumer scrap: ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[m],'Mt / yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Scrap_Outflow[:,m,:,:],newrowoffset,len(ColLabels),'Postconsumer scrap: ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[m],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #if 'pav' in SectorList: #2026-01-22, hmli, circomod: aggregate materials group and use passenger vehicles for testing without affecting the results of building sector #20260216: not sector specific
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('twSR->tSR',Scrap_Outflow[:,[0,1],:,:]),newrowoffset,len(ColLabels),'Postconsumer scrap of iron and steel (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('twSR->tSR',Scrap_Outflow[:,[2,3,4,5,6],:,:]),newrowoffset,len(ColLabels),'Postconsumer scrap of Non-Ferrous Metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # EoL Products to waste mgt.
-    for mg in range(0,Ng):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EoL_Products_for_WasteMgt[:,mg,:,:],newrowoffset,len(ColLabels),'EoL Products to waste mgt., ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_8_9 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    # Outflow of products from use phase        
-    for mg in range(0,Ng):
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Products_Usephase_all[:,mg,:,:],newrowoffset,len(ColLabels),'Outflow of products from use phase, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    for mg in range(0,Ng): #2026-01-19, ch: misleading name! Unit is Mt/yr, not units of goods
+        #newrowoffset = msf.xlsxExportAdd_tAB(ws2,EoL_Products_for_WasteMgt[:,mg,:,:],newrowoffset,len(ColLabels),'EoL Products to waste mgt., ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_8_9 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,EoL_Products_for_WasteMgt[:,mg,:,:],newrowoffset,len(ColLabels),'EoL total mass of products to waste mgt., ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Mt/yr',ScriptConfig['RegionalScope'],'F_8_9 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    # Outflow of products from use phase
+    for mg in range(0,Ng): #2025-01-21, ch: misleading name! Unit is Mt/yr, not units of goods
+        #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Products_Usephase_all[:,mg,:,:],newrowoffset,len(ColLabels),'Outflow of products from use phase, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Products_Usephase_all[:,mg,:,:],newrowoffset,len(ColLabels),'Outflow of total materials per product from use phase, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     for mm in range(0,Nm):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_all[:,mm,:,:],newrowoffset,len(ColLabels),'Outflow of materials from use phase, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',Outflow_Materials_Usephase_all[:,[0,1,2,3,4,5,6,10],:,:]),newrowoffset,len(ColLabels),'Use phase outflow of metals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',Outflow_Materials_Usephase_all[:,[8,12,13],:,:]),newrowoffset,len(ColLabels),'Use phase outflow of non-metallic minerals (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',Outflow_Materials_Usephase_all[:,[9],:,:]),newrowoffset,len(ColLabels),'Use phase outflow of biomaterials/wood (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',Outflow_Materials_Usephase_all[:,[7],:,:]),newrowoffset,len(ColLabels),'Use phase outflow of plastics (aggregate materials group)','Mt / yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)            
+    #if 'pav' in SectorList:  # 2026-01-22, hmli, circomod: aggregate materials group and use passenger vehicles for testing without affecting the results of building sector  #20260216: not sector specific
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',Outflow_Materials_Usephase_all[:,[0,1,2,3],:,:]),newrowoffset,len(ColLabels),'Outflow of materials from use phase, iron and steel (4 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_7_8 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',Outflow_Materials_Usephase_all[:,[4,5],:,:]),newrowoffset,len(ColLabels),'Outflow of materials from use phase, aluminum (2 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_7_8 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',Outflow_Materials_Usephase_all[:,[0,1,2,3,4,5,6,10],:,:]),newrowoffset,len(ColLabels),'Use phase outflow of metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',Outflow_Materials_Usephase_all[:,[8,12,13],:,:]),newrowoffset,len(ColLabels),'Use phase outflow of non-metallic minerals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',Outflow_Materials_Usephase_all[:,[9],:,:]),newrowoffset,len(ColLabels),'Use phase outflow of biomaterials/wood (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',Outflow_Materials_Usephase_all[:,[7],:,:]),newrowoffset,len(ColLabels),'Use phase outflow of plastics (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)            
     # Losses from waste mgt.        
     for me in range(0,Ne):    
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,WasteMgtLosses_To_Landfill[:,me,:,:],newrowoffset,len(ColLabels),'Waste mgt and remelting losses, ' + IndexTable.Classification[IndexTable.index.get_loc('Element')].Items[me],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -3286,8 +4364,737 @@ def main():
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,RenovationMaterialInflow_7[:,mm,:,:],newrowoffset,len(ColLabels),'Inflow of renovation material into use phase, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part: renovation inflow)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     for mr in range(0,Nr):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_ForestCO2Uptake_r[0,:,mr,:,:], newrowoffset,len(ColLabels),'CO2 uptake by forests by region (no trade, w. neg. sign)','Mt CO2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_0_1','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+
+    ## Reporting additional results for CIRCOMOD scenario comparisons etc (2025-01-20, ch) / 2025-07-08, ch
+    # aggregate building types: SFH, MFH, ...
+    if 'reb' in SectorList:
+        Sector_reb_rge_SFH = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['SFH_non-standard', 'SFH_standard', 'SFH_efficient', 'SFH_ZEB']]
+        Sector_reb_rge_MFH = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['MFH_non-standard', 'MFH_standard', 'MFH_efficient', 'MFH_ZEB']]
+        Sector_reb_rge_RT  = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['RT_non-standard', 'RT_standard', 'RT_efficient', 'RT_ZEB']]
+        Sector_reb_rge_inf = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['informal_non-standard']]
+    if 'nrb' in SectorList:
+        Sector_nrb_rge_off = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['nonres_offices_non-standard','nonres_offices_standard','nonres_offices_efficient','nonres_offices_ZEB']]
+        Sector_nrb_rge_com = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['nonres_commercial_non-standard', 'nonres_commercial_standard', 'nonres_commercial_efficient', 'nonres_commercial_ZEB']]
+        Sector_nrb_rge_edu = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['nonres_education_non-standard', 'nonres_education_standard', 'nonres_education_efficient', 'nonres_education_ZEB']]
+        Sector_nrb_rge_hea = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['nonres_health_non-standard', 'nonres_health_standard', 'nonres_health_efficient', 'nonres_health_ZEB']]
+        Sector_nrb_rge_hot = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['nonres_hotels_restaurants_non-standard', 'nonres_hotels_restaurants_standard', 'nonres_hotels_restaurants_efficient', 'nonres_hotels_restaurants_ZEB']]
+        Sector_nrb_rge_oth = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['nonres_other_non-standard', 'nonres_other_standard', 'nonres_other_efficient', 'nonres_other_ZEB']]
+    if 'tis' in SectorList:
+        Sector_tis_rge_cycle = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['cycle_IMAGE']]
+        Sector_tis_rge_other = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['other_IMAGE']]
+        Sector_tis_rge_road = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['road_IMAGE']]
+        Sector_tis_rge_motorway = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['motorway_IMAGE']]
+        Sector_tis_rge_pedestrian = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['pedestrian_IMAGE']]
+        Sector_tis_rge_parking = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['parking_IMAGE']]
+        Sector_tis_rge_bridge = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['bridge_IMAGE']]
+        Sector_tis_rge_tunnel = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['tunnel_IMAGE']]
+        Sector_tis_rge_rail = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['rail_IMAGE']]
+        Sector_tis_rge_agg_road = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['cycle_IMAGE', 'other_IMAGE', 'road_IMAGE', 'motorway_IMAGE', 'pedestrian_IMAGE']]
+    if 'ind' in SectorList:
+        Sector_ind_rge_Bio = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Biomass|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Bio_CCS = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Biomass|w/ CCS']]
+        Sector_ind_rge_Hydro = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Hydro|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_CSP = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Solar|CSP']]
+        Sector_ind_rge_PV = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Solar|PV|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Wind_On = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Wind|Onshore|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Wind_Off = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Wind|Offshore|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Geo = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Geothermal|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Nuc = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Nuclear|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Oil = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Oil|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Gas_CCS = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Gas|Combined Cycle|w/ CCS']]
+        Sector_ind_rge_Gas = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Gas|Combined Cycle|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Coal_CCS = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Coal|w/ CCS']]
+        Sector_ind_rge_Coal = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Coal|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Bio_agg = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Biomass|Other (Not Elsewhere Specified)', 'Biomass|w/ CCS']]
+        Sector_ind_rge_Solar_agg = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Solar|CSP', 'Solar|PV|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Wind_agg = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Wind|Onshore|Other (Not Elsewhere Specified)', 'Wind|Offshore|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Coal_agg = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Coal|w/ CCS', 'Coal|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Gas_agg = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Gas|Combined Cycle|w/ CCS', 'Gas|Combined Cycle|Other (Not Elsewhere Specified)']]
+        Sector_ind_rge_Other_agg = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Geothermal|Other (Not Elsewhere Specified)', 'Oil|Other (Not Elsewhere Specified)']]
+    # agg CIRCOMOD materials
+    CM_mat_aggregates_locs  = [IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items.index(i) for i in ['concrete aggregates', 'aggregates (other than in concrete)']]
+    CM_mat_aluminium_locs  = [IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items.index(i) for i in ['wrought Al', 'cast Al']]
+    CM_mat_steel_locs       = [IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items.index(i) for i in ['construction grade steel', 'automotive steel', 'stainless steel', 'cast iron']]
+
+
+    # reporting per aggregated goods (pav, reb, nrb) per region ('Region_Focus') for: energy service (floor space; passenger km/yr), material inflow, material outflow, material stock
+    # reporting per aggregate building type (e.g., SFH,...) for agg. region ('RegionalScope') for: material inflow, material outflow, material stock
+    if 'pav' in SectorList:
+        for mr in range(0,Nr):
+            #Energy Service|Transportation|Passenger
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Passenger_km_pr[:,mr,:,:],newrowoffset,len(ColLabels),'passenger-km supplied by pass. vehicles','million km/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            # material inflow, material outflow, material stock per agg good and region
+            for mm in range(0,Nm):
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,mr,Sector_pav_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,mr,Sector_pav_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_pav_pr[:,mr,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'reb' in SectorList:
+        for mr in range(0,Nr):
+            #Energy Service|Residential|Floor Space
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_ResBuildings_pr[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total heated floor space, res. buildings','million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_ResBuildings_pr[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total cooled floor space, res. buildings','million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            # material inflow, material outflow, material stock per agg good and region
+            for mm in range(0,Nm):
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,mr,Sector_reb_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, res. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,mr,Sector_reb_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, res. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_reb_pr[:,mr,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, res. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_reb_rge,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, res. buildings, all res. building types, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_reb_rge_SFH,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, res. buildings, SFH, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_reb_rge_MFH,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, res. buildings, MFH, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_reb_rge_RT,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, res. buildings, RT, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_reb_rge_inf,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, res. buildings, informal, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_reb_rge,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, res. buildings, all res. building types, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_reb_rge_SFH,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, res. buildings, SFH, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_reb_rge_MFH,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, res. buildings, MFH, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_reb_rge_RT,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, res. buildings, RT, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_reb_rge_inf,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, res. buildings, informal, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_reb_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, res. buildings, all res. building types, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_reb_rge_SFH,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, res. buildings, SFH, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_reb_rge_MFH,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, res. buildings, MFH, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_reb_rge_RT,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, res. buildings, RT, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_reb_rge_inf,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, res. buildings, informal, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+    if 'nrb' in SectorList:
+        for mr in range(0,Nr):
+            #Energy Service|Commercial|Floor Space
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_NonResBuildings_pr[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total heated floor space, nonres. buildings','million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_NonResBuildings_pr[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Total cooled floor space, nonres. buildings','million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            # material inflow, material outflow, material stock per agg good and region
+            for mm in range(0,Nm):
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,mr,Sector_nrb_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, nonres. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,mr,Sector_nrb_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, nonres. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb_pr[:,mr,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_nrb_rge,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, nonres. buildings, all nonres. building types, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_nrb_rge_off,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, nonres. buildings, offices, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_nrb_rge_com,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, nonres. buildings, commercial, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_nrb_rge_edu,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, nonres. buildings, education, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_nrb_rge_hea,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, nonres. buildings, health, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_nrb_rge_hot,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, nonres. buildings, hotels_restaurants, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_nrb_rge_oth,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, nonres. buildings, other, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_nrb_rge,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, nonres. buildings, all nonres. building types, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_nrb_rge_off,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, nonres. buildings, offices, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_nrb_rge_com,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, nonres. buildings, commercial, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_nrb_rge_edu,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, nonres. buildings, education, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_nrb_rge_hea,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, nonres. buildings, health, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_nrb_rge_hot,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, nonres. buildings, hotels_restaurants, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_nrb_rge_oth,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, nonres. buildings, other, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_nrb_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, all nonres. building types, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_nrb_rge_off,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, offices, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_nrb_rge_com,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, commercial, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_nrb_rge_edu,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, education, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_nrb_rge_hea,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, health, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_nrb_rge_hot,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, hotels_restaurants, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_nrb_rge_oth,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, other, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)        
+        for mr in range(0,Nr):    
+        # 2025-07-23, ch: for TIMES nrb renovation rate export useful energy demand use phase 
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,0:24,Heating_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, heating, nonres. buildings, all nonres. building types','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,0:4,Heating_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, heating, nonres. buildings, offices','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,4:8,Heating_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, heating, nonres. buildings, commercial','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,8:12,Heating_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, heating, nonres. buildings, education','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,12:16,Heating_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, heating, nonres. buildings, health','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,16:20,Heating_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, heating, nonres. buildings, hotels_restaurants','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,20:24,Heating_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, heating, nonres. buildings, other','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,0:24,Cooling_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, cooling, nonres. buildings, all nonres. building types','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,0:4,Cooling_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, cooling, nonres. buildings, offices','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,4:8,Cooling_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, cooling, nonres. buildings, commercial','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,8:12,Cooling_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, cooling, nonres. buildings, education','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,12:16,Cooling_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, cooling, nonres. buildings, health','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,16:20,Cooling_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, cooling, nonres. buildings, hotels_restaurants','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_useful_UP_serv_nrb[:,mr,20:24,Cooling_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total use phase useful energy consumption, cooling, nonres. buildings, other','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_all[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, heating, nonres. buildings, all nonres. building types','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_off[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, heating, nonres. buildings, offices','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_com[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, heating, nonres. buildings, commercial','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_edu[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, heating, nonres. buildings, education','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_hea[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, heating, nonres. buildings, health','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_hot[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, heating, nonres. buildings, hotels_restaurants','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_oth[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, heating, nonres. buildings, other','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_all[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, cooling, nonres. buildings, all nonres. building types','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_off[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, cooling, nonres. buildings, offices','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_com[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, cooling, nonres. buildings, commercial','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_edu[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, cooling, nonres. buildings, education','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_hea[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, cooling, nonres. buildings, health','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_hot[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, cooling, nonres. buildings, hotels_restaurants','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EI_useful_UP_serv_nrb_oth[:,mr,Cooling_loc,:,:],newrowoffset,len(ColLabels),'Energy intensity, useful energy demand, cooling, nonres. buildings, other','MJ/m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+    if 'tis' in SectorList: #2026-01-27
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_tis_rge,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, tis, all transp. infrastructure types, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            # only report for "agg_road" (sum of road, motorway, pedestrian, cycle, other).
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_tis_rge_cycle,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, tis, cycle paths, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_tis_rge_other,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, tis, other, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_tis_rge_road,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, tis, road, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_tis_rge_motorway,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, tis, motorway, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_tis_rge_pedestrian,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, tis, pedestrian, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_tis_rge_parking,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, tis, parking, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_tis_rge_bridge,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, tis, bridge, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_tis_rge_tunnel,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, tis, tunnel, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_tis_rge_rail,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, tis, rail, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_tis_rge_agg_road,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, tis, agg. road (incl. road, motorway, cycle paths, other, pedestrian), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_tis_rge,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, tis, all transp. infrastructure types, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            # only report for "agg_road" (sum of road, motorway, pedestrian, cycle, other).
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_tis_rge_cycle,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, tis, cycle paths, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_tis_rge_other,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, tis, other, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_tis_rge_road,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, tis, road, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_tis_rge_motorway,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, tis, motorway, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_tis_rge_pedestrian,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, tis, pedestrian, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_tis_rge_parking,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, tis, parking, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_tis_rge_bridge,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, tis, bridge, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_tis_rge_tunnel,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, tis, tunnel, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_tis_rge_rail,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, tis, rail, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_tis_rge_agg_road,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, tis, agg. road (incl. road, motorway, cycle paths, other, pedestrian), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_tis_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, all transp. infrastructure types, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            # only report for "agg_road" (sum of road, motorway, pedestrian, cycle, other).
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_tis_rge_cycle,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, cycle paths, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_tis_rge_other,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, other, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_tis_rge_road,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, road, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_tis_rge_motorway,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, motorway, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_tis_rge_pedestrian,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, pedestrian, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_tis_rge_parking,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, parking, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_tis_rge_bridge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, bridge, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_tis_rge_tunnel,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, tunnel, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_tis_rge_rail,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, rail, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_tis_rge_agg_road,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, tis, agg. road (incl. road, motorway, cycle paths, other, pedestrian), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'ind' in SectorList:
+        for mr in range(0,Nr): # material inflow, material outflow, material stock per agg good and region
+            for mm in range(0,Nm):
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,mr,Sector_ind_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,mr,Sector_ind_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_ind_pr[:,mr,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        for mm in range(0,Nm):
+            # only report for "agg_..." products where applicable (Bio, Coal, Gas, Solar, Wind)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, all power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Bio,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Biomass, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Bio_CCS,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Biomass w/ CCS, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Hydro,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Hydro, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_CSP,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, CSP, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_PV,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, PV, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Wind_On,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Wind Onshore, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Wind_Off,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Wind Offshore, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Geo,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Geothermal, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Nuc,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Nuclear, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Oil,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Oil, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Gas_CCS,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Gas w/ CCS, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Gas,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Gas, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Coal_CCS,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Coal CCS, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Coal,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Coal, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Bio_agg,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Biomass agg. (Biomass + Biomass w/ CCS), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Solar_agg,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Solar agg. (CSP + PV), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Wind_agg,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Wind agg. (Wind Onshore + Wind Offshore), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Coal_agg,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Coal agg. (Coal + Coal CCS), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Gas_agg,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Gas agg. (Gas + Gas CCS), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_ind_rge_Other_agg,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, ind, Other agg. (Geo + Oil), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            # only report for "agg_..." products where applicable (Bio, Coal, Gas, Solar, Wind)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, all power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Bio,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Biomass, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Bio_CCS,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Biomass w/ CCS, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Hydro,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Hydro, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_CSP,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, CSP, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_PV,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, PV, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Wind_On,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Wind Onshore, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Wind_Off,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Wind Offshore, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Geo,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Geothermal, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Nuc,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Nuclear, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Oil,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Oil, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Gas_CCS,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Gas w/ CCS, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Gas,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Gas, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Coal_CCS,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Coal CCS, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Coal,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Coal, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Bio_agg,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Biomass agg. (Biomass + Biomass w/ CCS), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Solar_agg,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Solar agg. (CSP + PV), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Wind_agg,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Wind agg. (Wind Onshore + Wind Offshore), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Coal_agg,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Coal agg. (Coal + Coal CCS), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Gas_agg,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Gas agg. (Gas + Gas CCS), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_ind_rge_Other_agg,mm,:,:].sum(axis=1).sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, ind, Other agg. (Geo + Oil), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            # only report for "agg_..." products where applicable (Bio, Coal, Gas, Solar, Wind)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, all power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Bio,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Biomass, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Bio_CCS,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Biomass w/ CCS, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Hydro,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Hydro, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_CSP,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, CSP, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_PV,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, PV, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Wind_On,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Wind Onshore, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Wind_Off,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Wind Offshore, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Geo,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Geothermal, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Nuc,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Nuclear, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Oil,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Oil, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Gas_CCS,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Gas w/ CCS, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Gas,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Gas, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Coal_CCS,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Coal CCS, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Coal,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Coal, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Bio_agg,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Biomass agg. (Biomass + Biomass w/ CCS), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Solar_agg,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Solar agg. (CSP + PV), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Wind_agg,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Wind agg. (Wind Onshore + Wind Offshore), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Coal_agg,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Coal agg. (Coal + Coal w/ CCS), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Gas_agg,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Gas agg. (Gas + Gas w/ CCS), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_ind_rge_Other_agg,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Other agg. (Geo + Oil), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+
+    # reporting per detailed goods (pav, reb classes, nrb classes) for: product stock, stock addition, stock retirement
+    if 'pav' in SectorList:
+        for mr in range(0,Nr):
+            #Product stock per region and good
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, pass. vehicles','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #Stock addition per region and good
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), pass. vehicles','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #Stock retirement
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), pass. vehicles','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    if 'reb' in SectorList:
+        for mr in range(0,Nr):
+            #Product stock per region and good
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, res. buildings, all res. building types','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_reb_rge_SFH,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, res. buildings, SFH','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_reb_rge_MFH,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, res. buildings, MFH','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_reb_rge_RT,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, res. buildings, RT','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_reb_rge_inf,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, res. buildings, informal','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #Stock addition per region and good
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), res. buildings, all res. building types','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_reb_rge_SFH,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), res. buildings, SFH','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_reb_rge_MFH,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), res. buildings, MFH','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_reb_rge_RT,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), res. buildings, RT','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_reb_rge_inf,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), res. buildings, informal','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #Stock retirement
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), res. buildings, all res. building types','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_reb_rge_SFH,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), res. buildings, SFH','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_reb_rge_MFH,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), res. buildings, MFH','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_reb_rge_RT,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), res. buildings, RT','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_reb_rge_inf,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), res. buildings, informal','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    if 'nrb' in SectorList:
+        for mr in range(0,Nr):
+            #Product stock per region and good
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, all nonres. building types','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_nrb_rge_off,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, offices','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_nrb_rge_com,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, commercial','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_nrb_rge_edu,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, education','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_nrb_rge_hea,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, health','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_nrb_rge_hot,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, hotels_restaurants','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_nrb_rge_oth,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nonres. buildings, other','Vehicles: million, Buildings: million m2',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #Stock addition per region and good
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), nonres. buildings, all nonres. building types','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_nrb_rge_off,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), nonres. buildings, offices','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_nrb_rge_com,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), nonres. buildings, commercial','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_nrb_rge_edu,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), nonres. buildings, education','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_nrb_rge_hea,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), nonres. buildings, health','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_nrb_rge_hot,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), nonres. buildings, hotels_restaurants','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_nrb_rge_oth,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), nonres. buildings, other','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            #Stock retirement
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), nonres. buildings, all nonres. building types','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_nrb_rge_off,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), nonres. buildings, offices','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_nrb_rge_com,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), nonres. buildings, commercial','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_nrb_rge_edu,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), nonres. buildings, eductaion','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_nrb_rge_hea,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), nonres. buildings, health','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_nrb_rge_hot,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), nonres. buildings, hotels_restaurants','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_nrb_rge_oth,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), nonres. buildings, other','Vehicles: million/yr, Buildings: million m2/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    if 'ind' in SectorList:
+        for mr in range(0,Nr):
+            # 2026-03-16, ch: correct reporting for ind product stocks/flows per region r; previously material m instead of region r name and unit Mt was in reporting, change to "GW" and region
+            #Product stock per region and good
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_ind_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, power technologies','GW',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_ind_rge_Bio_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Biomass agg. (Biomass + Biomass w/ CCS)', 'GW', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_ind_rge_Solar_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Solar agg. (CSP + PV)', 'GW', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_ind_rge_Wind_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Wind agg. (Wind Onshore + Wind Offshore)', 'GW', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_ind_rge_Coal_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Coal agg. (Coal + Coal w/ CCS)', 'GW', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_ind_rge_Gas_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Gas agg. (Gas + Gas w/ CCS)', 'GW', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_ind_rge_Other_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Other agg. (Geo + Oil)', 'GW', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_ind_rge_Hydro,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Hydro', 'GW', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,Sector_ind_rge_Nuc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, Nuclear', 'GW', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #Stock addition per region and good
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_ind_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), power technologies','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_ind_rge_Bio_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), ind, Biomass agg. (Biomass + Biomass w/ CCS)','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_ind_rge_Solar_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), ind, Solar agg. (CSP + PV)','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_ind_rge_Wind_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), ind, Wind agg. (Wind Onshore + Wind Offshore)','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_ind_rge_Coal_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), ind, Coal agg. (Coal + Coal w/ CCS)','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_ind_rge_Gas_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), ind, Gas agg. (Gas + Gas w/ CCS)','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_ind_rge_Other_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), ind, Other agg. (Geo + Oil)','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_ind_rge_Hydro,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), ind, Hydro','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,Sector_ind_rge_Nuc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'final consumption (use phase inflow), ind, Nuclear','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            #Stock retirement
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_ind_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), power technologies','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_ind_rge_Bio_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), ind, Biomass agg. (Biomass + Biomass w/ CCS)','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_ind_rge_Solar_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), ind, Solar agg. (CSP + PV)','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_ind_rge_Wind_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), ind, Wind agg. (Wind Onshore + Wind Offshore)','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_ind_rge_Coal_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), ind, Coal agg. (Coal + Coal w/ CCS)','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_ind_rge_Gas_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), ind, Gas agg. (Gas + Gas w/ CCS)','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_ind_rge_Other_agg,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), ind, Other agg. (Geo + Oil)','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_ind_rge_Hydro,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), ind, Hydro','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,Sector_ind_rge_Nuc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'EoL products (use phase outflow), ind, Nuclear','GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+    # Additional reporting of stocks and stock changes at good resolution:
+    #Product stock per region and good
+    """ #2026-02-19, ch: skip reporting at good level here, as not needed for CIRCOMOD reporting (agg. goods reported above already)
+    for mr in range(0,Nr):
+        for mg in range(0,Ng):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod_pr[:,mr,mg,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million, Buildings: million m2, TranspInf: kt, PowerSec: GW',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #Stock addition per region and good
+    for mr in range(0,Nr):
+        for mg in range(0,Ng):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Inflow_Prod_r[:,mr,mg,:,:],newrowoffset,len(ColLabels),'final consumption (use phase inflow), '  + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr, TranspInf: kt/yr, PowerSec: GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+    #Stock retirement
+    for mr in range(0,Nr):
+        for mg in range(0,Ng):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Prod_r[:,mr,mg,:,:],newrowoffset,len(ColLabels),'EoL products (use phase outflow), ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million/yr, Buildings: million m2/yr, TranspInf: kt/yr, PowerSec: GW/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)"""
+
+    # 2025-07-10, ch: CM reporting of diverted scrap / recycled material / virgin material consumption in manufacturing and final consumption
+    for mm in range(0,Nm):
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_to_Manuf[:,mm,:,:],newrowoffset,len(ColLabels),'Diverted fabrication scrap to manufacturing, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_12_5 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons[:,mm,:,:],newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_to_Manuf[:,mm,:,:],newrowoffset,len(ColLabels),'Recycled material to manufacturing, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_12_5 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,mm,:,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Recycled material in final material consumption, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,mm,:,:],newrowoffset,len(ColLabels),'Virgin material to manufacturing, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_12_5 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "Primary production ..."]
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons[:,mm,:,:],newrowoffset,len(ColLabels),'Virgin material in final material consumption, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials[:,mm,:,:],newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."]
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct_EoL_Pot[:,mm,:,:],newrowoffset,len(ColLabels),'Potential for recycled material from EoL products, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_12 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        # 2026-03-25, ch: add reporting of total secondary material produced
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,SecondaryProduct[:,mm,:,:],newrowoffset,len(ColLabels),'Secondary material production, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #if 'pav' in SectorList:  # 2026-01-22, hmli, circomod: aggregate materials group and use passenger vehicles for testing without affecting the results of building sector #20260216 not sector specific
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',DivertedScrap_to_Manuf[:,[0,1,2,3],:,:]),newrowoffset,len(ColLabels),'Diverted fabrication scrap to manufacturing, iron and steel (4 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',DivertedScrap_to_Manuf[:,[4,5],:,:]),newrowoffset,len(ColLabels),'Diverted fabrication scrap to manufacturing, aluminium (2 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',DivertedScrap_final_cons[:,[0,1,2,3],:,:]),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, iron and steel (4 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_6_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',DivertedScrap_final_cons[:,[4,5],:,:]),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, aluminium (2 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_6_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',RecycledMat_to_Manuf[:,[0,1,2,3],:,:]),newrowoffset,len(ColLabels),'Recycled material to manufacturing, iron and steel (4 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR', RecycledMat_to_Manuf[:, [4,5], :, :]),newrowoffset, len(ColLabels),'Recycled material to manufacturing, aluminium (2 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR', RecycledMat_to_Manuf[:, [4,5,6,10], :, :]),newrowoffset, len(ColLabels),'Recycled material to manufacturing, Non-Ferrous Metals (aggregate materials group)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR', RecycledMat_to_Manuf[:, [8,12,13], :, :]),newrowoffset, len(ColLabels),'Recycled material to manufacturing, non-metallic mineral materials (aggregate materials group)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR', RecycledMat_to_Manuf[:, CM_mat_aggregates_locs, :, :]),newrowoffset, len(ColLabels),'Recycled material to manufacturing, aggregates (concr. agg. + other agg.)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmgSR->tgSR',RecycledMat_final_cons_tmgSR[:,[0,1,2,3],:,:,:]).sum(axis=1),newrowoffset,len(ColLabels),'Recycled material in final material consumption, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'], 'F_6_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmgSR->tgSR',RecycledMat_final_cons_tmgSR[:,[4,5],:,:,:]).sum(axis=1),newrowoffset,len(ColLabels),'Recycled material in final material consumption, aluminium (2 groups)','Mt/yr',ScriptConfig['RegionalScope'], 'F_6_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',PrimaryProduction[:,[0,1,2,3],:,:]),newrowoffset,len(ColLabels),'Virgin material to manufacturing, iron and steel (4 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',PrimaryProduction[:,[4,5],:,:]),newrowoffset,len(ColLabels),'Virgin material to manufacturing, aluminium (2 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',Primary_final_cons[:,[0,1,2,3],:,:]),newrowoffset,len(ColLabels),'Virgin material in final material consumption, iron and steel (4 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_6_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',Primary_final_cons[:,[4,5],:,:]),newrowoffset,len(ColLabels),'Virgin material in final material consumption, aluminium (2 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_6_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',ReUse_Materials[:,[0,1,2,3],:,:]),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, iron and steel (4 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_17_6', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',ReUse_Materials[:,[4,5],:,:]),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, aluminium (2 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_17_6', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',ReUse_Materials[:,CM_mat_aggregates_locs,:,:]),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, aggregates (concr. agg. + other agg.)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_17_6', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',SecondaryProduct_EoL_Pot[:,[0,1,2,3],:,:]),newrowoffset,len(ColLabels),'Potential for recycled material from EoL products, iron and steel (4 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_9_12 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',SecondaryProduct_EoL_Pot[:,[4,5],:,:]),newrowoffset,len(ColLabels),'Potential for recycled material from EoL products, aluminium (2 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_9_12 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',SecondaryProduct_EoL_Pot[:,CM_mat_aggregates_locs,:,:]),newrowoffset,len(ColLabels),'Potential for recycled material from EoL products, aggregates (concr. agg. + other agg.)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_9_12 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #2026-01-22, hmli, circomod: report indicator 'Production|Iron and Steel|Volume' 'Production|Non-Ferrous Metals|Aluminium|Volume'...
+    #production_volume_tmSR = RecycledMat_to_Manuf.copy() + PrimaryProduction.copy()
+    production_volume_tmSR = SecondaryProduct.copy() + PrimaryProduction.copy() # 2026-03-26, ch: reporting corrected (secondary production can be greater than demand by manufacturing)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',production_volume_tmSR[:,[0,1,2,3],:,:]),newrowoffset,len(ColLabels),'Production of iron and steel (4 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)+F_3_4 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',production_volume_tmSR[:,[4,5],:,:]),newrowoffset,len(ColLabels),'Production of aluminium (2 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)+F_3_4 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',production_volume_tmSR[:,[7],:,:]),newrowoffset,len(ColLabels),'Production of plastics', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)+F_3_4 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',production_volume_tmSR[:,[4,5,6,10],:,:]),newrowoffset,len(ColLabels),'Production of non-ferrous metals', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)+F_3_4 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',production_volume_tmSR[:,[8,12,13],:,:]),newrowoffset,len(ColLabels),'Production of non-metallic minerals', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)+F_3_4 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',production_volume_tmSR[:,CM_mat_aggregates_locs,:,:]),newrowoffset,len(ColLabels),'Production of aggregates (concr. agg. + other agg.)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)+F_3_4 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    for mm in range(0,Nm):
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,production_volume_tmSR[:,mm,:,:],newrowoffset,len(ColLabels),'Production of ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm], 'Mt/yr',ScriptConfig['RegionalScope'], 'F_12_5 (part)+F_3_4 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #2026-01-22, hmli, circomod: report indicator 'Material Demand by Manufacturing|Steel' 'Material Demand by Manufacturing|Copper'...
+    material_demand_manufacturing_tmSR = DivertedScrap_to_Manuf.copy() + RecycledMat_to_Manuf.copy() + PrimaryProduction.copy()
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',material_demand_manufacturing_tmSR[:,[0,1,2,3],:,:]),newrowoffset,len(ColLabels),'Total amount of (Engineered Material) entering domestic manufacturing, iron and steel (4 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_4_5 + F_10_5', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',material_demand_manufacturing_tmSR[:,[4,5],:,:]),newrowoffset,len(ColLabels),'Total amount of (Engineered Material) entering domestic manufacturing, aluminium (2 groups)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_4_5 + F_10_5', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',material_demand_manufacturing_tmSR[:,[6],:,:]),newrowoffset,len(ColLabels),'Total amount of (Engineered Material) entering domestic manufacturing, copper electric grade', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_4_5 + F_10_5', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',material_demand_manufacturing_tmSR[:,[7],:,:]),newrowoffset,len(ColLabels),'Total amount of (Engineered Material) entering domestic manufacturing, plastics', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_4_5 + F_10_5', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('tmSR->tSR',material_demand_manufacturing_tmSR[:,CM_mat_aggregates_locs,:]),newrowoffset,len(ColLabels),'Total amount of (Engineered Material) entering domestic manufacturing, aggregates (concr. agg. + other agg.)', 'Mt/yr',ScriptConfig['RegionalScope'], 'F_4_5 + F_10_5', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    for mm in range(0,Nm):
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,material_demand_manufacturing_tmSR[:,mm,:,:],newrowoffset,len(ColLabels),'Total amount of (Engineered Material) entering domestic manufacturing, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm], 'Mt/yr',ScriptConfig['RegionalScope'], 'F_4_5 + F_10_5', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+    if 'reb' in SectorList or 'nrb' in SectorList or 'tis' in SectorList or 'ind' in SectorList: # only if buildings are covered
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,MaterialProduction_CO2[:,mm,:,:],newrowoffset,len(ColLabels),'CO2 emissions, material production (TIMES emission factors), ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'Process and direct CO2 emissions in process 3 and related energy supply','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+    # 2025-10-20, ch: report demolition rates and renovation activity
+    if 'reb' in SectorList:
+        for mr in range(0,Nr):
+            #demolition rate per r (and building type)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,DemolitionRate_reb_r[:,mr,:,:],newrowoffset,len(ColLabels),'Demolition rate, res. buildings, all res. building types','m2 use-phase outflow/m2 in-use stock',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,DemolitionRate_reb_SFH_r[:,mr,:,:],newrowoffset,len(ColLabels),'Demolition rate, res. buildings, SFH','m2 use-phase outflow/m2 in-use stock',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,DemolitionRate_reb_MFH_r[:,mr,:,:],newrowoffset,len(ColLabels),'Demolition rate, res. buildings, MFH','m2 use-phase outflow/m2 in-use stock',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,DemolitionRate_reb_RT_r[:,mr,:,:],newrowoffset,len(ColLabels),'Demolition rate, res. buildings, RT','m2 use-phase outflow/m2 in-use stock',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,DemolitionRate_reb_inf_r[:,mr,:,:],newrowoffset,len(ColLabels),'Demolition rate, res. buildings, informal','m2 use-phase outflow/m2 in-use stock',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'nrb' in SectorList:
+        for mr in range(0,Nr):
+            #demolition rate per r
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,DemolitionRate_nrb_r[:,mr,:,:],newrowoffset,len(ColLabels),'Demolition rate, non-res. buildings, all non-res. building types','m2 use-phase outflow/m2 in-use stock',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     
+    #2026-01-15, ch: reporting "Share of recycled|reused (Engineered Material) in total (Engineered Material) consumption by (Demand Sector), F_6_7(part)/F_6_7*100" 
+    # Report for res and non.res separately for CIRCOMOD Sankey diagrams (2026-03-25, ch)
+    if 'reb' in SectorList:
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,mm,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Recycled material in final material consumption, res. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,mm,Sector_reb_rge,:,:].sum(axis=1) / Material_Inflow_pr_pg[:,:,Sector_reb_rge,mm,:,:].sum(axis=1).sum(axis=1) * 100,newrowoffset,len(ColLabels),'Share of recycled (Engineered Material) in total (Engineered Material) consumption, res. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'%',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,mm,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, res. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,mm,Sector_reb_rge,:,:].sum(axis=1) / Material_Inflow_pr_pg[:,:,Sector_reb_rge,mm,:,:].sum(axis=1).sum(axis=1) * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, res. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,mm,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, res. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,mm,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Virgin material in final material consumption, res. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        # 2026-02-20, collected scrap reporting for CIRCOMOD
+        for ww in range (0,Nw):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_reb_rge,:,ww,:,:].sum(axis=(0,2,3)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, res. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[ww],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20; #2026-02-21: correcting the axis of sum from (1,2,3) to (0,2,3) to get the sum over g, r and m instead of t, r and m.
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_reb_rge,:,:,:,:][:,:,:,:,[0,1],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, res. buildings, iron and steel (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_reb_rge,:,:,:,:][:,:,:,:,[2,3,4,5,6],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, res. buildings, Non-Ferrous Metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+
+    if 'nrb' in SectorList:
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,mm,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Recycled material in final material consumption, nonres. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,mm,Sector_nrb_rge,:,:].sum(axis=1) / Material_Inflow_pr_pg[:,:,Sector_nrb_rge,mm,:,:].sum(axis=1).sum(axis=1) * 100,newrowoffset,len(ColLabels),'Share of recycled (Engineered Material) in total (Engineered Material) consumption, nonres. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'%',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,mm,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, nonres. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,mm,Sector_nrb_rge,:,:].sum(axis=1) / Material_Inflow_pr_pg[:,:,Sector_nrb_rge,mm,:,:].sum(axis=1).sum(axis=1) * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, nonres. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,mm,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, nonres. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,mm,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Virgin material in final material consumption, nonres. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        # 2026-02-20, collected scrap reporting for CIRCOMOD
+        for ww in range (0,Nw):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_nrb_rge,:,ww,:,:].sum(axis=(0,2,3)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, nonres. buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[ww],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20; #2026-02-21: correcting the axis of sum from (1,2,3) to (0,2,3) to get the sum over g, r and m instead of t, r and m.
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_nrb_rge,:,:,:,:][:,:,:,:,[0,1],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, nonres. buildings, iron and steel (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_nrb_rge,:,:,:,:][:,:,:,:,[2,3,4,5,6],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, nonres. buildings, Non-Ferrous Metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+
+    if 'reb' in SectorList and 'nrb' in SectorList:
+        Sector_reb_nrb_rge = np.concatenate((Sector_reb_rge, Sector_nrb_rge))
+        num_recycle_rebnrb = RecycledMat_final_cons_tmgSR[:,:,Sector_reb_nrb_rge,:,:].sum(axis=2)
+        num_reuse_rebnrb = ReUse_Materials_tmg[:,:,Sector_reb_nrb_rge,:,:].sum(axis=2)
+        den_rebnrb = Material_Inflow_pr_pg[:,:,Sector_reb_nrb_rge,:,:,:].sum(axis=1).sum(axis=1)
+        quotient_recycle_rebnrb = np.divide(
+            num_recycle_rebnrb,
+            den_rebnrb,
+            out=np.zeros_like(num_recycle_rebnrb),   # pre‑allocate the output with zeros
+            where=den_rebnrb != 0            # perform division only where denominator ≠ 0
+            )
+        quotient_reuse_rebnrb = np.divide(
+            num_reuse_rebnrb,
+            den_rebnrb,
+            out=np.zeros_like(num_reuse_rebnrb),   # pre‑allocate the output with zeros
+            where=den_rebnrb != 0            # perform division only where denominator ≠ 0
+            )
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,mm,Sector_reb_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,mm,Sector_reb_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Recycled material in final material consumption, buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_recycle_rebnrb[:,mm,:,:] * 100,newrowoffset,len(ColLabels),'Share of recycled (Engineered Material) in total (Engineered Material) consumption, buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'%',ScriptConfig['RegionalScope'],'F_6_7 (part) over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,mm,Sector_reb_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_rebnrb[:,mm,:,:] * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,mm,Sector_reb_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Virgin material in final material consumption, buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        # 2026-02-20, collected scrap reporting for CIRCOMOD
+        for ww in range (0,Nw):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_reb_nrb_rge,:,ww,:,:].sum(axis=(0,2,3)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, buildings, ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[ww],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20; #2026-02-21: correcting the axis of sum from (1,2,3) to (0,2,3) to get the sum over g, r and m instead of t, r and m.
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_reb_nrb_rge,:,:,:,:][:,:,:,:,[0,1],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, buildings, iron and steel (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_reb_nrb_rge,:,:,:,:][:,:,:,:,[2,3,4,5,6],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, buildings, Non-Ferrous Metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+    if 'pav' in SectorList:
+        num_recycle_pav = RecycledMat_final_cons_tmgSR[:,:,Sector_pav_rge,:,:].sum(axis=2)
+        num_recycle_pav_steel = RecycledMat_final_cons_tmgSR[:,[0,1,2,3],:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)) #2026-01-22, hmli, circomod: aggregrate material group
+        num_recycle_pav_alu   = RecycledMat_final_cons_tmgSR[:,[4,5],:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)) #2026-01-22, hmli, circomod: aggregrate material group
+
+        num_reuse_pav = ReUse_Materials_tmg[:,:,Sector_pav_rge,:,:].sum(axis=2)
+        num_reuse_pav_steel = ReUse_Materials_tmg[:,[0,1,2,3],:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)) #2026-01-22, hmli, circomod: aggregrate material group
+        num_reuse_pav_alu   = ReUse_Materials_tmg[:,[4,5],:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2))  #2026-01-22, hmli, circomod: aggregrate material group
+
+        den_pav = Material_Inflow_pr_pg[:,:,Sector_pav_rge,:,:,:].sum(axis=1).sum(axis=1)
+        den_pav_steel = Material_Inflow_pr_pg[:,:,Sector_pav_rge,:,:,:][:,:,:,[0,1,2,3],:,:].sum(axis=(1,2,3)) #2026-01-22, hmli, circomod: aggregrate material group
+        den_pav_alu   = Material_Inflow_pr_pg[:,:,Sector_pav_rge,:,:,:][:,:,:,[4,5],:,:].sum(axis=(1,2,3)) #2026-01-22, hmli, circomod: aggregrate material group
+
+        quotient_recycle_pav = np.divide(
+            num_recycle_pav,
+            den_pav,
+            out=np.zeros_like(num_recycle_pav),   # pre‑allocate the output with zeros
+            where=den_pav != 0            # perform division only where denominator ≠ 0
+            )
+        quotient_reuse_pav = np.divide(
+            num_reuse_pav,
+            den_pav,
+            out=np.zeros_like(num_reuse_pav),   # pre‑allocate the output with zeros
+            where=den_pav != 0            # perform division only where denominator ≠ 0
+            )
+
+        # 2026-01-22, hmli, circomod: aggregrate material group
+        quotient_recycle_pav_steel = np.divide(
+            num_recycle_pav_steel,
+            den_pav_steel,
+            out=np.zeros_like(num_recycle_pav_steel),  # pre‑allocate the output with zeros
+            where=den_pav_steel != 0  # perform division only where denominator ≠ 0
+            )
+        quotient_reuse_pav_steel = np.divide(
+            num_reuse_pav_steel,
+            den_pav_steel,
+            out=np.zeros_like(num_reuse_pav_steel),  # pre‑allocate the output with zeros
+            where=den_pav_steel != 0  # perform division only where denominator ≠ 0
+            )
+
+        #2026-01-22, hmli, circomod: aggregrate material group
+        quotient_recycle_pav_alu = np.divide(
+            num_recycle_pav_alu,
+            den_pav_alu,
+            out=np.zeros_like(num_recycle_pav_alu),  # pre‑allocate the output with zeros
+            where=den_pav_alu != 0  # perform division only where denominator ≠ 0
+            )
+        quotient_reuse_pav_alu = np.divide(
+            num_reuse_pav_alu,
+            den_pav_alu,
+            out=np.zeros_like(num_reuse_pav_alu),  # pre‑allocate the output with zeros
+            where=den_pav_alu != 0  # perform division only where denominator ≠ 0
+            )
+
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,mm,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Recycled material in final material consumption, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_recycle_pav[:,mm,:,:] * 100,newrowoffset,len(ColLabels),'Share of recycled (Engineered Material) in total (Engineered Material) consumption, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'%',ScriptConfig['RegionalScope'],'F_6_7 (part) over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,mm,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_pav[:,mm,:,:] * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects  
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,mm,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,mm,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Virgin material in final material consumption, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        #2026-01-22, hmli, circomod: aggregrate material group
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_recycle_pav_steel * 100,newrowoffset,len(ColLabels),'Share of recycled (Engineered Material) in total (Engineered Material) consumption, pass. vehicles, iron and steel (4 groups)','%',ScriptConfig['RegionalScope'],'F_6_7 (part) over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_recycle_pav_alu * 100,newrowoffset,len(ColLabels),'Share of recycled (Engineered Material) in total (Engineered Material) consumption, pass. vehicles, aluminium (2 groups)','%',ScriptConfig['RegionalScope'],'F_6_7 (part) over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,CM_mat_aluminium_locs,:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Recycled material in final material consumption, pass. vehicles, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,CM_mat_aluminium_locs,:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, pass. vehicles, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,CM_mat_aluminium_locs,:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, pass. vehicles, aluminium (2 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,CM_mat_aluminium_locs,:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Virgin material in final material consumption, pass. vehicles, aluminium (2 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,CM_mat_steel_locs,:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Recycled material in final material consumption, pass. vehicles, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,CM_mat_steel_locs,:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, pass. vehicles, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,CM_mat_steel_locs,:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, pass. vehicles, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,CM_mat_steel_locs,:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Virgin material in final material consumption, pass. vehicles, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+    
+        #2026-01-22, hmli, circomod: aggregrate material group
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_pav_steel * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, pass. vehicles, iron and steel (4 groups)' ,'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_pav_alu * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, pass. vehicles, aluminium (2 groups)' ,'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+        # 2026-02-20, collected scrap reporting for CIRCOMOD
+        for ww in range (0,Nw):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_pav_rge,:,ww,:,:].sum(axis=(0,2,3)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[ww],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20; #2026-02-21: correcting the axis of sum from (1,2,3) to (0,2,3) to get the sum over g, r and m instead of t, r and m.
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_pav_rge,:,:,:,:][:,:,:,:,[0,1],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, pass. vehicles, iron and steel (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_pav_rge,:,:,:,:][:,:,:,:,[2,3,4,5,6],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, pass. vehicles, Non-Ferrous Metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+
+    if 'tis' in SectorList:
+        num_recycle_tis = RecycledMat_final_cons_tmgSR[:,:,Sector_tis_rge,:,:].sum(axis=2)
+        num_recycle_tis_agg   = RecycledMat_final_cons_tmgSR[:,CM_mat_aggregates_locs,:,:,:][:,:,Sector_tis_rge,:,:].sum(axis=(1,2)) #2026-02-19 circomod: concr aggregates + aggregates (other than in concrete) material group
+
+        num_reuse_tis = ReUse_Materials_tmg[:,:,Sector_tis_rge,:,:].sum(axis=2)
+        num_reuse_tis_agg   = ReUse_Materials_tmg[:,CM_mat_aggregates_locs,:,:,:][:,:,Sector_tis_rge,:,:].sum(axis=(1,2))  #2026-02-19 circomod: aggregrates material group
         
+        den_tis = Material_Inflow_pr_pg[:,:,Sector_tis_rge,:,:,:].sum(axis=1).sum(axis=1)
+        den_tis_agg   = Material_Inflow_pr_pg[:,:,Sector_tis_rge,:,:,:][:,:,:,CM_mat_aggregates_locs,:,:].sum(axis=(1,2,3)) #2026-02-19 circomod: aggregrates material group
+        
+        quotient_recycle_tis = np.divide(
+            num_recycle_tis,
+            den_tis,
+            out=np.zeros_like(num_recycle_tis),   # pre‑allocate the output with zeros
+            where=den_tis != 0            # perform division only where denominator ≠ 0
+            )
+        quotient_reuse_tis = np.divide(
+            num_reuse_tis,
+            den_tis,
+            out=np.zeros_like(num_reuse_tis),   # pre‑allocate the output with zeros
+            where=den_tis != 0            # perform division only where denominator ≠ 0
+            )
+        #2026-02-19 circomod: aggregrates material group
+        quotient_recycle_tis_agg = np.divide(
+            num_recycle_tis_agg,
+            den_tis_agg,
+            out=np.zeros_like(num_recycle_tis_agg),  # pre‑allocate the output with zeros
+            where=den_tis_agg != 0  # perform division only where denominator ≠ 0
+            )
+        quotient_reuse_tis_agg = np.divide(
+            num_reuse_tis_agg,
+            den_tis_agg,
+            out=np.zeros_like(num_reuse_tis_agg),  # pre‑allocate the output with zeros
+            where=den_tis_agg != 0  # perform division only where denominator ≠ 0
+            )
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,mm,Sector_tis_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Recycled material in final material consumption, transport infrastructure, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_recycle_tis[:,mm,:,:] * 100,newrowoffset,len(ColLabels),'Share of recycled (Engineered Material) in total (Engineered Material) consumption, transport infrastructure, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'%',ScriptConfig['RegionalScope'],'F_6_7 (part) over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,mm,Sector_tis_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, transport infrastructure, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_tis[:,mm,:,:] * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, transport infrastructure, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,mm,Sector_tis_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, transport infrastructure, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,mm,Sector_tis_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Virgin material in final material consumption, transport infrastructure, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_recycle_tis_agg * 100,newrowoffset,len(ColLabels),'Share of recycled (Engineered Material) in total (Engineered Material) consumption, transport infrastructure, aggregates (concr. agg. + other agg.)','%',ScriptConfig['RegionalScope'],'F_6_7 (part) over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19 circomod: aggregrates material group
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_tis_agg * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, transport infrastructure, aggregates (concr. agg. + other agg.)','%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19 circomod: aggregrates material group
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,CM_mat_aggregates_locs,:,:,:][:,:,Sector_tis_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Recycled material in final material consumption, transport infrastructure, aggregates (concr. agg. + other agg.)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19 circomod: aggregrates material group  
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,CM_mat_aggregates_locs,:,:,:][:,:,Sector_tis_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, transport infrastructure, aggregates (concr. agg. + other agg.)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19 circomod: aggregrates material group
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,CM_mat_aggregates_locs,:,:,:][:,:,Sector_tis_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, transport infrastructure, aggregates (concr. agg. + other agg.)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19 circomod: aggregrates material group
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,CM_mat_aggregates_locs,:,:,:][:,:,Sector_tis_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Virgin material in final material consumption, transport infrastructure, aggregates (concr. agg. + other agg.)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19 circomod: aggregrates material group
+        # 2026-02-20, collected scrap reporting for CIRCOMOD
+        for ww in range (0,Nw):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_tis_rge,:,ww,:,:].sum(axis=(0,2,3)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, transport infrastructure, ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[ww],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20; #2026-02-21: correcting the axis of sum from (1,2,3) to (0,2,3) to get the sum over g, r and m instead of t, r and m.
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_tis_rge,:,:,:,:][:,:,:,:,[0,1],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, transport infrastructure, iron and steel (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_tis_rge,:,:,:,:][:,:,:,:,[2,3,4,5,6],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, transport infrastructure, Non-Ferrous Metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+
+
+    if 'ind' in SectorList:
+        num_recycle_ind = RecycledMat_final_cons_tmgSR[:,:,Sector_ind_rge,:,:].sum(axis=2)
+        num_recycle_ind_steel = RecycledMat_final_cons_tmgSR[:,[0,1,2,3],:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)) #2026-01-22, hmli, circomod: aggregrate material group
+        num_recycle_ind_alu   = RecycledMat_final_cons_tmgSR[:,[4,5],:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)) #2026-01-22, hmli, circomod: aggregrate material group
+
+        num_reuse_ind = ReUse_Materials_tmg[:,:,Sector_ind_rge,:,:].sum(axis=2)
+        num_reuse_ind_steel = ReUse_Materials_tmg[:,[0,1,2,3],:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)) #2026-01-22, hmli, circomod: aggregrate material group
+        num_reuse_ind_alu   = ReUse_Materials_tmg[:,[4,5],:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2))  #2026-01-22, hmli, circomod: aggregrate material group
+
+        den_ind = Material_Inflow_pr_pg[:,:,Sector_ind_rge,:,:,:].sum(axis=1).sum(axis=1)
+        den_ind_steel = Material_Inflow_pr_pg[:,:,Sector_ind_rge,:,:,:][:,:,:,[0,1,2,3],:,:].sum(axis=(1,2,3)) #2026-01-22, hmli, circomod: aggregrate material group
+        den_ind_alu   = Material_Inflow_pr_pg[:,:,Sector_ind_rge,:,:,:][:,:,:,[4,5],:,:].sum(axis=(1,2,3)) #2026-01-22, hmli, circomod: aggregrate material group
+
+        quotient_recycle_ind = np.divide(
+            num_recycle_ind,
+            den_ind,
+            out=np.zeros_like(num_recycle_ind),   # pre‑allocate the output with zeros
+            where=den_ind != 0            # perform division only where denominator ≠ 0
+            )
+        quotient_reuse_ind = np.divide(
+            num_reuse_ind,
+            den_ind,
+            out=np.zeros_like(num_reuse_ind),   # pre‑allocate the output with zeros
+            where=den_ind != 0            # perform division only where denominator ≠ 0
+            )
+
+        # 2026-01-22, hmli, circomod: aggregrate material group
+        quotient_recycle_ind_steel = np.divide(
+            num_recycle_ind_steel,
+            den_ind_steel,
+            out=np.zeros_like(num_recycle_ind_steel),  # pre‑allocate the output with zeros
+            where=den_ind_steel != 0  # perform division only where denominator ≠ 0
+            )
+        quotient_reuse_ind_steel = np.divide(
+            num_reuse_ind_steel,
+            den_ind_steel,
+            out=np.zeros_like(num_reuse_ind_steel),  # pre‑allocate the output with zeros
+            where=den_ind_steel != 0  # perform division only where denominator ≠ 0
+            )
+
+        #2026-01-22, hmli, circomod: aggregrate material group
+        quotient_recycle_ind_alu = np.divide(
+            num_recycle_ind_alu,
+            den_ind_alu,
+            out=np.zeros_like(num_recycle_ind_alu),  # pre‑allocate the output with zeros
+            where=den_ind_alu != 0  # perform division only where denominator ≠ 0
+            )
+        quotient_reuse_ind_alu = np.divide(
+            num_reuse_ind_alu,
+            den_ind_alu,
+            out=np.zeros_like(num_reuse_ind_alu),  # pre‑allocate the output with zeros
+            where=den_ind_alu != 0  # perform division only where denominator ≠ 0
+            )
+
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,mm,Sector_ind_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Recycled material in final material consumption, power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_recycle_ind[:,mm,:,:] * 100,newrowoffset,len(ColLabels),'Share of recycled (Engineered Material) in total (Engineered Material) consumption, power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'%',ScriptConfig['RegionalScope'],'F_6_7 (part) over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,mm,Sector_ind_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_ind[:,mm,:,:] * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects  
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,mm,Sector_ind_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,mm,Sector_ind_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Virgin material in final material consumption, power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        #2026-01-22, hmli, circomod: aggregrate material group
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_recycle_ind_steel * 100,newrowoffset,len(ColLabels),'Share of recycled (Engineered Material) in total (Engineered Material) consumption, power technologies, iron and steel (4 groups)','%',ScriptConfig['RegionalScope'],'F_6_7 (part) over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_recycle_ind_alu * 100,newrowoffset,len(ColLabels),'Share of recycled (Engineered Material) in total (Engineered Material) consumption, power technologies, aluminium (2 groups)','%',ScriptConfig['RegionalScope'],'F_6_7 (part) over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,CM_mat_aluminium_locs,:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Recycled material in final material consumption, power technologies, aluminium (2 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,CM_mat_aluminium_locs,:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, power technologies, aluminium (2 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,CM_mat_aluminium_locs,:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, power technologies, aluminium (2 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,CM_mat_aluminium_locs,:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Virgin material in final material consumption, power technologies, aluminium (2 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,CM_mat_steel_locs,:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Recycled material in final material consumption, power technologies, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,CM_mat_steel_locs,:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, power technologies, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,CM_mat_steel_locs,:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, power technologies, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,CM_mat_steel_locs,:,:,:][:,:,Sector_ind_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Virgin material in final material consumption, power technologies, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
+        #2026-01-22, hmli, circomod: aggregrate material group
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_ind_steel * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, power technologies, iron and steel (4 groups)' ,'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_ind_alu * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, power technologies, aluminium (2 groups)' ,'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
+        # 2026-02-20, collected scrap reporting for CIRCOMOD
+        for ww in range (0,Nw):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_ind_rge,:,ww,:,:].sum(axis=(0,2,3)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, power technologies, ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[ww],'Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20; #2026-02-21: correcting the axis of sum from (1,2,3) to (0,2,3) to get the sum over g, r and m instead of t, r and m.
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_ind_rge,:,:,:,:][:,:,:,:,[0,1],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, power technologies, iron and steel (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Collected_Scrap_F_9_10_trgmwSR[:,:,Sector_ind_rge,:,:,:,:][:,:,:,:,[2,3,4,5,6],:,:].sum(axis=(1,2,3,4)),newrowoffset,len(ColLabels),'Collected scrap from EoL products, power technologies, Non-Ferrous Metals (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_9_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-20
+
+    # 2026-03-25, ch: additional reporting for Sankey diagrams
+    # total diverted manufacturing scrap (only automotive steel)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Fabscrapdiversionpotential_twmSR[:,:,1,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Total diverted manufacturing scrap (automotive steel)','Mt/yr',ScriptConfig['RegionalScope'],'F_5_10 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-25
+    for ww in range (0,Nw):
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Scrap_entering_remelting_F_10_9_twSR[:,ww,:,:],newrowoffset,len(ColLabels),'Scrap entering remelting (new + collected post-consumer), ' + IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items[ww],'Mt/yr',ScriptConfig['RegionalScope'],'F_10_9','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-25
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,Scrap_entering_remelting_F_10_9_twSR[:,[0,1],:,:].sum(axis=1),newrowoffset,len(ColLabels),'Scrap entering remelting (new + collected post-consumer), iron and steel (aggregate materials group)','Mt/yr',ScriptConfig['RegionalScope'],'F_10_9','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-25
+    for mm in range(0,Nm):
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockPileSecondaryMaterialUse_tmSR[:,mm,:,:],newrowoffset,len(ColLabels),'Use of stock-piled secondary material, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_12_5 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-25  
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockPileSecondaryMaterialUse_tmSR[:,CM_mat_steel_locs,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Use of stock-piled secondary material, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_12_5 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-25  
+
     book2 = openpyxl.Workbook() # Export other model results, calibration values, flags, etc.
     wsx = book2.active
     wsx.title = 'Cover'
@@ -3298,6 +5105,9 @@ def main():
         wsx.cell(row=m, column=2).value = x
         wsx.cell(row=m, column=3).value = ScriptConfig[x]
         m +=1       
+
+    '''
+    # 2025-01-16: turn output of calibration values off (modelling only SSP2; and calibration only applied to energy consumption, not vkm, pkm etc anymore) 
         
     # Post calibration 2015 parameter values
     if 'pav' in SectorList:
@@ -3372,7 +5182,7 @@ def main():
         for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
             reb_Sheet.cell(m+1,4).value = E_Calib_Buildings[0,m-2]
             m+=1            
-    
+
     if 'nrb' in SectorList:
         nrb_Sheet = book2.create_sheet('nonres. buildings')
         nrb_Sheet.cell(1,2).value = '2015 post calibration values, by model region'
@@ -3397,6 +5207,7 @@ def main():
         for Rname in IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items:
             nrb_Sheet.cell(m+1,4).value = E_Calib_NRBuildgs[0,m-2]
             m+=1     
+    '''
             
     # Export time-less indicators, like dynGWP    
     ws3 = book2.create_sheet('Scenario_Indicators')
@@ -3407,7 +5218,7 @@ def main():
         ws3.cell(row=2, column=m+3).font  = openpyxl.styles.Font(bold=True)
         ws3.cell(row=3, column=m+3).value = Items_RCP[m%2]
         ws3.cell(row=3, column=m+3).font  = openpyxl.styles.Font(bold=True)
-    
+
     ws3.cell(row=4, column=1).value = 'dynGWP_System_3579di'
     ws3.cell(row=4, column=1).font  = openpyxl.styles.Font(bold=True)
     ws3.cell(row=4, column=2).value = 'Mt CO_2 eq'
@@ -3422,57 +5233,59 @@ def main():
             
     # export emission factors. Unit: kgCO2 eq/MJ
     pd_xlsx_writer = pd.ExcelWriter(os.path.join(ProjectSpecs_Path_Result,'Extensions_'+ ScriptConfig['Current_UUID'] + '.xlsx'), engine="xlsxwriter")
-    
+
     EF_bas = pd.DataFrame( data =EmissionFactorElectricity_r[:,:,0].transpose(), columns = IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items)
     EF_RCP = pd.DataFrame( data =EmissionFactorElectricity_r[:,:,1].transpose(), columns = IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items)
-    
+
     EF_bas.to_excel(pd_xlsx_writer, sheet_name="EF_baseline")
     EF_RCP.to_excel(pd_xlsx_writer, sheet_name="EF_RCP")    
-    
+
     # export residuals  
     pd_res = pd.DataFrame( 
         data = residuals[:,:], 
         columns = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items,
         index = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items)
     pd_res.to_excel(pd_xlsx_writer, sheet_name="EF_Residuals") 
-    
+
     #pd_ecc = pd.DataFrame( # energy carriers contributions
     #     data = fuel_production[:,:], 
     #     columns = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items,
     #     index = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items)
     #pd_ecc.to_excel(pd_xlsx_writer, sheet_name="en_carr_contrib_fuels") 
-    
+
     #pd_dir = pd.DataFrame( # direct contributions
     #     data = direct_impact[:,:], 
     #     columns = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items,
     #     index = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items)
     #pd_ecc.to_excel(pd_xlsx_writer, sheet_name="en_carr_contrib_direct") 
-    
+
     #pd_el = pd.DataFrame( # electricity production contribution
     #     data = elec_production[:,:], 
     #     columns = IndexTable.Classification[IndexTable.index.get_loc('Environmental pressure')].Items,
     #     index = IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items)
     #pd_ecc.to_excel(pd_xlsx_writer, sheet_name="en_carr_contrib_electr") 
-    
+
+    '''#2025-07, exclude plots for testing purposes, and because hard-coded for specific scenario selection etc
     ##############################
     # PLOT
     MyColorCycle = pylab.cm.Paired(np.arange(0,1,0.2))
     #linewidth = [1.2,2.4,1.2,1.2,1.2]
     linewidth  = [1.2,2,1.2]
     linewidth2 = [1.2,2,1.2]
-    
+
     Figurecounter = 1
     LegendItems_SSP    = IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items
     #LegendItems_RCP    = IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items
     LegendItems_SSP_RE = ['LED, no EST', 'LED, 2°C ES', 'SSP1, no EST', 'SSP1, 2°C ES', 'SSP2, no EST', 'SSP2, 2°C ES']
     LegendItems_SSP_UP = ['Use Phase, SSP1, no EST', 'Rest of system GHG, SSP1, no EST, forestry excl.','Use Phase, SSP1, 2°C ES', 'Rest of system GHG, SSP1, 2°C ES, forestry excl.']
     ColorOrder         = [1,0,3]
-    
+
     # policy baseline vs. RCP 2.6
     fig1, ax1 = plt.subplots()
     ax1.set_prop_cycle('color', MyColorCycle)
     ProxyHandlesList = []
-    for m in range(0,NS):
+    # for m in range(0,NS):
+    for m in range(2,NS): # only SSP2
         ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),Impacts_System_13579di[0,:,m,0], linewidth = linewidth[m], color = MyColorCycle[ColorOrder[m],:])
         #ProxyHandlesList.append(plt.line((0, 0), 1, 1, fc=MyColorCycle[m,:]))
         ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),Impacts_System_13579di[0,:,m,1], linewidth = linewidth2[m], linestyle = '--', color = MyColorCycle[ColorOrder[m],:])
@@ -3491,11 +5304,12 @@ def main():
     fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
-    
+
     fig1, ax1 = plt.subplots()
     ax1.set_prop_cycle('color', MyColorCycle)
     ProxyHandlesList = []
-    for m in range(0,NS):
+    # for m in range(0,NS):
+    for m in range(2,NS): # only SSP2
         ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),Impacts_PrimaryMaterial_3di[0,:,m,1])
     plt.legend(LegendItems_SSP,shadow = False, prop={'size':9}, loc = 'upper right' ,bbox_to_anchor=(1.20, 1))
     plt.ylabel('GHG emissions of primary material production, Mt/yr.', fontsize = 12) 
@@ -3510,12 +5324,13 @@ def main():
     fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
-    
+
     # primary steel, no CP and 2°C combined:
     fig1, ax1 = plt.subplots()
     ax1.set_prop_cycle('color', MyColorCycle)
     ProxyHandlesList = []
-    for m in range(0,NS):
+    # for m in range(0,NS):
+    for m in range(2,NS): # only SSP2
         ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),PrimaryProduction[:,0:3,m,0].sum(axis=1), linewidth = linewidth[m], color = MyColorCycle[ColorOrder[m],:])
         #ProxyHandlesList.append(plt.line((0, 0), 1, 1, fc=MyColorCycle[m,:]))
         ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),PrimaryProduction[:,0:3,m,1].sum(axis=1), linewidth = linewidth2[m], linestyle = '--', color = MyColorCycle[ColorOrder[m],:])
@@ -3531,15 +5346,16 @@ def main():
     fig_name = 'PSteel_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    #fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
+    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
-    
+
     # Cement production, no RE and RE combined:
     fig1, ax1 = plt.subplots()
     ax1.set_prop_cycle('color', MyColorCycle)
     ProxyHandlesList = []
-    for m in range(0,NS):
+    # for m in range(0,NS):
+    for m in range(2,NS): # only SSP2
         ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),PrimaryProduction[:,8,m,0], linewidth = linewidth[m], color = MyColorCycle[ColorOrder[m],:])
         #ProxyHandlesList.append(plt.line((0, 0), 1, 1, fc=MyColorCycle[m,:]))
         ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1),PrimaryProduction[:,8,m,1], linewidth = linewidth2[m], linestyle = '--', color = MyColorCycle[ColorOrder[m],:])
@@ -3555,15 +5371,16 @@ def main():
     fig_name = 'Cement_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    #fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
+    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
-    
+
     # Recycled steel, RE and no RE
     fig1, ax1 = plt.subplots()
     ax1.set_prop_cycle('color', MyColorCycle)
     ProxyHandlesList = []
-    for m in range(0,NS):
+    # for m in range(0,NS):
+    for m in range(2,NS): # only SSP2
         ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), SecondaryProduct[:,0:4,m,0].sum(axis =1), linewidth = linewidth[m], color = MyColorCycle[ColorOrder[m],:])
         #ProxyHandlesList.append(plt.line((0, 0), 1, 1, fc=MyColorCycle[m,:]))
         ax1.plot(np.arange(Model_Time_Start,Model_Time_End +1), SecondaryProduct[:,0:4,m,1].sum(axis =1), linewidth = linewidth2[m], linestyle = '--', color = MyColorCycle[ColorOrder[m],:])
@@ -3579,10 +5396,10 @@ def main():
     fig_name = 'SteelRecycling_Overview'
     # include figure in logfile:
     fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
-    #fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
+    fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
-    
+
     # Use phase and indirect emissions, RE and no RE
     fig1, ax1 = plt.subplots()
     ax1.set_prop_cycle('color', MyColorCycle)
@@ -3607,20 +5424,20 @@ def main():
     fig1.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
     Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
     Figurecounter += 1
-    
-    
+
+
     # Plot system emissions, by process, stacked.
     # Area plot, stacked, GHG emissions, material production, waste mgt, remelting, etc.
     MyColorCycle = pylab.cm.gist_earth(np.arange(0,1,0.155)) # select 12 colors from the 'Set1' color map.            
     #grey0_9      = np.array([0.9,0.9,0.9,1])
-    
+
     SSPScens   = ['LED','SSP1','SSP2']
     RCPScens   = ['No climate policy','RCP2.6 energy mix']
     Area       = ['use phase','use phase, scope 2 (el)','use phase, other energy, indirect','primary material product.','manufact. & recycling','forest sequestration','total (+ forest sequestr.)']     
     DataAExp   = np.zeros((NS,NR,Nt,6))
-    
-    
-    for mS in range(0,NS): # SSP
+
+
+    for mS in range(2,NS):
         for mR in range(0,NR): # RCP
         
             fig  = plt.figure(figsize=(8,5))
@@ -3653,7 +5470,7 @@ def main():
             DataAExp[mS,mR,:,3] = Impacts_PrimaryMaterial_3di[GWP100_loc,:,mS,mR].copy()
             DataAExp[mS,mR,:,4] = Impacts_MaterialCycle_5di_9di[GWP100_loc,:,mS,mR].copy()
             DataAExp[mS,mR,:,5] = Impacts_System_13579di[GWP100_loc,:,mS,mR].copy()
-            
+        
             plt.title('GHG emissions, stacked by process group, \n' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.', fontsize = 18)
             plt.ylabel(r'Mt of CO$_2$-eq.', fontsize = 18)
             plt.xlabel('Year', fontsize = 18)
@@ -3666,17 +5483,20 @@ def main():
             plt.show()
             fig_name = 'GWP_TimeSeries_AllProcesses_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
             # include figure in logfile:
-            fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+            fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
             # comment out to save disk space in archive:
-            fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
+            fig.savefig(os.path.join(ProjectSpecs_Path_Result,fig_name), dpi=DPI_RES, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1
-            
+
+
+        
     # Area plot, for material industries:
     Area2   = ['primary material product.','waste mgt. & recycling','manufacturing']     
-    
-    
-    for mS in range(0,NS): # SSP
+
+
+    # for m in range(0,NS):
+    for m in range(2,NS): # only SSP2
         for mR in range(0,NR): # RCP
         
             fig  = plt.figure(figsize=(8,5))
@@ -3704,14 +5524,17 @@ def main():
             plt.show()
             fig_name = 'GWP_TimeSeries_Materials_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
             # include figure in logfile:
-            fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+            #fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+            fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
             # comment out to save disk space in archive:
-            fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
+            #fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1
-            
+    
+        
     # Area plot for three ENVIRONMENTAL INDICATORS
-    for mS in range(0,NS): # SSP
+    # for m in range(0,NS):
+    for m in range(2,NS): # only SSP2
         for mR in range(0,NR): # RCP
         
             fig, axs = plt.subplots(nrows=3, ncols=1 , figsize=(7, 7))
@@ -3773,17 +5596,20 @@ def main():
             plt.show()
             fig_name = 'Impacts_TimeSeries_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
             # include figure in logfile:
-            fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+            #fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+            fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
             # comment out to save disk space in archive:
             fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1
-     
+    
         
     # Area plot for MATERIAL FOOTPRINT of the entire system.
     Area3   = ['Biomass','Non-metallic minerals','Metal ores','Fossil fuels','All materials']
-    
-    for mS in range(0,NS): # SSP
+
+    #for mS in range(0,NS):
+    # for m in range(0,NS):
+    for m in range(2,NS): # only SSP2
         for mR in range(0,NR): # RCP
         
             fig  = plt.figure(figsize=(8,5))
@@ -3815,25 +5641,27 @@ def main():
             plt.show()
             fig_name = 'MaterialInput_TimeSeries_Stacked_' + ScriptConfig['RegionalScope'] + ', ' + SSPScens[mS] + ', ' + RCPScens[mR] + '.png'
             # include figure in logfile:
-            fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+            #fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name + '_' + ScriptConfig['RegionalScope'] + '.png'
+            fig_name = 'Figure ' + str(Figurecounter) + '_' + fig_name
             # comment out to save disk space in archive:
             fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
-            Figurecounter += 1
+            Figurecounter += 1'''
         
-    
+
     ### 5.2) Export to Excel
     Mylog.info('### 5.2 - Export to Excel')
     # Export list data
     book.save( os.path.join(ProjectSpecs_Path_Result,'ODYM_RECC_ModelResults_'      + ScriptConfig['Current_UUID'] + '.xlsx'))
     book2.save(os.path.join(ProjectSpecs_Path_Result,'ODYM_RECC_Additional_Results_'+ ScriptConfig['Current_UUID'] + '.xlsx'))
-    
+
     # Export area plot as multi-index Excel file, add to existing pandas export file
     ColIndex       = [str(mmx) for mmx in  range(2015,2061)]
     RowIndex       = pd.MultiIndex.from_product([['use phase','use phase, scope 2 (el)','use phase, other indirect','primary material product.','manufact. & recycling','total (+ forest sequestr.)'],['LED','SSP1','SSP2'],['Base','RCP2_6']], names=('System scope','SSP','RCP'))
-    DF_GHGA_global = pd.DataFrame(np.einsum('SRts->sSRt',DataAExp).reshape(36,46), index=RowIndex, columns=ColIndex)
+
+    #DF_GHGA_global = pd.DataFrame(np.einsum('SRts->sSRt',DataAExp).reshape(36,46), index=RowIndex, columns=ColIndex) #2025-07, exclude plots for testing purposes 
     #DF_GHGA_global.to_excel(os.path.join(ProjectSpecs_Path_Result,'GHG_Area_Data.xlsx'), merge_cells=False)    
-    
+
     # Export total material stock
     ColIndex_m     = IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items
     ColIndex_t     = IndexTable.Classification[IndexTable.index.get_loc('Time')].Items
@@ -3860,12 +5688,12 @@ def main():
         RowIndex        = pd.MultiIndex.from_product([IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items,IndexTable.Classification[IndexTable.index.get_loc('NonresidentialBuildings')].Items], names=('Region','Stock_Item'))
         DF_matstock2015 = pd.DataFrame(np.einsum('mNr->rNm',TotalMaterialStock_2015_nrb).reshape(Nr*NN,Nm), index=RowIndex, columns=ColIndex_m)
         DF_matstock2015.to_excel(pd_xlsx_writer, sheet_name="RECC_matstock_2015_nrb_Mt", merge_cells=False)
-    
+
     pd_xlsx_writer.close()
-    
+
     ## 5.3) Export as .mat file
     # Not implemented.
-    
+
     ### 5.4) Model run is finished. Wrap up.
     Mylog.info('### 5.5 - Finishing')
     Mylog.debug("Converting " + os.path.join(ProjectSpecs_Path_Result, '..', log_filename))
@@ -3876,12 +5704,12 @@ def main():
     Time_Duration = Time_End - Time_Start
     Mylog.info('End of simulation: ' + time.asctime())
     Mylog.info('Duration of simulation: %.1f seconds.' % Time_Duration)
-    
+
     # remove all handlers from logger
     root = log.getLogger()
     root.handlers = []  # required if you don't want to exit the shell
     log.shutdown()
-    
+
     ### 5.5) Create descriptive folder name and rename result folder
     SectList    = eval(ScriptConfig['SectorSelect'])
     DescrString = '__'
@@ -3894,7 +5722,7 @@ def main():
             DescrString += '_'
             DescrString += sect
     DescrString += '__'        
-    
+
     REStratList = []
     if ScriptConfig['Include_REStrategy_FabYieldImprovement'] == 'True':
         REStratList.append('FYI')
@@ -3935,13 +5763,13 @@ def main():
     try:
         os.rename(ProjectSpecs_Path_Result,ProjectSpecs_Path_Result_New)
     except:
-        Mylog.info('Folder file not renamed. Acces is denied')
+        Mylog.info('Folder file not renamed. Access is denied')
             
-    
+
     print('done.')
-    
+
     OutputDict['Name_Scenario'] = Name_Scenario + '__' + TimeString + DescrString # return new scenario folder name to ScenarioControl script
-    
+
     return OutputDict
                     
 # code for script to be run as standalone function

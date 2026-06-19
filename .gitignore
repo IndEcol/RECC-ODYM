@@ -104,3 +104,9 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+#VScode settings
+.vscode/
+
+#date export results
+data_export/Export_to_IIASA/

@@ -45,7 +45,7 @@ def get_RECC_resfile_pos(Label,region,Resultsheet):
 Current_UUID = str(uuid.uuid4())
 
 # Read from default location:
-CP            = os.path.join(RECC_Paths.results_path,'RECCv2.5_EXPORT_Combine_Select.xlsx')    
+CP            = os.path.join(RECC_Paths.results_path,'RECCv2.5_EXPORT_Combine_Select.xlsx')     #RECCv2.5_EXPORT_Combine_Select.xlsx
 CF            = openpyxl.load_workbook(CP)
 CS            = CF['Cover'].cell(4,4).value
     
@@ -292,8 +292,9 @@ if glob_agg    == 'True':
             rsCS.cell(row=2+m, column=7+n).value = Res_rC_agg[m-start_ind,n]   
             
 # Save exported results
-RB.save(os.path.join(RECC_Paths.export_path,outpath,'Results_Extracted_RECCv2.5_' + fn_add + '.xlsx')) 
-                 
+RB.save(os.path.join(RECC_Paths.export_path,outpath,'Results_Extracted_' + fn_add + '.xlsx')) 
+#RB.save(os.path.join(RECC_Paths.export_path,outpath,'Results_Extracted_RECCv2.5_' + fn_add + '.xlsx')) 
+                
 #
 #
 #
