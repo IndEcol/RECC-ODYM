@@ -828,11 +828,7 @@ def main(): # to run model standalone and not as function, comment out first (de
         ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[0:115,:,[12,13,14,15],:,:,:] = np.einsum('cmrSR,N->cmNrSR',ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[0:115,:,13,:,:,:],np.ones(4))
         ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[0:115,:,[16,17,18,19],:,:,:] = np.einsum('cmrSR,N->cmNrSR',ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[0:115,:,17,:,:,:],np.ones(4))
         ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[0:115,:,[20,21,22,23],:,:,:] = np.einsum('cmrSR,N->cmNrSR',ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[0:115,:,21,:,:,:],np.ones(4))
-<<<<<<< HEAD
-        # Mix future archetypes for material composition
-=======
         # Mix future archetypes for material composition 
->>>>>>> 80a44448d6fa680fdb39b8539842092820be6a60
         ParameterDict['3_MC_RECC_NonResBuildings_RECC'].Values[115::,:,:,:,:,:] = \
         np.einsum('NrcSR,NmrcSR->cmNrSR',ParameterDict['3_SHA_LightWeighting_NonResBuildings'].Values,     np.einsum('urcSR,Nrm->NmrcSR',ParameterDict['3_SHA_DownSizing_NonResBuildings'].Values,    ParameterDict['3_MC_NonResBuildingArchetypes'].Values[[110,114,106,102,158,162,154,150,174,178,170,166,190,194,186,182,126,130,122,118,142,146,138,134],:,:])) +\
         np.einsum('NrcSR,NmrcSR->cmNrSR',ParameterDict['3_SHA_LightWeighting_NonResBuildings'].Values,     np.einsum('urcSR,Nrm->NmrcSR',1 - ParameterDict['3_SHA_DownSizing_NonResBuildings'].Values,ParameterDict['3_MC_NonResBuildingArchetypes'].Values[[109,113,105,101,157,161,153,149,173,177,169,165,189,193,185,181,125,129,121,117,141,145,137,133],:,:])) +\
@@ -4080,15 +4076,11 @@ def main(): # to run model standalone and not as function, comment out first (de
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Prod[:,mg,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[mg],'Vehicles: million, Buildings: million m2, TranspInf: kt, PowerSec: GW',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     for mm in range(0,Nm):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat[:,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-<<<<<<< HEAD
-    #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) 
-=======
     #if 'pav' in SectorList:  # 2026-01-22, hmli, circomod: aggregate materials group and use passenger vehicles for testing without affecting the results of building sector #20260216 not sector specific
     newrowoffset = msf.xlsxExportAdd_tAB(ws2, StockCurves_Mat[:,[0,1,2,3],:,:].sum(axis=1), newrowoffset,len(ColLabels),'In-use stock, iron and steel (4 groups)','Mt', ScriptConfig['RegionalScope'], 'S_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2, StockCurves_Mat[:,[4,5],:,:].sum(axis=1), newrowoffset,len(ColLabels),'In-use stock, aluminum (2 groups)','Mt', ScriptConfig['RegionalScope'], 'S_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
 
     #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
->>>>>>> 80a44448d6fa680fdb39b8539842092820be6a60
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat.sum(axis=1)-StockCurves_Mat[:,Concrete_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # 2025-07-10, ch: subtract 'concrete' from 'all materials', otherwise doublecounting
     if 'reb' in SectorList:
         for mm in range(0,Nm):
@@ -4099,9 +4091,6 @@ def main(): # to run model standalone and not as function, comment out first (de
         for mm in range(0,Nm):
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb[:,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, nrb, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
         #newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb.sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, nrb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
-<<<<<<< HEAD
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb.sum(axis=1)-StockCurves_Mat[:,Concrete_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, nrb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    # 2025-07-10, ch: subtract 'concrete' from 'all materials', otherwise doublecounting
-=======
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_nrb.sum(axis=1)-StockCurves_Mat_nrb[:,Concrete_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, nrb, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    # 2026-02-21: 'StockCurves_Mat' corrected to 'StockCurves_Mat_nrb'; 2025-07-10, ch: subtract 'concrete' from 'all materials', otherwise doublecounting
     if 'tis' in SectorList:
         for mm in range(0,Nm):
@@ -4115,7 +4104,6 @@ def main(): # to run model standalone and not as function, comment out first (de
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_ind_pr.sum(axis=1).sum(axis=1)-StockCurves_Mat_ind_pr[:,:,Concrete_loc,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, ind, all materials','Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # 2025-07-10, ch: subtract 'concrete' from 'all materials', otherwise doublecounting
 
 
->>>>>>> 80a44448d6fa680fdb39b8539842092820be6a60
     #per capita stocks per sector
     for mr in range(0,Nr):
         for mG in range(0,NG):
