@@ -127,7 +127,13 @@ and apply to sum of primary and secondary material production
         to 'SecondaryProduct.copy() + PrimaryProduction.copy()'
          
 """
-
+'''
+2026-08-05, hmli: add energy calibration for other land-based transport.
+2026-08-06, hmli: add reuse strategy for other land-based transport.
+2026-09-18, hmli: solve the 2019 mass balance issue of other land-based transport.
+2026-09-21, hmli: merge the code of other land-based transport into the code of RECC_v2.6_seed
+2026-10-28, hmli: add indicator report for olv
+'''
 
 def main(): # to run model standalone and not as function, comment out first (def main():) and last line (return OutputDict) of code and unindent all code in between by one level
     # Import required libraries:
@@ -140,9 +146,9 @@ def main(): # to run model standalone and not as function, comment out first (de
     import datetime
     #import scipy.io
     import pandas as pd
-    import shutil   
+    import shutil
     import uuid
-    import matplotlib.pyplot as plt   
+    import matplotlib.pyplot as plt
     from matplotlib.lines import Line2D
     import importlib
     import getpass
@@ -172,17 +178,17 @@ def main(): # to run model standalone and not as function, comment out first (de
     Model_Configfile = openpyxl.load_workbook(os.path.join(RECC_Paths.data_path,ProjectSpecs_Name_ConFile), data_only=True)
     ScriptConfig = {'Model Setting': Model_Configfile['Cover'].cell(4,4).value}
     Model_Configsheet = Model_Configfile[ScriptConfig['Model Setting']]
-    #Read debug modus:   
+    #Read debug modus:
     DebugCounter = 0
     while Model_Configsheet.cell(DebugCounter+1, 3).value != 'Logging_Verbosity':
         DebugCounter += 1
-    ScriptConfig['Logging_Verbosity'] = Model_Configsheet.cell(DebugCounter+1,4).value # Read loggin verbosity once entry was reached.    
+    ScriptConfig['Logging_Verbosity'] = Model_Configsheet.cell(DebugCounter+1,4).value # Read loggin verbosity once entry was reached.
     # Extract user name from main file
     ProjectSpecs_User_Name     = getpass.getuser()
 
     '''
     # 2025-09-22, ch: loading of ODYM packages according to ODYM version prior to summer 2025
-    # import packages whose location is now on the system path:    
+    # import packages whose location is now on the system path:
     import ODYM_Classes as msc # import the ODYM class file
     importlib.reload(msc)
     import ODYM_Functions as msf  # import the ODYM function file
@@ -196,7 +202,7 @@ def main(): # to run model standalone and not as function, comment out first (de
     import odym.functions as msf  # import the ODYM function file
     #importlib.reload(msf)
     import odym.dynamic_stock_model as dsm # import the dynamic stock model library
-    
+
 
     Name_Script        = Model_Configsheet.cell(6,4).value
     if Name_Script != 'ODYM_RECC_Main':  # Name of this script must equal the specified name in the Excel config file
@@ -213,7 +219,7 @@ def main(): # to run model standalone and not as function, comment out first (de
         os.makedirs(ProjectSpecs_Path_Result)
     # Initialize logger
     if ScriptConfig['Logging_Verbosity'] == 'DEBUG':
-        log_verbosity = eval("log.DEBUG")  
+        log_verbosity = eval("log.DEBUG")
     log_filename = Name_Scenario + '__' + TimeString + '.md'
     [Mylog, console_log, file_log] = msf.function_logger(log_filename, ProjectSpecs_Path_Result,
                                                         log_verbosity, log_verbosity)
@@ -257,7 +263,7 @@ def main(): # to run model standalone and not as function, comment out first (de
     MasterClassification = msf.ParseClassificationFile_Main(Classsheet,Mylog)
         
     Mylog.info('Read and parse config table, including the model index table, from model config sheet.')
-    IT_Aspects,IT_Description,IT_Dimension,IT_Classification,IT_Selector,IT_IndexLetter,PL_Names,PL_Description,PL_Version,PL_IndexStructure,PL_IndexMatch,PL_IndexLayer,PL_SubFolder,PL_ProxyCode,PL_ProcMethod,PL_UpdateOverwrite,PrL_Number,PrL_Name,PrL_Comment,PrL_Type,ScriptConfig = msf.ParseConfigFile(Model_Configsheet,ScriptConfig,Mylog)    
+    IT_Aspects,IT_Description,IT_Dimension,IT_Classification,IT_Selector,IT_IndexLetter,PL_Names,PL_Description,PL_Version,PL_IndexStructure,PL_IndexMatch,PL_IndexLayer,PL_SubFolder,PL_ProxyCode,PL_ProcMethod,PL_UpdateOverwrite,PrL_Number,PrL_Name,PrL_Comment,PrL_Type,ScriptConfig = msf.ParseConfigFile(Model_Configsheet,ScriptConfig,Mylog)
 
     Mylog.info('Define model classifications and select items for model classifications according to information provided by config file.')
     ModelClassification  = {} # Dict of model classifications
@@ -267,7 +273,7 @@ def main(): # to run model standalone and not as function, comment out first (de
         if EvalString.find(':') > -1: # range of items is taken
             RangeStart = int(EvalString[0:EvalString.find(':')])
             RangeStop  = int(EvalString[EvalString.find(':')+1::])
-            ModelClassification[IT_Aspects[m]].Items = ModelClassification[IT_Aspects[m]].Items[RangeStart:RangeStop]           
+            ModelClassification[IT_Aspects[m]].Items = ModelClassification[IT_Aspects[m]].Items[RangeStart:RangeStop]
         elif EvalString.find('[') > -1: # selected items are taken
             ModelClassification[IT_Aspects[m]].Items = [ModelClassification[IT_Aspects[m]].Items[i] for i in eval(EvalString)]
         elif EvalString == 'all':
@@ -313,20 +319,22 @@ def main(): # to run model standalone and not as function, comment out first (de
     NN = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('N')].Items) # varies: 24 for region-specific nrb and 4 for aggregated global resolution.
     NI = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('I')].Items)
     Na = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('a')].Items)
+    Nv = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('v')].Items)
     #NA = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('A')].Items)
     NS = len(IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items)
     NR = len(IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     Nw = len(IndexTable.Classification[IndexTable.index.get_loc('Waste_Scrap')].Items)
     Nm = len(IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items)
-    NP = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('P')].Items)    
+    NP = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('P')].Items)
     NX = len(IndexTable.Classification[IndexTable.index.get_loc('Extensions')].Items)
-    Nx = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('x')].Items)   
+    Nx = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('x')].Items)
     Nn = len(IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items)
     NV = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('V')].Items)
     Ns = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('s')].Items)
     #NT = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('T')].Items)
     NL = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('L')].Items)
-    NO = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('O')].Items)    
+    NO = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('O')].Items)
+    ND = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('D')].Items)
     NM = len(IndexTable.Classification[IndexTable.index.get_loc('MaterialProductionProcess')].Items)
     NK = len(IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('K')].Items) #2026-01: transport infrastructure IMAGE-Materials (infrastruKtur)
     #IndexTable.loc['t']['Classification'].Items # get classification items
@@ -378,7 +386,7 @@ def main(): # to run model standalone and not as function, comment out first (de
             Mylog.info('Entire parameter set stored under this UUID, will be reloaded for future calculations.')
             ParameterDict['Checkkey'] = CheckKey
             # Save to pickle file for next model run
-            ParFileObject = open(ParFileName,'wb') 
+            ParFileObject = open(ParFileName,'wb')
             pickle.dump(ParameterDict,ParFileObject)
         else: #if no new parameter data was read
             Mylog.info('Model data and parameters were read from pickled file with pickle file /parameter reading sequence UUID ' + ParameterDict['Checkkey'])
@@ -476,6 +484,36 @@ def main(): # to run model standalone and not as function, comment out first (de
     #     Section 3)  Interpolate missing parameter values:      #
     ##############################################################
     SectorList      = eval(ScriptConfig['SectorSelect'])
+    SubSectorList_trlp  = eval(ScriptConfig['SubSectorSelect_trlp'])
+    SubSectorList_trlf  = eval(ScriptConfig['SubSectorSelect_trlf'])
+
+    # cannot run pav and pav under trlp in parallel:
+    if 'pav' in SectorList and 'passenger vehicles' in SubSectorList_trlp:
+        raise AssertionError('Fatal: Sector passenger vehicles cannot run separately as pav and as part of all land transport trlp. Please remove passenger vehicles from SubSectorSelect_trlp and use the separate sector pav instead. Exiting the script.')
+    # index location of all land vehs. in product list.
+    try:
+        Sector_trlp_loc  = IndexTable.Classification[IndexTable.index.get_loc('Sectors')].Items.index('land-based passenger transport')
+    except:
+        Sector_trlp_loc  = np.nan
+    try:
+        Sector_trlp_rge  = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('D')].Items]
+    except:
+        if 'trlp' in SectorList:
+            raise AssertionError('Fatal: All selected items for aspect D must also be selected for aspect g. Exiting the script.')
+        else:
+            Sector_trlp_rge = []
+    try:
+        Sector_trlf_loc  = IndexTable.Classification[IndexTable.index.get_loc('Sectors')].Items.index('land-based freight transport')
+    except:
+        Sector_trlf_loc  = np.nan
+    try:
+        Sector_trlf_rge  = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('D')].Items]
+    except:
+        if 'trlf' in SectorList:
+            raise AssertionError('Fatal: All selected items for aspect D must also be selected for aspect g. Exiting the script.')
+        else:
+            Sector_trlf_rge = []
+
     if 'nrb' in SectorList and 'nrbg' in SectorList:
         raise AssertionError('Fatal: Non-residential buildings are included both globally (nrbg) and for individual regions (nrb). Double-counting. Exiting the script, check config file.')    
 
@@ -634,6 +672,7 @@ def main(): # to run model standalone and not as function, comment out first (de
     Service_Reb   = np.array([Heating_loc,Cooling_loc,DomstHW_loc])
     Ind_2015      = 115 #index of year 2015
     #Ind_2017      = 117 #index of year 2017
+    Ind_2019      = 119 #index of year 2019
     Ind_2020      = 120 #index of year 2020
     IsClose_Remainder_Small = 1e-15 
     IsClose_Remainder_Large = 1e-7 
@@ -647,6 +686,24 @@ def main(): # to run model standalone and not as function, comment out first (de
     Sector_ind_rge_reg  = np.arange(0,18,1)
     Sector_app_rge_reg  = np.arange(0,12,1)
     Sector_nrbg_rge_reg = np.arange(12,16,1)
+
+    # get number and location of all transportation sub-sectors and related vehicles
+    No_trlp = len(SubSectorList_trlp)
+    Li_trlp = list(SubSectorList_trlp.keys())
+    Lo_trlp = [IndexTable.Classification[IndexTable.index.get_loc('TransportServices')].Items.index(idx) for idx in Li_trlp]
+    Lv_trlp = []
+    for tri in range(0,No_trlp):
+        Lv_trlp.append([IndexTable.Classification[IndexTable.index.get_loc('OtherVehicles')].Items.index(idx) for idx in SubSectorList_trlp[Li_trlp[tri]]])
+
+    No_trlf = len(SubSectorList_trlf)
+    Li_trlf = list(SubSectorList_trlf.keys())
+    Lo_trlf = [IndexTable.Classification[IndexTable.index.get_loc('TransportServices')].Items.index(idx) for idx in Li_trlf]
+    Lv_trlf = []
+    for tri in range(0,No_trlf):
+        Lv_trlf.append([IndexTable.Classification[IndexTable.index.get_loc('OtherVehicles')].Items.index(idx) for idx in SubSectorList_trlf[Li_trlf[tri]]])
+
+    #Products_m3 Good
+    #Sectors_othervehicles OtherVehicles
 
     OutputDict      = {}  # Dictionary with output variables for entire model run, to export checks and analyses.
 
@@ -711,6 +768,24 @@ def main(): # to run model standalone and not as function, comment out first (de
 
     # 2a) Determine future energy intensity and material composition of vehicles by mixing archetypes:
     # Check if RE strategies are active and set implementation curves to 2016 value if not.
+    if 'trlp' in SectorList or 'trlf' in SectorList:
+        if ScriptConfig['Include_REStrategy_MaterialSubstitution'] == 'False': # no additional lightweighting trough material substitution or change in size.
+            ParameterDict['3_SHA_LightWeighting_OtherLandVehicles'].Values  = np.einsum('DrS,t->DrtS',ParameterDict['3_SHA_LightWeighting_OtherLandVehicles'].Values[:,:,0,:],np.ones((Nt)))
+        ParameterDict['3_MC_OtherLandVehicles_internal'] = msc.Parameter(Name='3_MC_OtherLandVehicles_internal', ID='3_MC_OtherLandVehicles_internal',
+                                                UUID=None, P_Res=None, MetaData=None,
+                                                Indices='cmDrS', Values=np.zeros((Nc,Nm,ND,Nr,NS)), Uncert=None,
+                                                Unit='kg/unit')
+        ParameterDict['3_MC_OtherLandVehicles_internal'].Values[0:SwitchTime-1,:,:,:,:] = np.einsum('cmD,Sr->cmDrS',ParameterDict['3_MC_RECC_OtherLandVehicles'].Values[0:SwitchTime-1,:,:],np.ones((NS,Nr)))
+        '''ParameterDict['3_MC_OtherLandVehicles_internal'].Values[SwitchTime-1::,:,:,:,:] = \
+        np.einsum('DrcS,Dm->cmDrS',    ParameterDict['3_SHA_LightWeighting_OtherLandVehicles'].Values/100, ParameterDict['3_MC_OtherLandVehicleArchetypes'].Values[[222,223,224,225,226,227,228,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247],:]) +\
+        np.einsum('DrcS,Dm->cmDrS',1 - ParameterDict['3_SHA_LightWeighting_OtherLandVehicles'].Values/100, ParameterDict['3_MC_OtherLandVehicleArchetypes'].Values[[196,197,198,199,200,201,202,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221],:])'''
+        ParameterDict['3_MC_OtherLandVehicles_internal'].Values[SwitchTime-1::,:,:,:,:] = \
+        np.einsum('DrcS,Dmc->cmDrS',    ParameterDict['3_SHA_LightWeighting_OtherLandVehicles'].Values/100, ParameterDict['3_MC_OtherLandVehicleArchetypes'].Values[[222,223,224,225,226,227,228,249,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,251,253],:,SwitchTime-1::]) +\
+        np.einsum('DrcS,Dmc->cmDrS',1 - ParameterDict['3_SHA_LightWeighting_OtherLandVehicles'].Values/100, ParameterDict['3_MC_OtherLandVehicleArchetypes'].Values[[196,197,198,199,200,201,202,248,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,250,252],:,SwitchTime-1::]) #2026-10-21, hmli: Add cohort dimension for other vehicles
+        ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[SwitchTime-1::,:,Service_Drivg,:,:,:] = \
+        np.einsum('DrcS,Dn->cDnrS',    ParameterDict['3_SHA_LightWeighting_OtherLandVehicles'].Values/100, ParameterDict['3_EI_OtherLandVehicleArchetypes'].Values[[222,223,224,225,226,227,228,249,229,230,231,232,233,234,235,236,237,238,239,240,241,242,243,244,245,246,247,251,253],:]) +\
+        np.einsum('DrcS,Dn->cDnrS',1 - ParameterDict['3_SHA_LightWeighting_OtherLandVehicles'].Values/100, ParameterDict['3_EI_OtherLandVehicleArchetypes'].Values[[196,197,198,199,200,201,202,248,203,204,205,206,207,208,209,210,211,212,213,214,215,216,217,218,219,220,221,250,252],:])
+
     if 'pav' in SectorList: #20260201: add patch-1 by huimei-li
         if ScriptConfig['Include_REStrategy_MaterialSubstitution'] == 'False': # no additional lightweighting trough material substitution.
             #ParameterDict['3_SHA_LightWeighting_Vehicles'].Values  = np.einsum('prS,t->prtS',ParameterDict['3_SHA_LightWeighting_Vehicles'].Values[:,:,0,:],np.ones((Nt)))
@@ -892,7 +967,8 @@ def main(): # to run model standalone and not as function, comment out first (de
     # 6) Energy carrier split of vehicles, replicate fixed values for all regions and age-cohorts etc.
     if 'pav' in SectorList:
         ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles'].Values = np.einsum('pn,crVS->cprVnS',ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles'].Values[115,:,0,Service_Drivg,:,SSP1index].copy(),np.ones((Nc,Nr,NV,NS)))
-
+    if 'trlp' in SectorList or 'trlf' in SectorList:
+        ParameterDict['3_SHA_EnergyCarrierSplit_OtherLandVehicles'].Values = np.einsum('Dn,crVS->cDrVnS',ParameterDict['3_SHA_EnergyCarrierSplit_OtherLandVehicles'].Values[119,:,0,Service_Drivg,:,SSP1index].copy(),np.ones((Nc,Nr,NV,NS)))
     # 7) RE strategy potentials for individual countries are replicated from global average:
     #ParameterDict['6_PR_ReUse_Bld'].Values                      = np.einsum('mB,r->mBr',ParameterDict['6_PR_ReUse_Bld'].Values[:,:,0],np.ones(Nr))
     if 'reb' in SectorList:
@@ -904,6 +980,8 @@ def main(): # to run model standalone and not as function, comment out first (de
         ParameterDict['6_PR_ReUse_Tis'].Values                      = np.einsum('mKt,r->mKrt',ParameterDict['6_PR_ReUse_Tis'].Values[:,:,0,:],np.ones(Nr)) 
     if 'ind' in SectorList: #2026-03-17 add ind reuse
         ParameterDict['6_PR_ReUse_Ind_electricity_inf'].Values      = np.einsum('mIt,r->mIrt',ParameterDict['6_PR_ReUse_Ind_electricity_inf'].Values[:,:,0,:],np.ones(Nr)) #values imported for "World" region, replace with r.
+    if 'trlp' in SectorList or 'trlf' in SectorList:
+        ParameterDict['6_PR_LifeTimeExtension_allvehicles'].Values  = np.einsum('DS,r->DrS',ParameterDict['6_PR_LifeTimeExtension_allvehicles'].Values[:,0,:],np.ones(Nr))
     if 'pav' in SectorList:
         ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values = np.einsum('pS,r->prS',ParameterDict['6_PR_LifeTimeExtension_passvehicles'].Values[:,0,:],np.ones(Nr))
     ParameterDict['6_PR_EoL_RR_Improvement'].Values             = np.einsum('gmwW,r->grmwW',ParameterDict['6_PR_EoL_RR_Improvement'].Values[:,0,:,:,:],np.ones(Nr))
@@ -942,6 +1020,8 @@ def main(): # to run model standalone and not as function, comment out first (de
     # 10) Set future vehicle reuse to 2015 levels if strategy is not included:
     # (To reflect that reuse is already happening to some extent.)
     if ScriptConfig['Include_REStrategy_ReUse'] == 'False':
+        if 'trlp' in SectorList or 'trlf' in SectorList: #2026-08-06, hmli:
+            ParameterDict['6_PR_ReUse_OtherLandVehicles'].Values = np.einsum('mDoS,t->mDotS',ParameterDict['6_PR_ReUse_OtherLandVehicles'].Values[:, :, :, 1, :],np.ones(Nt))
         if 'pav' in SectorList:
             ParameterDict['6_PR_ReUse_Veh'].Values       = np.einsum('mprS,t->mprtS',ParameterDict['6_PR_ReUse_Veh'].Values[:,:,:,1,:],np.ones(Nt)) # stay at current levels, which are > 0.
         #ParameterDict['6_PR_ReUse_Bld'].Values       = np.zeros(ParameterDict['6_PR_ReUse_Bld'].Values.shape) # set to zero, which corresponds to current levels.
@@ -959,7 +1039,18 @@ def main(): # to run model standalone and not as function, comment out first (de
     # 11) MODEL CALIBRATION
     # Calibrate vehicle kilometrage: No longer used! VKM is now calibrated in scenario target table process to deliver correct pC stock number for 2015.
     #### ParameterDict['3_IO_Vehicles_UsePhase'].Values[3,:,:,:]                             = ParameterDict['3_IO_Vehicles_UsePhase'].Values[3,:,:,:]                           * np.einsum('r,tS->rtS',ParameterDict['6_PR_Calibration'].Values[0,:],np.ones((Nt,NS)))
-    # Calibrate vehicle fuel consumption, cgVnrS   
+    # Calibrate vehicle fuel consumption, cgVnrS
+    # Calibrate other land vehicle fuel consumption, cgVnrS
+    if 'trlp' in SectorList or 'trlf' in SectorList: #2026-08-05，hmli： Calibrate other land vehicle fuel consumption
+        ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [0,1], Service_Drivg, :, :, :]                       = ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [0,1], Service_Drivg, :, :, :]                       * np.einsum('r,cpnS->cpnrS', ParameterDict['6_PR_Calibration'].Values[4, :], np.ones((115, 2, Nn, NS))) #2026-08-05, hmli: calibrate energy consumption of bicycles
+        ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [2,3], Service_Drivg, :, :, :]                       = ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [2,3], Service_Drivg, :, :, :]                       * np.einsum('r,cpnS->cpnrS', ParameterDict['6_PR_Calibration'].Values[5, :], np.ones((115, 2, Nn, NS))) #2026-08-05, hmli: calibrate energy consumption of motorcycles
+        ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [4,5,6,7], Service_Drivg, :, :, :]                     = ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [4,5,6,7], Service_Drivg, :, :, :]                     * np.einsum('r,cpnS->cpnrS', ParameterDict['6_PR_Calibration'].Values[6, :], np.ones((115, 4, Nn, NS)))  # 2026-08-05, hmli: calibrate energy consumption of buses
+        ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [8], Service_Drivg, :, :, :]                         = ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [8], Service_Drivg, :, :, :]                         * np.einsum('r,cpnS->cpnrS', ParameterDict['6_PR_Calibration'].Values[7, :], np.ones((115, 1, Nn, NS))) #2026-08-05, hmli: calibrate energy consumption of trams
+        ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [9], Service_Drivg, :, :, :]                         = ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [9], Service_Drivg, :, :, :]                         * np.einsum('r,cpnS->cpnrS', ParameterDict['6_PR_Calibration'].Values[8, :], np.ones((115, 1, Nn, NS))) #2026-08-05, hmli: calibrate energy consumption of HSR
+        ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [10,11,12,13,14,15,16,17,18], Service_Drivg, :, :, :] = ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [10,11,12,13,14,15,16,17,18], Service_Drivg, :, :, :] * np.einsum('r,cpnS->cpnrS', ParameterDict['6_PR_Calibration'].Values[9, :], np.ones((115, 9, Nn, NS))) #2026-08-05, hmli: calibrate energy consumption of conventional passenger trains
+        ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [22,23,24], Service_Drivg, :, :, :]                     = ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [22,23,24], Service_Drivg, :, :, :]                     * np.einsum('r,cpnS->cpnrS', ParameterDict['6_PR_Calibration'].Values[10, :], np.ones((115, 3, Nn, NS))) #2026-08-05, hmli: calibrate energy consumption of light cargos
+        ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [25,26,27,28], Service_Drivg, :, :, :]                  = ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [25,26,27,28], Service_Drivg, :, :, :]                  * np.einsum('r,cpnS->cpnrS', ParameterDict['6_PR_Calibration'].Values[11, :], np.ones((115, 4, Nn, NS))) #2026-08-05, hmli: calibrate energy consumption of heavy trucks
+        ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [19,20,21], Service_Drivg, :, :, :]                  = ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[0:115, [19,20,21], Service_Drivg, :, :, :]                  * np.einsum('r,cpnS->cpnrS', ParameterDict['6_PR_Calibration'].Values[12, :], np.ones((115, 3, Nn, NS))) #2026-08-05, hmli: calibrate energy consumption of freight trains
     if 'pav' in SectorList:
         ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,Service_Drivg,:,:,:]        = ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[0:115,:,Service_Drivg,:,:,:]      * np.einsum('r,cpnS->cpnrS',ParameterDict['6_PR_Calibration'].Values[1,:],np.ones((115,Np,Nn,NS)))
     # Calibrate res. building energy consumption
@@ -975,19 +1066,40 @@ def main(): # to run model standalone and not as function, comment out first (de
         ParameterDict['4_PY_MaterialProductionRemelting'].Values = np.zeros(ParameterDict['4_PY_MaterialProductionRemelting'].Values.shape)
         
     # 13) Currently not used.
-    if 'pav' in SectorList:  
-        # 14) Define parameter for future vehicle stock:
-        # a) calculated passenger vehicle stock
+
+    # 14) Define parameter for future vehicle stock:
+    # a) calculated passenger vehicle stock
+    if 'pav' in SectorList:
         ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_passvehicles', ID='2_S_RECC_FinalProducts_Future_passvehicles',
                                                     UUID=None, P_Res=None, MetaData=None,
                                                     Indices='StGr', Values=np.zeros((NS,Nt,NG,Nr)), Uncert=None,
                                                     Unit='cars per person')
+    if 'trlp' in SectorList or 'trlf' in SectorList:
+        ParameterDict['2_S_RECC_FinalProducts_Future_allvehicles'] = msc.Parameter(Name='2_S_RECC_FinalProducts_Future_allvehicles', ID='2_S_RECC_FinalProducts_Future_allvehicles',
+                                                UUID=None, P_Res=None, MetaData=None,
+                                                Indices='Stvr', Values=np.zeros((NS,Nt,Nv,Nr)), Uncert=None,
+                                                Unit='vehicles per person')
         # b) calculated vehicle kilometrage
+    if 'pav' in SectorList:
         ParameterDict['3_IO_Vehicles_UsePhase_eff'] = msc.Parameter(Name='3_IO_Vehicles_UsePhase_eff', ID='3_IO_Vehicles_UsePhase_eff',
                                                     UUID=None, P_Res=None, MetaData=None,
                                                     Indices='VrtS', Values=np.zeros((NV,Nr,Nt,NS)), Uncert=None,
                                                     Unit='km per vehicle')
-
+    # c) Combined other land vehicle kilometrage: Map from transport mode to vehicle type and combine passenger and freight
+    if 'trlp' in SectorList or 'trlf' in SectorList:
+        ParameterDict['3_IO_LandVehicles_UsePhase_comb'] = msc.Parameter(Name='3_IO_LandVehicles_UsePhase_comb', ID='3_IO_LandVehicles_UsePhase_comb',
+                                                UUID=None, P_Res=None, MetaData=None,
+                                                Indices='VDrtS', Values=np.zeros((NV,ND,Nr,Nt,NS)), Uncert=None,
+                                                Unit='km per vehicle')
+        # loop over transport services and match:
+        for trind in range(0,No_trlp):
+            for trsubind in range(0,len(Lv_trlp[trind])):
+                target_loc = Lv_trlp[trind][trsubind]
+                ParameterDict['3_IO_LandVehicles_UsePhase_comb'].Values[Service_Drivg,target_loc,:,:,:] = np.einsum('Str->rtS',ParameterDict['3_IO_PassengerTransportVehicles'].Values[Lo_trlp[trind],:,:,:])
+        for trind in range(0,No_trlf):
+            for trsubind in range(0,len(Lv_trlf[trind])):
+                target_loc = Lv_trlf[trind][trsubind]
+                ParameterDict['3_IO_LandVehicles_UsePhase_comb'].Values[Service_Drivg,target_loc,:,:,:] = np.einsum('Str->rtS',ParameterDict['3_IO_FreightTransportVehicles'].Values[Lo_trlf[trind],:,:,:])
     # 15) Define parameter for future building stock:
     # actual future res and nonres building stock
     #2026-01: add "if" clauses to execute only when sectors in SectorList
@@ -1038,6 +1150,16 @@ def main(): # to run model standalone and not as function, comment out first (de
     # 17) No energy efficiency improvements (counterfactual reference)
     # Freeze type split and archetypes at 2015/17/2020 levels:
     if ScriptConfig['No_EE_Improvements'] == 'True':
+        if 'trlp' in SectorList or 'trlf' in SectorList:
+            SwitchIndex = Ind_2019
+            for nnr in range(0,Nr):
+                for nnS in range(0,NS):
+                    ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[SwitchIndex::,:,:,:,nnr,nnS] = np.einsum('DVn,c->cDVn',ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[SwitchIndex,:,:,:,nnr,nnS],np.ones(Nc-SwitchIndex))
+                    ParameterDict['3_MC_OtherLandVehicles_internal'].Values[SwitchIndex::,:,:,nnr,nnS]            = np.einsum('mD,c->cmD',ParameterDict['3_MC_OtherLandVehicles_internal'].Values[SwitchIndex,:,:,nnr,nnS],np.ones(Nc-SwitchIndex))
+            #ParameterDict['3_SHA_TypeSplit_OtherPassVehicles'].Values[:,:,:,:,4::]                                = np.einsum('GrRD,t->GrRDt',ParameterDict['3_SHA_TypeSplit_OtherPassVehicles'].Values[:,:,:,:,4],np.ones(Nt-4)) # index 4 is year 2020.
+            ParameterDict['3_SHA_TypeSplit_OtherPassVehicles'].Values[:,:,:,:,5::]                                = np.einsum('GrRD,t->GrRDt',ParameterDict['3_SHA_TypeSplit_OtherPassVehicles'].Values[:,:,:,:,5],np.ones(Nt-5)) # 2026-06-20,hmli: index 5 is year 2020.
+            ParameterDict['3_SHA_TypeSplit_FreightVehicles'].Values[:,:,:,:,5::]                                  = np.einsum('GrRD,t->GrRDt',ParameterDict['3_SHA_TypeSplit_FreightVehicles'].Values[:,:,:,:,5],np.ones(Nt-5)) # 2026-06-20,hmli: add freight vehicles, index 5 is year 2020.
+        
         SwitchIndex = Ind_2015 # choose between Ind_2015/17/20 (for continuation from 2015/17/20 onwards.
         if 'pav' in SectorList:
             for nnr in range(0,Nr):
@@ -1215,7 +1337,7 @@ def main(): # to run model standalone and not as function, comment out first (de
     mfilter[WoodProd_loc] = 1
     mfilter[PaperProd_loc] = 1
     residuals[:,Biomass_loc] = residuals[:,Biomass_loc]  * mfilter
-    
+
     # RCP production processes represent technologies that are not out there yet. 
     # They are modelled as the same production steps, with different energy inputs. 
     # Hence, the residual extensions (i.e. the process impacts) are the same as the Baseline technology.
@@ -1298,6 +1420,7 @@ def main(): # to run model standalone and not as function, comment out first (de
     Element_Material_Composition_con = np.zeros((Nt,Nm,Ne,NS,NR))
     Manufacturing_Output             = np.zeros((Nt,Ng,Nm,NS,NR))
     StockMatch_2015                  = np.zeros((NG,Nr))
+    StockMatch_2019                  = np.zeros((NG,Nr))
     NegInflowFlags                   = np.zeros((NS,NR))
     #NegInflowFlags_After2020         = np.zeros((NS,NR))
     FabricationScrap                 = np.zeros((Nt,Nw,NS,NR))
@@ -1308,14 +1431,18 @@ def main(): # to run model standalone and not as function, comment out first (de
     EnergyCons_PP                    = np.zeros((Nt,NS,NR))
     EnergyCons_PP_m                  = np.zeros((Nt,Nm,NS,NR))
     EnergyCons_UP_serv_pav           = np.zeros((Nt,Nr,NV,NS,NR))
+    EnergyCons_UP_serv_olv           = np.zeros((Nt,Nr,NV,NS,NR))
     EnergyCons_UP_serv_reb           = np.zeros((Nt,Nr,NV,NS,NR))
     EnergyCons_UP_serv_nrb           = np.zeros((Nt,Nr,NV,NS,NR))
     EnergyCons_UP_total              = np.zeros((Nt,Nn,NS,NR))
     EnergyCons_UP_pav                = np.zeros((Nt,Nn,NS,NR)) #2026-01-22, hmli, circomod: for pav, add aspect n for energy consumption in use-phase
+    EnergyCons_UP_olv                = np.zeros((Nt,Nn,NS,NR))
     EnergyCons_UP_reb                = np.zeros((Nt,Nn,NS,NR))
     EnergyCons_UP_nrb                = np.zeros((Nt,Nn,NS,NR))
+    EnergyCons_UP_olv_prod           = np.zeros((Nt,Nr,ND,NS,NR)) #2026-08-05, hmli: energy consumption by transport product or mode
     EnergyCons_total                 = np.zeros((Nt,Nn,NS,NR))
     StockCurves_Totl                 = np.zeros((Nt,NG,NS,NR))
+    StockCurves_Vac                  = np.zeros((Nt,NG,NS,NR))
     StockCurves_Prod                 = np.zeros((Nt,Ng,NS,NR))
     StockCurves_Mat                  = np.zeros((Nt,Nm,NS,NR))
     StockCurves_Mat_reb              = np.zeros((Nt,Nm,NS,NR))
@@ -1333,6 +1460,8 @@ def main(): # to run model standalone and not as function, comment out first (de
     pCStocksCurves                   = np.zeros((Nt,NG,Nr,NS,NR))
     Passenger_km                     = np.zeros((Nt,NS,NR))
     Vehicle_km                       = np.zeros((Nt,NS,NR))
+    Passenger_olv_km                 = np.zeros((Nt,Nv,NS,NR)) #2026-10-28, hmli: report pkm/tkm served by different vehicle types
+    Vehicle_olv_km                   = np.zeros((Nt,Nv,NS,NR)) #2026-10-28, hmli: report vkm served by different vehicle types
     Service_IO_ResBuildings          = np.zeros((Nt,NV,NS,NR))
     Service_IO_NonResBuildings       = np.zeros((Nt,NV,NS,NR))
     ReUse_Materials                  = np.zeros((Nt,Nm,NS,NR))
@@ -1346,6 +1475,7 @@ def main(): # to run model standalone and not as function, comment out first (de
     Carbon_Wood_Stock                = np.zeros((Nt,Nr,NS,NR))
     Cement_Inflow                    = np.zeros((Nt,Nr,NS,NR))
     Vehicle_FuelEff                  = np.zeros((Nt,Np,Nr,NS,NR))
+    Vehicle_olv_FuelEff              = np.zeros((Nt,ND,Nr,NS,NR))
     ResBuildng_EnergyCons            = np.zeros((Nt,NB,Nr,NS,NR))
     GWP_bio_Credit                   = np.zeros((Nt,NS,NR))
     EnergySubst_WtE_EL               = np.zeros((Nt,NS,NR))
@@ -1371,6 +1501,7 @@ def main(): # to run model standalone and not as function, comment out first (de
     StockCurves_Mat_reb_pr           = np.zeros((Nt,Nr,Nm,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
     StockCurves_Mat_nrb_pr           = np.zeros((Nt,Nr,Nm,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
     StockCurves_Mat_pav_pr           = np.zeros((Nt,Nr,Nm,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
+    #StockCurves_Mat_olv_pr           = np.zeros((Nt,Nr,Nm,NS,NR)) #2026-10-28, hmli: add for olv reporting
     StockCurves_Mat_tis_pr           = np.zeros((Nt,Nr,Nm,NS,NR)) #2026-01-2 add tis
     StockCurves_Mat_ind_pr           = np.zeros((Nt,Nr,Nm,NS,NR)) #2026-02-16 add ind
     Service_IO_ResBuildings_pr       = np.zeros((Nt,Nr,NV,NS,NR)) # 2025-01-20, ch, add for CIRCOMOD reporting
@@ -1560,7 +1691,7 @@ def main(): # to run model standalone and not as function, comment out first (de
             RECC_System.FlowDict['F_17_6_Nl'] = msc.Flow(Name='product re-use out' , P_Start = 17, P_End = 6, 
                                                     Indices = 't,c,l,L,m,e', Values=None, Uncert=None, 
                                                     Color = None, ID = None, UUID = None)
-    
+
             RECC_System.FlowDict['F_17_6_No'] = msc.Flow(Name='product re-use out' , P_Start = 17, P_End = 6, 
                                                     Indices = 't,c,o,O,m,e', Values=None, Uncert=None, 
                                                     Color = None, ID = None, UUID = None)
@@ -1608,7 +1739,9 @@ def main(): # to run model standalone and not as function, comment out first (de
             RECC_System.FlowDict['F_9_0']     = msc.Flow(Name='waste mgt. and remelting losses' , P_Start = 9, P_End = 0, 
                                                     Indices = 't,e', Values=None, Uncert=None, 
                                                     Color = None, ID = None, UUID = None)
-            
+            RECC_System.FlowDict['F_0_7_initial'] = msc.Flow(Name='initial in-use stock, other land vehicles',P_Start=0, P_End=7,
+                                                                    Indices='t,c,r,g,m,e',Values=None, Uncert=None,
+                                                                    Color=None, ID=None, UUID=None) #hmli，2026-8-19: For the trlp and trlf sectors, an explicit F_0_7_initial boundary flow is added in 2019 to represent the initial in-use stock entering Process 7 from the system boundary. 
             # Define system variables: Stocks.
             RECC_System.StockDict['dS_0']     = msc.Stock(Name='System environment stock change', P_Res=0, Type=1,
                                                     Indices = 't,e', Values=None, Uncert=None,
@@ -1697,6 +1830,11 @@ def main(): # to run model standalone and not as function, comment out first (de
             SwitchTime=Nc - Model_Duration +1 # Year when future modelling horizon starts: 1.1.2016        
 
             # Determine empty result containers for all sectors
+            Stock_Detail_UsePhase_D     = np.zeros((Nt,Nc,ND,Nr)) # index structure: tcDr. Unit: million items.
+            Stock_2020_decline_D        = np.zeros((Nt,ND,Nr))    # index structure: tDr.  Unit: million items.
+            Outflow_Detail_UsePhase_D   = np.zeros((Nt,Nc,ND,Nr)) # index structure: tcDr. Unit: million items.
+            Inflow_Detail_UsePhase_D    = np.zeros((Nt,ND,Nr))    # index structure: tDr.  Unit: million items.
+
             Stock_Detail_UsePhase_p     = np.zeros((Nt,Nc,Np,Nr)) # index structure: tcpr. Unit: million items.
             Stock_2020_decline_p        = np.zeros((Nt,Np,Nr))    # index structure: tpr.  Unit: million items.
             Outflow_Detail_UsePhase_p   = np.zeros((Nt,Nc,Np,Nr)) # index structure: tcpr. Unit: million items.
@@ -1759,6 +1897,164 @@ def main(): # to run model standalone and not as function, comment out first (de
             # 2026-01-19, ch: container for reporting of material losses, excluding double counting of concrete and concrete aggregates + cement
             F_9_0_excl_concrete = np.zeros((Nt, Ne))
             dS_0_excl_concrete = np.zeros((Nt, Ne))
+            
+            # Sector: All land passenger vehicles (except for passenger vehicles pav, which has separate parameters and model code)
+            if 'trlp' in SectorList:
+                Mylog.info('Calculate inflows and outflows for use phase, all land-based passenger vehicles.')
+                # 1) Determine kilometrage endogenously and apply stock-driven model
+                SF_Array                             = np.zeros((Nc,Nc,ND,Nr)) # survival functions, by year, age-cohort, good, and region. PDFs are stored externally because recreating them with scipy.stats is slow.
+
+                #Get historic stock at end of 2019 by age-cohort, and covert unit to vehicles: million.
+                TotalStock_UsePhase_Hist_cDr         = np.einsum('Dcr->cDr',RECC_System.ParameterDict['2_IUS_PassengerTransportVehicles'].Values[:,Ind_2019-Ind_2015,:,:])/1e6
+
+                # Determine total future stock from function (pkm/cap/yr), product functioning level.
+                Total_Service_trlv_tr_pC             = np.einsum('rt,vtr->vtr',RECC_System.ParameterDict['1_F_Function_Future'].Values[Sector_trlp_loc,:,:,mS],RECC_System.ParameterDict['6_SHA_ModalSplit_pkm'].Values[Sector_trlp_loc,:,mS,:,:])
+                Passenger_olv_km[:,:,mS,mR]          = np.einsum('vtr,tr->tv',Total_Service_trlv_tr_pC,RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS])  #2026-10-28, hmli: report pkm/tkm served by different vehicle types
+                # i) Calculate pc stocks:
+                Total_Vehicle_km_trlv_tr_pC          = np.divide(Total_Service_trlv_tr_pC, RECC_System.ParameterDict['6_MIP_PassengerTransportVehiclesOccupancyRate'].Values[:,mS,:,:], out=np.zeros_like(RECC_System.ParameterDict['6_MIP_PassengerTransportVehiclesOccupancyRate'].Values[:,mS,:,:]), where=RECC_System.ParameterDict['6_MIP_PassengerTransportVehiclesOccupancyRate'].Values[:,mS,:,:]!=0)
+                Vehicle_olv_km[:,:,mS,mR]            = np.einsum('vtr,tr->tv',Total_Vehicle_km_trlv_tr_pC,RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS])  #2026-10-28, hmli: report vehicle-km served by different vehicle types
+                TotalStockCurves_UsePhase_v_pC       = np.divide(Total_Vehicle_km_trlv_tr_pC, RECC_System.ParameterDict['3_IO_PassengerTransportVehicles'].Values[:,mS,:,:], out=np.zeros_like(RECC_System.ParameterDict['3_IO_PassengerTransportVehicles'].Values[:,mS,:,:]), where=RECC_System.ParameterDict['3_IO_PassengerTransportVehicles'].Values[:,mS,:,:]!=0)
+
+                TotalStockCurves_UsePhase_v          = np.einsum('vtr,tr->vtr',TotalStockCurves_UsePhase_v_pC, RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS])
+                RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_allvehicles'].Values[mS,:,:,:] += np.einsum('vtr->tvr',TotalStockCurves_UsePhase_v_pC)
+
+                # (ii) Include_REStrategy_LifeTimeExtension: Product lifetime extension.
+                # First, replicate lifetimes for all age-cohorts
+                Par_RECC_ProductLifetime_trlp = np.einsum('c,Dr->Drc',np.ones((Nc)),RECC_System.ParameterDict['3_LT_RECC_OtherVehicles'].Values[Ind_2019,:,:])
+                # Change lifetime of future age-cohorts according to lifetime extension parameter
+                if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True':
+                    Par_RECC_ProductLifetime_trlp[:,:,Ind_2019 -1::] = np.einsum('crD,Drc->Drc',1 + np.einsum('cr,D->crD',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[(Ind_2019-SwitchTime)::,:,mS,mR],RECC_System.ParameterDict['6_PR_LifeTimeExtension_allvehicles'].Values[:,0,mS]),Par_RECC_ProductLifetime_trlp[:,:,Ind_2019 -1::])
+
+                # 2) Dynamic stock model
+                # Build pdf array from lifetime distribution: Probability of survival.
+                for D in tqdm(range(0, ND), unit=' land vehicles types'):
+                    for r in range(0, Nr):
+                        LifeTimes = Par_RECC_ProductLifetime_trlp[D, r, :]
+                        lt = {'Type'  : 'Normal',
+                            'Mean'  : LifeTimes,
+                            'StdDev': 0.5 * LifeTimes} # flat decline: obsolescence of 16 % in 3 years around mean lifetime.
+                        SF_Array[:, :, D, r] = dsm.DynamicStockModel(t=np.arange(0, Nc, 1), lt=lt).compute_sf().copy()
+                        np.fill_diagonal(SF_Array[:, :, D, r],1) # no outflows from current year, this would break the mass balance in the calculation routine below, as the element composition of the current year is not yet known.
+                        # Those parts of the stock remain in use instead.
+
+                # Compute evolution of 2019 in-use stocks: initial stock evolution separately from future stock demand and stock-driven model
+                trlp_offset = Ind_2019-SwitchTime +1 # offset index = 4 for 2019
+                for v in range(0,No_trlp):
+                    for r in range(0,Nr):
+                        FutureStock                 = np.zeros((Nc))
+                        FutureStock[Ind_2019+1::]   = TotalStockCurves_UsePhase_v[Lo_trlp[v],trlp_offset+1::,r].copy() # Future total stock
+                        InitialStock                = TotalStock_UsePhase_Hist_cDr[:,Lv_trlp[v],r].copy()
+                        InitialStocksum             = InitialStock.sum()
+                        StockMatch_2019[Sector_trlp_loc,r] = TotalStockCurves_UsePhase_v[Lo_trlp[v],trlp_offset, r]/InitialStocksum
+                        SFArrayCombined             = SF_Array[:,:,Lv_trlp[v],r]
+                        TypeSplit                   = np.zeros((Nc,len(Lv_trlp[v])))
+                        TypeSplit[SwitchTime::,:]   = RECC_System.ParameterDict['3_SHA_TypeSplit_OtherPassVehicles'].Values[Lo_trlp[v],r,mR,Lv_trlp[v],1::].transpose() # indices: cD
+
+                        RECC_dsm                    = dsm.DynamicStockModel(t=np.arange(0,Nc,1), s=FutureStock.copy(), lt = lt)  # The lt parameter is not used, the sf array is handed over directly in the next step.
+                        Var_S, Var_O, Var_I, IFlags = RECC_dsm.compute_stock_driven_model_initialstock_typesplit_negativeinflowcorrect(Ind_2019+1,InitialStock,SFArrayCombined,TypeSplit,NegativeInflowCorrect = True)
+
+                        # Below, the results are added with += because the different commodity groups (buildings, vehicles) are calculated separately
+                        # to introduce the type split for each, but using the product resolution of the full model with all sectors.
+                        Stock_Detail_UsePhase_D[trlp_offset,:,Lv_trlp[v],r]       += InitialStock.transpose() # cDr, needed for correct calculation of mass balance later.
+                        Stock_Detail_UsePhase_D[trlp_offset+1::,:,Lv_trlp[v],r]   += Var_S[Ind_2019+1::,:,:].copy() # tcDr
+                        Stock_2020_decline_D[trlp_offset+1::,Lv_trlp[v],r]        += Var_S[Ind_2019+1::,0:Ind_2020+1,:].copy().sum(axis=1) # tDr
+                        Outflow_Detail_UsePhase_D[trlp_offset+1::,:,Lv_trlp[v],r] += Var_O[Ind_2019+1::,:,:].copy() # tcDr
+                        Inflow_Detail_UsePhase_D[trlp_offset+1::,Lv_trlp[v],r]    += Var_I[Ind_2019+1::,:].copy() # tDr
+                        Inflow_Prod_r[trlp_offset+1::,r,Lv_trlp[v],mS,mR]         += Var_I[Ind_2019+1::,:].copy() # tDr
+                        # Check for negative inflows:
+                        if IFlags.sum() != 0:
+                            NegInflowFlags[Sector_trlp_loc,mS,mR] = 1 # flag this scenario
+
+                # Here so far: Units: Vehicles: million. for stocks, X/yr for flows. #2026-06-26, hmli: not +=
+                StockCurves_Totl[:,Sector_trlp_loc,mS,mR] = np.einsum('vtr->t',TotalStockCurves_UsePhase_v)
+                StockCurves_Prod[:,Sector_trlp_rge,mS,mR] = np.einsum('tcDr->tD',Stock_Detail_UsePhase_D)
+                pCStocksCurves[:,Sector_trlp_loc,:,mS,mR] = np.einsum('vtr->tr',TotalStockCurves_UsePhase_v_pC)
+                Population[:,:,mS,mR]                     = RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS] #2026-06-26, hmli: not +=
+                Inflow_Prod[:,Sector_trlp_rge,mS,mR]      = np.einsum('tDr->tD',Inflow_Detail_UsePhase_D)
+                Inflow_Prod_r[:,:,Sector_trlp_rge,mS,mR]  = np.einsum('tDr->trD',Inflow_Detail_UsePhase_D)
+                Outflow_Prod[:,Sector_trlp_rge,mS,mR]     = np.einsum('tcDr->tD',Outflow_Detail_UsePhase_D)
+                Outflow_Prod_r[:,:,Sector_trlp_rge,mS,mR] = np.einsum('tcDr->trD',Outflow_Detail_UsePhase_D)
+
+            # Sector: All land freight vehicles
+            if 'trlf' in SectorList:
+                Mylog.info('Calculate inflows and outflows for use phase, all land-based freight vehicles.')
+                # 1) Determine kilometrage endogenously and apply stock-driven model
+                SF_Array                             = np.zeros((Nc,Nc,ND,Nr)) # survival functions, by year, age-cohort, good, and region. PDFs are stored externally because recreating them with scipy.stats is slow.
+
+                #Get historic stock at end of 2019 by age-cohort, and covert unit to vehicles: million.
+                TotalStock_UsePhase_Hist_cDr         = np.einsum('Dcr->cDr',RECC_System.ParameterDict['2_IUS_FreightTransportVehicles'].Values[:,Ind_2019-Ind_2015,:,:])/1e6
+
+                # Determine total future stock from function (vkm/cap/yr), product functioning level.
+                Total_Service_trlv_tr_pC             = np.einsum('rt,vtr->vtr',RECC_System.ParameterDict['1_F_Function_Future'].Values[Sector_trlf_loc,:,:,mS],RECC_System.ParameterDict['6_SHA_ModalSplit_tkm'].Values[Sector_trlf_loc,:,mS,:,:])
+                Passenger_olv_km[:,:,mS,mR]         += np.einsum('vtr,tr->tv',Total_Service_trlv_tr_pC,RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]) #2026-10-28, hmli: report pkm/tkm served by different vehicle types
+                # i) Calculate pc stocks:
+                Total_Vehicle_km_trlv_tr_pC          = np.divide(Total_Service_trlv_tr_pC, RECC_System.ParameterDict['6_MIP_FreightTransportVehiclesOccupancyRate'].Values[:,mS,:,:], out=np.zeros_like(RECC_System.ParameterDict['6_MIP_FreightTransportVehiclesOccupancyRate'].Values[:,mS,:,:]), where=RECC_System.ParameterDict['6_MIP_FreightTransportVehiclesOccupancyRate'].Values[:,mS,:,:]!=0)
+                Vehicle_olv_km[:,:,mS,mR]           += np.einsum('vtr,tr->tv',Total_Vehicle_km_trlv_tr_pC,RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS])  #2026-10-28, hmli: report vehicle-km served by different vehicle types
+                
+                TotalStockCurves_UsePhase_v_pC       = np.divide(Total_Vehicle_km_trlv_tr_pC, RECC_System.ParameterDict['3_IO_FreightTransportVehicles'].Values[:,mS,:,:], out=np.zeros_like(RECC_System.ParameterDict['3_IO_FreightTransportVehicles'].Values[:,mS,:,:]), where=RECC_System.ParameterDict['3_IO_FreightTransportVehicles'].Values[:,mS,:,:]!=0)
+
+                TotalStockCurves_UsePhase_v          = np.einsum('vtr,tr->vtr',TotalStockCurves_UsePhase_v_pC, RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS])
+                RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_allvehicles'].Values[mS,:,:,:] += np.einsum('vtr->tvr',TotalStockCurves_UsePhase_v_pC)
+
+                # (ii) Include_REStrategy_LifeTimeExtension: Product lifetime extension.
+                # First, replicate lifetimes for all age-cohorts
+                Par_RECC_ProductLifetime_trlf = np.einsum('c,Dr->Drc',np.ones((Nc)),RECC_System.ParameterDict['3_LT_RECC_OtherVehicles'].Values[Ind_2019,:,:])
+                # Change lifetime of future age-cohorts according to lifetime extension parameter
+                if ScriptConfig['Include_REStrategy_LifeTimeExtension'] == 'True':
+                    Par_RECC_ProductLifetime_trlf[:,:,Ind_2019 -1::] = np.einsum('crD,Drc->Drc',1 + np.einsum('cr,D->crD',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[(Ind_2019-SwitchTime)::,:,mS,mR],RECC_System.ParameterDict['6_PR_LifeTimeExtension_allvehicles'].Values[:,0,mS]),Par_RECC_ProductLifetime_trlf[:,:,Ind_2019 -1::])
+
+                # 2) Dynamic stock model
+                # Build pdf array from lifetime distribution: Probability of survival.
+                for D in tqdm(range(0, ND), unit=' land vehicles types'):
+                    for r in range(0, Nr):
+                        LifeTimes = Par_RECC_ProductLifetime_trlf[D, r, :]
+                        lt = {'Type'  : 'Normal',
+                            'Mean'  : LifeTimes,
+                            'StdDev': 0.5 * LifeTimes} # flat decline: obsolescence of 16 % in 3 years around mean lifetime.
+                        SF_Array[:, :, D, r] = dsm.DynamicStockModel(t=np.arange(0, Nc, 1), lt=lt).compute_sf().copy()
+                        np.fill_diagonal(SF_Array[:, :, D, r],1) # no outflows from current year, this would break the mass balance in the calculation routine below, as the element composition of the current year is not yet known.
+                        # Those parts of the stock remain in use instead.
+
+                # Compute evolution of 2019 in-use stocks: initial stock evolution separately from future stock demand and stock-driven model
+                trlf_offset = Ind_2019-SwitchTime +1 # offset index = 4 for 2019
+                for v in range(0,No_trlf):
+                    for r in range(0,Nr):
+                        FutureStock                 = np.zeros((Nc))
+                        FutureStock[Ind_2019+1::]     = TotalStockCurves_UsePhase_v[Lo_trlf[v],trlf_offset+1::,r].copy() # Future total stock
+                        InitialStock                = TotalStock_UsePhase_Hist_cDr[:,Lv_trlf[v],r].copy()
+                        InitialStocksum             = InitialStock.sum()
+                        StockMatch_2019[Sector_trlf_loc,r] = TotalStockCurves_UsePhase_v[Lo_trlf[v],trlf_offset, r]/InitialStocksum
+                        SFArrayCombined             = SF_Array[:,:,Lv_trlf[v],r]
+                        TypeSplit                   = np.zeros((Nc,len(Lv_trlf[v])))
+                        TypeSplit[SwitchTime::,:]   = RECC_System.ParameterDict['3_SHA_TypeSplit_FreightVehicles'].Values[Lo_trlf[v],r,mR,Lv_trlf[v],1::].transpose() # indices: cD
+
+                        RECC_dsm                    = dsm.DynamicStockModel(t=np.arange(0,Nc,1), s=FutureStock.copy(), lt = lt)  # The lt parameter is not used, the sf array is handed over directly in the next step.
+                        Var_S, Var_O, Var_I, IFlags = RECC_dsm.compute_stock_driven_model_initialstock_typesplit_negativeinflowcorrect(Ind_2019+1,InitialStock,SFArrayCombined,TypeSplit,NegativeInflowCorrect = True)
+
+                        # Below, the results are added with += because the different commodity groups (buildings, vehicles) are calculated separately
+                        # to introduce the type split for each, but using the product resolution of the full model with all sectors.
+                        Stock_Detail_UsePhase_D[trlf_offset,:,Lv_trlf[v],r]       += InitialStock.transpose() # cDr, needed for correct calculation of mass balance later.
+                        Stock_Detail_UsePhase_D[trlf_offset+1::,:,Lv_trlf[v],r]   += Var_S[Ind_2019+1::,:,:].copy() # tcDr
+                        Stock_2020_decline_D[trlf_offset+1::,Lv_trlf[v],r]        += Var_S[Ind_2019+1::,0:Ind_2020+1,:].copy().sum(axis=1) # tDr
+                        Outflow_Detail_UsePhase_D[trlf_offset+1::,:,Lv_trlf[v],r] += Var_O[Ind_2019+1::,:,:].copy() # tcDr
+                        Inflow_Detail_UsePhase_D[trlf_offset+1::,Lv_trlf[v],r]    += Var_I[Ind_2019+1::,:].copy() # tDr
+                        Inflow_Prod_r[trlf_offset+1::,r,Lv_trlf[v],mS,mR]         += Var_I[Ind_2019+1::,:].copy() # tDr
+                        # Check for negative inflows:
+                        if IFlags.sum() != 0:
+                            NegInflowFlags[Sector_trlf_loc,mS,mR] = 1 # flag this scenario
+
+                # Here so far: Units: Vehicles: million. for stocks, X/yr for flows.  2026-06-26, hmli: should be =, not +=
+                StockCurves_Totl[:,Sector_trlf_loc,mS,mR] = np.einsum('vtr->t',TotalStockCurves_UsePhase_v)
+                StockCurves_Prod[:,Sector_trlf_rge,mS,mR] = np.einsum('tcDr->tD',Stock_Detail_UsePhase_D)
+                pCStocksCurves[:,Sector_trlf_loc,:,mS,mR] = np.einsum('vtr->tr',TotalStockCurves_UsePhase_v_pC)
+                Population[:,:,mS,mR]                     = RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS] #2026-06-26, hmli: not +=
+                Inflow_Prod[:,Sector_trlf_rge,mS,mR]      = np.einsum('tDr->tD',Inflow_Detail_UsePhase_D)
+                Inflow_Prod_r[:,:,Sector_trlf_rge,mS,mR]  = np.einsum('tDr->trD',Inflow_Detail_UsePhase_D)
+                Outflow_Prod[:,Sector_trlf_rge,mS,mR]     = np.einsum('tcDr->tD',Outflow_Detail_UsePhase_D)
+                Outflow_Prod_r[:,:,Sector_trlf_rge,mS,mR] = np.einsum('tcDr->trD',Outflow_Detail_UsePhase_D)
+            # Export the other passenger/freight stocks only after both sectors have been accumulated.
+            if 'trlp' in SectorList or 'trlf' in SectorList:
+                StockCurves_Prod_pr[:,:,Sector_trlp_rge,mS,mR] = np.einsum('tcDr->trD',Stock_Detail_UsePhase_D)
 
             # Sector: Passenger vehicles
             if 'pav' in SectorList:
@@ -2237,7 +2533,7 @@ def main(): # to run model standalone and not as function, comment out first (de
                             'Mean'  : LifeTimes_nrbg, 
                             'StdDev': 0.3 * LifeTimes_nrbg}
                 # Compute evolution of nrbg in-use stock and related flows with stock-driven model
-    
+
                         RECC_dsm_nrbg            = dsm.DynamicStockModel(time_dsm, s = s_nrbg[N,:].copy(), lt = lt)     
                         SF_Array[:, :, N, o]     = RECC_dsm_nrbg.compute_sf().copy()                             
                         np.fill_diagonal(SF_Array[:, :, N, o],1) # no outflows from current year, this would break the mass balance in the calculation routine below, as the element composition of the current year is not yet known.
@@ -2326,7 +2622,7 @@ def main(): # to run model standalone and not as function, comment out first (de
                         lt = {'Type'  : 'Normal',
                             'Mean'  : LifeTimes,
                             'StdDev': 0.3 * LifeTimes}
-    
+
                 # Compute inflow-driven model     
                         RECC_dsm_app                         = dsm.DynamicStockModel(time_dsm , i = i_Inflow_app[o,:,mS,mR,a].copy()  , lt = lt)  
                         SF_Array[:, :, a, o]                 = dsm.DynamicStockModel(time_dsm , i = i_Inflow_app[o,:,mS,mR,a].copy()  , lt = lt).compute_sf().copy() 
@@ -2406,6 +2702,10 @@ def main(): # to run model standalone and not as function, comment out first (de
             pC_FutureStock_2015             = np.zeros((NS,NG,Nr))
             # b) from scenario curves:
             for mSS in range(0,NS):
+                if 'trlp' in SectorList:
+                    pC_FutureStock_2015[mSS, Sector_trlp_loc, :] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_allvehicles'].Values[mSS,0,Sector_trlp_loc,:]
+                if 'trlf' in SectorList:
+                    pC_FutureStock_2015[mSS, Sector_trlf_loc, :] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_allvehicles'].Values[mSS,0,Sector_trlf_loc,:]
                 if 'pav' in SectorList:
                     pC_FutureStock_2015[mSS, Sector_pav_loc, :] = RECC_System.ParameterDict['2_S_RECC_FinalProducts_Future_passvehicles'].Values[mSS,0,Sector_pav_loc,:]
                 if 'reb' in SectorList:
@@ -2420,6 +2720,8 @@ def main(): # to run model standalone and not as function, comment out first (de
             # Prepare parameters:        
             # include light-weighting in future MC parameter, cmgr
             Par_RECC_MC_Nr = np.zeros((Nc,Nm,Ng,Nr,NS,NR,Nt))  # Unit: vehicles: kg/item, buildings: kg/m², electricity generation technologies: kt/GW.
+            if 'trlp' in SectorList or 'trlf' in SectorList: # one common list of goods for both sectors
+                Par_RECC_MC_Nr[:,:,Sector_trlp_rge,:,mS,mR,:]     = np.einsum('cmDr,tr->Dcmrt',RECC_System.ParameterDict['3_MC_OtherLandVehicles_internal'].Values[:,:,:,:,mS],np.ones((Nt,Nr)))
             if 'pav' in SectorList:
                 Par_RECC_MC_Nr[:,:,Sector_pav_rge,:,mS,mR,:]      = np.einsum('cmpr,t->pcmrt',RECC_System.ParameterDict['3_MC_RECC_Vehicles_RECC'].Values[:,:,:,:,mS],np.ones(Nt))
             if 'reb' in SectorList:
@@ -2494,6 +2796,9 @@ def main(): # to run model standalone and not as function, comment out first (de
             # For vehicles, scenarios already included in target table output!
             if 'pav' in SectorList:
                 ReUseFactor_tmprS = np.einsum('mprtS->tmprS',RECC_System.ParameterDict['6_PR_ReUse_Veh'].Values/100)
+            # For other land vehicles, scenarios already included in target table output! 2026-08-06, hmli
+            if 'trlp' in SectorList or 'trlf' in SectorList:
+                ReUseFactor_tmDrS = np.einsum('mDotS,r->tmDrS', RECC_System.ParameterDict['6_PR_ReUse_OtherLandVehicles'].Values, np.ones((Nr)))
             # For Buildings, scenarios obtained from RES scaleup curves - deprecated
             #ReUseFactor_tmBrS = np.einsum('tmBr,S->tmBrS',np.einsum('tr,mBr->tmBr',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['6_PR_ReUse_Bld'].Values),np.ones((NS)))
             #ReUseFactor_tmNrS = np.einsum('tmNr,S->tmNrS',np.einsum('tr,mNr->tmNr',RECC_System.ParameterDict['3_SHA_RECC_REStrategyScaleUp_r'].Values[:,:,mS,mR],RECC_System.ParameterDict['6_PR_ReUse_nonresBld'].Values),np.ones((NS)))
@@ -2509,6 +2814,23 @@ def main(): # to run model standalone and not as function, comment out first (de
 
 
             Mylog.info('Translate total flows into individual materials and elements, for 2015 and historic age-cohorts.')
+            if 'trlp' in SectorList or 'trlf' in SectorList: # one common list of goods for both sectors
+                # convert product stocks and flows to material stocks and flows, only for chemical element position 'all':
+                # Stock elemental composition, will be updated for future years:
+                RECC_System.StockDict['S_7'].Values[:,:,:,Sector_trlp_rge,:,:] = \
+                np.einsum('tcrDme,tcDr->tcrDme',Par_3_MC_Stock_ByElement_Nr[:,:,:,Sector_trlp_rge,:,:],Stock_Detail_UsePhase_D)/1000   # Indices='t,c,r,D,m,e'
+                # Outflow, 'all' elements only:
+                RECC_System.FlowDict['F_7_8'].Values[:,:,:,Sector_trlp_rge,:,0] = \
+                np.einsum('Dcmrt,tcDr->Dtcrm',Par_RECC_MC_Nr[:,:,Sector_trlp_rge,:,mS,mR,:],Outflow_Detail_UsePhase_D)/1000 # all elements, Indices='t,c,r,D,m'
+                # Inflow as mass balance, to account for renovation material inflows to other age-cohorts than the current one (t=c).
+                #RECC_System.FlowDict['F_6_7'].Values[1::,:,Sector_trlp_rge,:,0]   = \
+                #np.einsum('Dtcrm->Dtrm',np.diff(RECC_System.StockDict['S_7'].Values[:,:,:,Sector_trlp_rge,:,0],1,axis=1)) + np.einsum('Dtcrm->Dtrm',RECC_System.FlowDict['F_7_8'].Values[1::,:,:,Sector_trlp_rge,:,0])
+                RECC_System.FlowDict['F_6_7'].Values[5::,:,Sector_trlp_rge,:,0]   = \
+                            np.einsum('Dtcrm->Dtrm',np.diff(RECC_System.StockDict['S_7'].Values[4:,:,:,Sector_trlp_rge,:,0],1,axis=1)) + np.einsum('Dtcrm->Dtrm',RECC_System.FlowDict['F_7_8'].Values[5::,:,:,Sector_trlp_rge,:,0]) #2026-09-18，hmli：dont need to calculate for first 4 years, as model begins from 2019
+                # inflow of materials in new products, for checking:
+                for mmt in range(0,Nt):
+                    F_6_7_new[mmt,:,Sector_trlp_rge,:,0] = np.einsum('Dr,Dmr->Drm',Inflow_Detail_UsePhase_D[mmt,:,:],Par_RECC_MC_Nr[SwitchTime+mmt-1,:,Sector_trlp_rge,:,mS,mR,mmt])/1000
+
             if 'pav' in SectorList:
                 # convert product stocks and flows to material stocks and flows, only for chemical element position 'all':
                 # Stock elemental composition, will be updated for future years:
@@ -2680,7 +3002,9 @@ def main(): # to run model standalone and not as function, comment out first (de
                 # Calculate use phase outflow and obsolete stock formation
                 # ObsStockFormation = ObsStockFormationFactor(t,g,r) * Outflow_Detail_UsePhase(t,c,g,r), currently not implemented. 
                 #Par_3_MC_Stock_ByElement_Nr original dimensions: tcrgme
-
+                if 'trlp' in SectorList or 'trlf' in SectorList:
+                    RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_trlp_rge,:,:] = \
+                    np.einsum('Dcrme,cDr->Dcrme',Par_3_MC_Stock_ByElement_Nr[t-1,0:CohortOffset,:,Sector_trlp_rge,:,:],Outflow_Detail_UsePhase_D[t,0:CohortOffset,:,:])/1000 # All elements.
                 if 'pav' in SectorList:
                     RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_pav_rge,:,:] = \
                     np.einsum('pcrme,cpr->pcrme',Par_3_MC_Stock_ByElement_Nr[t-1,0:CohortOffset,:,Sector_pav_rge,:,:],Outflow_Detail_UsePhase_p[t,0:CohortOffset,:,:])/1000 # All elements.
@@ -2721,6 +3045,10 @@ def main(): # to run model standalone and not as function, comment out first (de
                             
                 # 2) Consider re-use of materials in product groups (via components), as ReUseFactor(m,g,r,R,t) * RECC_System.FlowDict['F_7_8'].Values(t,c,r,g,m,e)
                 # Distribute material for re-use onto product groups
+                if 'trlp' in SectorList or 'trlf' in SectorList: #2026-08-06，hmli: reuse of other land vehicles
+                    ReUsePotential_Materials_t_m_Olv = np.einsum('mDr,Dcrm->m', ReUseFactor_tmDrS[t,:,:,:,mS], RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_trlp_rge,:,0])  # in Mt
+                    ReUse_EoL_Pot_t_m_all[t,:]       += ReUsePotential_Materials_t_m_Olv.copy()
+                    ReUse_EoL_Pot_t_mg[t,:,Sector_trlp_rge]     = np.einsum('mDr,Dcrm->Dm',ReUseFactor_tmDrS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_trlp_rge,:,0]) # in Mt, shared passenger and freight goods axis
                 if 'pav' in SectorList:
                     ReUsePotential_Materials_t_m_Veh = np.einsum('mpr,pcrm->m',ReUseFactor_tmprS[t,:,:,:,mS],RECC_System.FlowDict['F_7_8'].Values[t,:,:,Sector_pav_rge,:,0]) # in Mt
                     ReUse_EoL_Pot_t_m_all[t,:]       += ReUsePotential_Materials_t_m_Veh.copy()
@@ -2746,6 +3074,11 @@ def main(): # to run model standalone and not as function, comment out first (de
                 # in the future, re-use will be a region-to-region parameter depicting, e.g., the export of used vehicles from the EU to Africa.
                 # check whether inflow is big enough for potential to be used, correct otherwise:
                 for mmm in range(0,Nm):
+                    # other land vehicles
+                    if 'trlp' in SectorList or 'trlf' in SectorList:  # 2026-08-06，hmli
+                        if RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_trlp_rge,mmm,0].sum() < ReUsePotential_Materials_t_m_Olv[mmm]: # if re-use potential is larger than new inflow:
+                            if ReUsePotential_Materials_t_m_Olv[mmm] > 0:
+                                ReUsePotential_Materials_t_m_Olv[mmm] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_trlp_rge,mmm,0].sum()
                     # Vehicles
                     if 'pav' in SectorList:
                         if RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_pav_rge,mmm,0].sum() < ReUsePotential_Materials_t_m_Veh[mmm]: # if re-use potential is larger than new inflow:
@@ -2772,6 +3105,14 @@ def main(): # to run model standalone and not as function, comment out first (de
                             if ReUsePotential_Materials_t_m_Tis[mmm] > 0:
                                 ReUsePotential_Materials_t_m_Tis[mmm] = RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_tis_rge,mmm,0].sum()
                     
+                # other land vehicles
+                if 'trlp' in SectorList or 'trlf' in SectorList:  # 2026-08-06，hmli
+                    Divisor = np.einsum('m,crD->Dcrm', np.einsum('Dcrm->m',RECC_System.FlowDict['F_7_8'].Values[t, 0:CohortOffset, :,Sector_trlp_rge, :, 0]), np.ones((CohortOffset, Nr, ND)))
+                    MassShareOlv = np.divide(RECC_System.FlowDict['F_7_8'].Values[t, 0:CohortOffset, :, Sector_trlp_rge, :, 0], Divisor,out=np.zeros_like(Divisor), where=Divisor != 0)  # index: pcrm
+                    # share of combination crg in total mass of m in outflow 7_8
+                    RECC_System.FlowDict['F_8_17'].Values[t, 0:CohortOffset, :, Sector_trlp_rge, :, :] = \
+                        np.einsum('cme,Dcrm->Dcrme', Par_Element_Composition_of_Materials_u[0:CohortOffset, :, :], \
+                        np.einsum('m,Dcrm->Dcrm', ReUsePotential_Materials_t_m_Olv,MassShareOlv))  # All elements.
                 # Vehicles
                 if 'pav' in SectorList:
                     Divisor = np.einsum('m,crp->pcrm',np.einsum('pcrm->m',RECC_System.FlowDict['F_7_8'].Values[t,0:CohortOffset,:,Sector_pav_rge,:,0]),np.ones((CohortOffset,Nr,Np)))
@@ -3025,6 +3366,15 @@ def main(): # to run model standalone and not as function, comment out first (de
                 RECC_System.StockDict['S_10w'].Values[t,t,:,Woodwaste_loc,Carbon_loc]   += np.einsum('r,x->r',Par_Carbon_Timber_ByRegion_Rel,RECC_System.FlowDict['F_5_10'].Values[t,:,Woodwaste_loc,Carbon_loc].copy())
             
                 # 12) Calculate element composition of final consumption and latest age-cohort in in-use stock
+                if 'trlp' in SectorList or 'trlf' in SectorList:
+                    # update mat. composition by element for current year and latest age-cohort
+                    Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset,:,Sector_trlp_rge,:,:] = Par_3_MC_Stock_ByElement_Nr[t-1,0:CohortOffset,:,Sector_trlp_rge,:,:]
+                    Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_trlp_rge,:,:]   = np.einsum('me,Dmr->Drme',Par_Element_Composition_of_Materials_c[t,:,:],Par_RECC_MC_Nr[CohortOffset,:,Sector_trlp_rge,:,mS,mR,t])
+                    RECC_System.FlowDict['F_6_7'].Values[t,:,Sector_trlp_rge,:,:]   = \
+                    np.einsum('Drme,Dr->Drme',Par_3_MC_Stock_ByElement_Nr[t,CohortOffset,:,Sector_trlp_rge,:,:],Inflow_Detail_UsePhase_D[t,:,:])/1000 # all elements, Indices='t,r,D,m,e'
+                    RECC_System.StockDict['S_7'].Values[t,0:CohortOffset+1,:,Sector_trlp_rge,:,:] = \
+                    np.einsum('Dcrme,cDr->Dcrme',Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset+1,:,Sector_trlp_rge,:,:],Stock_Detail_UsePhase_D[t,0:CohortOffset+1,:,:])/1000 # All elements.
+                    
                 if 'pav' in SectorList:
                     # update mat. composition by element for current year and latest age-cohort
                     Par_3_MC_Stock_ByElement_Nr[t,0:CohortOffset,:,Sector_pav_rge,:,:] = Par_3_MC_Stock_ByElement_Nr[t-1,0:CohortOffset,:,Sector_pav_rge,:,:]
@@ -3180,7 +3530,11 @@ def main(): # to run model standalone and not as function, comment out first (de
                                                                         + np.einsum('rme->e',RECC_System.FlowDict['F_12_0'].Values[t,:,:,:]) - np.einsum('re->e',RECC_System.FlowDict['F_12_0'].Values[t,:,Concrete_loc,:]) \
                                                                         + np.einsum('crgme->e',RECC_System.FlowDict['F_8_0'].Values[t,:,:,:,:,:]) - np.einsum('crge->e',RECC_System.FlowDict['F_8_0'].Values[t,:,:,:,Concrete_loc,:])\
                                                                         - (np.einsum('me->e',RECC_System.FlowDict['F_0_3'].Values[t,:,:]) - np.einsum('e->e',RECC_System.FlowDict['F_0_3'].Values[t,Concrete_loc,:]))
-
+            #2026-09-18,hmli: Book 2019 initial stock of other land vehicles as a boundary inflow. This applies only to trlp/trlf and leaves pav unchanged.
+            if 'trlp' in SectorList or 'trlf' in SectorList:
+                InitialStockTimeIndex = (IndexTable.loc['Time'].Classification.Items.index(2019))
+                RECC_System.FlowDict['F_0_7_initial'].Values[InitialStockTimeIndex, :, :, Sector_trlp_rge, :, :] = \
+                RECC_System.StockDict['dS_7'].Values[InitialStockTimeIndex, :, :, Sector_trlp_rge, :, :].copy()
             # Diagnostics:
             # Tbd.
                 
@@ -3212,6 +3566,13 @@ def main(): # to run model standalone and not as function, comment out first (de
             
             # C) Translate 'all' energy carriers to specific ones, use phase, by sector
             SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all      = np.zeros((Nt,Nn,Nr))
+            if 'trlp' in SectorList or 'trlf' in SectorList:
+                SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv  = np.einsum('cDrVn,cDVr,VDrt,tcDr->trDn',RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_OtherLandVehicles' ].Values[:,:,:,:,:,mS],RECC_System.ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[:,:,:,-1,:,mS],RECC_System.ParameterDict['3_IO_LandVehicles_UsePhase_comb'].Values[:,:,:,:,mS],Stock_Detail_UsePhase_D, optimize = True)
+                SysVar_EnergyDemand_UsePhase_ByService_olv        = np.einsum('cDrVn,cDVr,VDrt,tcDr->trV', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_OtherLandVehicles' ].Values[:,:,:,:,:,mS],RECC_System.ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[:,:,:,-1,:,mS],RECC_System.ParameterDict['3_IO_LandVehicles_UsePhase_comb'].Values[:,:,:,:,mS],Stock_Detail_UsePhase_D, optimize = True)
+                SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all += np.einsum('trDn->tnr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv)
+            else:
+                SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv  = np.zeros((Nt,Nr,ND,Nn))
+                SysVar_EnergyDemand_UsePhase_ByService_olv        = np.zeros((Nt,Nr,NV))
             if 'pav' in SectorList:
                 SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav  = np.einsum('cprVn,cpVr,Vrt,tcpr->trpn',RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles' ].Values[:,:,:,:,:,mS],RECC_System.ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[:,:,:,-1,:,mS],RECC_System.ParameterDict['3_IO_Vehicles_UsePhase_eff' ].Values[:,:,:,mS],Stock_Detail_UsePhase_p, optimize = True)
                 SysVar_EnergyDemand_UsePhase_ByService_pav        = np.einsum('cprVn,cpVr,Vrt,tcpr->trV', RECC_System.ParameterDict['3_SHA_EnergyCarrierSplit_Vehicles' ].Values[:,:,:,:,:,mS],RECC_System.ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[:,:,:,-1,:,mS],RECC_System.ParameterDict['3_IO_Vehicles_UsePhase_eff' ].Values[:,:,:,mS],Stock_Detail_UsePhase_p, optimize = True)
@@ -3266,6 +3627,8 @@ def main(): # to run model standalone and not as function, comment out first (de
             # Since we have no separate hydrogen production and no impacts from H2 production, loop back the energy demand of H2 production and add it to the parameter:
             SysVar_EnergyDemand_PrimaryProd   += np.einsum('tmPY,Ynt->tmPn',SysVar_EnergyDemand_PrimaryProd,RECC_System.ParameterDict['4_EI_HydrogenEnergyDemand'].Values)
             SysVar_EnergyDemand_Manufacturing  = np.zeros((Nt,Nn))
+            if 'trlp' in SectorList or 'trlf' in SectorList:
+                SysVar_EnergyDemand_Manufacturing += np.einsum('Dn,tDr->tn',RECC_System.ParameterDict['4_EI_ManufacturingEnergyIntensity'].Values[Sector_trlp_rge,:,110,-1],Inflow_Detail_UsePhase_D)       # conversion factor: 1, as MJ/item     = TJ/Million items.
             if 'pav' in SectorList:
                 SysVar_EnergyDemand_Manufacturing += np.einsum('pn,tpr->tn',RECC_System.ParameterDict['4_EI_ManufacturingEnergyIntensity'].Values[Sector_pav_rge,:,110,-1],Inflow_Detail_UsePhase_p)        # conversion factor: 1, as MJ/item     = TJ/Million items.
             if 'reb' in SectorList:
@@ -3288,15 +3651,16 @@ def main(): # to run model standalone and not as function, comment out first (de
             SysVar_EnergyDemand_Remelting_m    = 1000 * np.einsum('mn,trm->tnm',RECC_System.ParameterDict['4_EI_RemeltingEnergyIntensity'].Values[:,:,110,-1],RECC_System.FlowDict['F_9_12'].Values[:,:,:,0])
             
             # Calculate total energy demand by individual energy carrier
-            SysVar_TotalEnergyDemand_16_all = np.einsum('trpn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav) + np.einsum('trBn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) \
-            + np.einsum('trNn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb) + np.einsum('toNn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg) \
+            SysVar_TotalEnergyDemand_16_all = np.einsum('trDn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv) + np.einsum('trpn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav) \
+            + np.einsum('trBn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) + np.einsum('trNn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb) \
+            + np.einsum('toNn->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg) \
             + np.einsum('tmPn->tn',SysVar_EnergyDemand_PrimaryProd) + SysVar_EnergyDemand_Manufacturing + SysVar_EnergyDemand_WasteMgt + SysVar_EnergyDemand_Remelting
             SysVar_EnergySupply_15_16 = SysVar_TotalEnergyDemand_16_all.copy() # Supply from process 15, will be corrected for WtE below
             
             # E) Calculate biomass-related carbon flows and stocks in waste management and forestry.
             # Wood material lost in waste mgt
             Wood_dry_perCarbon                                     = 1 / (RECC_System.ParameterDict['3_MC_CO2FromWoodCombustion'].Values[0,Wood_loc] * 12/44)
-            SysVar_Energy_FuelWood_2_7_tr                          = np.einsum('trp->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,WoodFuel_loc]) + np.einsum('trB->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,WoodFuel_loc]) + np.einsum('trN->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,WoodFuel_loc])
+            SysVar_Energy_FuelWood_2_7_tr                          = np.einsum('trD->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv[:,:,:,WoodFuel_loc]) + np.einsum('trp->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,WoodFuel_loc]) + np.einsum('trB->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb[:,:,:,WoodFuel_loc]) + np.einsum('trN->tr',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb[:,:,:,WoodFuel_loc])
             SysVar_Carbon_FuelWood_2_7_tr                          = SysVar_Energy_FuelWood_2_7_tr / RECC_System.ParameterDict['3_EI_HeatingValueWoodPerCarbon'].Values[Carbon_loc,WoodFuel_loc] / 1000 # carbon only! Mt/yr of C.
             # Fuel wood demand from use phase that is met with available waste wood, and remaining wood waste. carbon only! Mt/yr of C.
             # CO2 ems. from this substitution flow are already accounted for in use phase direct emissions.
@@ -3519,6 +3883,7 @@ def main(): # to run model standalone and not as function, comment out first (de
 
             # H) Calculate direct combustion-related GHG emissions in the use phase (resulting from the combustion of energy carriers in processes)
             # Unit: Mt/yr. 1 kg/MJ = 1kt/TJ
+            SysExt_DirectImpacts_UsePhase_OtherVehicles = 0.001 * np.einsum('Xn,xX,trDn->xtrD',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv)
             SysExt_DirectImpacts_UsePhase_Vehicles      = 0.001 * np.einsum('Xn,xX,trpn->xtrp',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
             SysExt_DirectImpacts_UsePhase_Buildings     = 0.001 * np.einsum('Xn,xX,trBn->xtrB',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
             SysExt_DirectImpacts_UsePhase_NRBuildgs     = 0.001 * np.einsum('Xn,xX,trNn->xtrN',RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb)
@@ -3559,7 +3924,9 @@ def main(): # to run model standalone and not as function, comment out first (de
             SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_Ot   = SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings - SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_EL
             
             SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles          = 0.001 * np.einsum('nxrt,trpn->xt',RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
+            SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles         += 0.001 * np.einsum('nxrt,trDn->xt',RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv)
             SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_EL       = 0.001 * np.einsum('xrt,trp->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav[:,:,:,Electric_loc])   # electricity only
+            SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_EL      += 0.001 * np.einsum('xrt,trD->xt',  RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[Electric_loc,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv[:,:,:,Electric_loc])   # electricity only
             SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_Ot       = SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles - SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_EL
             
             if Nr > 1:
@@ -3581,10 +3948,11 @@ def main(): # to run model standalone and not as function, comment out first (de
             
             # Calculate emissions by energy carrier:
             SysExt_DirectImpacts_UsePhase_Vehicles_n                       = 0.001 * np.einsum('Xn,xX,trpn->xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
+            SysExt_DirectImpacts_UsePhase_Vehicles_n                      += 0.001 * np.einsum('Xn,xX,trDn->xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv)
             SysExt_DirectImpacts_UsePhase_ResBuildings_n                   = 0.001 * np.einsum('Xn,xX,trBn->xtrn',  RECC_System.ParameterDict['6_PR_DirectEmissions'].Values,RECC_System.ParameterDict['6_MIP_CharacterisationFactors'].Values,SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb)
             SysExt_IndirectImpacts_EnergySupply_UsePhase_ResBuildings_n    = 0.001 * np.einsum('nxrt,trBn->xtrn',   RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb) 
             SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_n        = 0.001 * np.einsum('nxrt,trpn->xtrn',   RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav)
-            
+            SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_n       += 0.001 * np.einsum('nxrt,trDn->xtrn',   RECC_System.ParameterDict['4_PE_ProcessExtensions_EnergyCarriers_MJ_r'].Values[:,:,:,:,mR],SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv)
             # K) Calculate emissions benefits  
             if ScriptConfig['ScrapExportRecyclingCredit'] == 'True':
                 SysExt_EnergyDemand_RecyclingCredit                 = -1 * 1000  * np.einsum('Pnt,tmP,tm->tmn',RECC_System.ParameterDict['4_EI_ProcessEnergyIntensity'].Values[:,:,:,0],RECC_System.ParameterDict['4_SHA_MaterialsTechnologyShare'].Values[0,:,:,mR,:],RECC_System.FlowDict['F_12_0'].Values[:,-1,:,0]) # in TJ/yr
@@ -3638,7 +4006,7 @@ def main(): # to run model standalone and not as function, comment out first (de
             # Number indicates the process number of the ODYM-RECC system definition
             # 'd' behind the number indicates direct, 'i' indirect emissions of that process.
             # Unit: 1 billion (1e9) impact units: Mt CO2-eq, Mt of material, km³ of water, 1000 km² of land. 
-            SysExt_Impacts_UsePhase_7d             = np.einsum('xtrB->xt',SysExt_DirectImpacts_UsePhase_Buildings) + np.einsum('xtrN->xt',SysExt_DirectImpacts_UsePhase_NRBuildgs) + np.einsum('xtoN->xt',SysExt_DirectImpacts_UsePhase_NRBuildgs_g) + np.einsum('xtrp->xt',SysExt_DirectImpacts_UsePhase_Vehicles)
+            SysExt_Impacts_UsePhase_7d             = np.einsum('xtrB->xt',SysExt_DirectImpacts_UsePhase_Buildings) + np.einsum('xtrN->xt',SysExt_DirectImpacts_UsePhase_NRBuildgs) + np.einsum('xtoN->xt',SysExt_DirectImpacts_UsePhase_NRBuildgs_g) + np.einsum('xtrp->xt',SysExt_DirectImpacts_UsePhase_Vehicles) + np.einsum('xtrD->xt',SysExt_DirectImpacts_UsePhase_OtherVehicles)
             SysExt_Impacts_UsePhase_7i_Scope2_El   = SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_EL + SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_EL
             SysExt_Impacts_UsePhase_7i_OtherIndir  = SysExt_IndirectImpacts_EnergySupply_UsePhase_AllBuildings_Ot + SysExt_IndirectImpacts_EnergySupply_UsePhase_Vehicles_Ot
             SysExt_Impacts_PrimaryMaterial_3di     = np.einsum('xtm->xt',SysExt_DirectImpacts_PrimaryProd) + SysExt_ProcessImpacts_PrimaryProd + SysExt_IndirectImpacts_EnergySupply_PrimaryProd
@@ -3673,7 +4041,7 @@ def main(): # to run model standalone and not as function, comment out first (de
             Impacts_EnergyRecoveryWasteWood[:,:,mS,mR]        = SysVar_WtE_CO2_xt.copy()
             Impacts_OtherThanUsePhaseDirect[:,:,mS,mR]        = SysExt_Impacts_OtherThanUsePhaseDirect[:,:].copy() # all non use-phase processes
             Impacts_Materials_3di_9di[:,:,mS,mR]              = SysExt_Impacts_Materials_3di_9di[:,:].copy()
-            Impacts_Vehicles_Direct[:,:,:,mS,mR]              = np.einsum('xtrp->xtr',SysExt_DirectImpacts_UsePhase_Vehicles)[:,:,:].copy()
+            Impacts_Vehicles_Direct[:,:,:,mS,mR]              = np.einsum('xtrp->xtr',SysExt_DirectImpacts_UsePhase_Vehicles)[:,:,:].copy() + np.einsum('xtrD->xtr',SysExt_DirectImpacts_UsePhase_OtherVehicles)[:,:,:].copy()
             Impacts_ReBuildgs_Direct[:,:,:,mS,mR]             = np.einsum('xtrB->xtr',SysExt_DirectImpacts_UsePhase_Buildings)[:,:,:].copy()
             Impacts_NRBuildgs_Direct[:,:,:,mS,mR]             = np.einsum('xtrN->xtr',SysExt_DirectImpacts_UsePhase_NRBuildgs)[:,:,:].copy()
             Impacts_NRBuildgs_Direct_g[:,:,mS,mR]             = np.einsum('xtoN->xt' ,SysExt_DirectImpacts_UsePhase_NRBuildgs_g)[:,:].copy()
@@ -3737,13 +4105,15 @@ def main(): # to run model standalone and not as function, comment out first (de
             WoodCascadingStock[:,:,mS,mR]               = np.einsum('tcrw->tr',RECC_System.StockDict['S_9'].Values[:,:,:,:,Carbon_loc])
             Cement_Inflow[:,:,mS,mR]                    = np.einsum('trg->tr', RECC_System.FlowDict['F_6_7'].Values[:,:,:,Cement_loc,0]).copy()
             # Energy flows
-            EnergyCons_UP_Vh[:,mS,mR]                   = np.einsum('trpn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav).copy()
+            EnergyCons_UP_Vh[:,mS,mR]                   = np.einsum('trpn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav).copy() + np.einsum('trDn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv).copy()
             EnergyCons_UP_Bd[:,mS,mR]                   = np.einsum('trBn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_reb).copy() + np.einsum('trNn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrb).copy() + np.einsum('toNn->t',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_nrbg).copy()
             EnergyCons_Mn[:,mS,mR]                      = SysVar_EnergyDemand_Manufacturing.sum(axis =1).copy()
             EnergyCons_Wm[:,mS,mR]                      = SysVar_EnergyDemand_WasteMgt.sum(axis =1).copy() +  SysVar_EnergyDemand_Remelting.sum(axis =1).copy()
             EnergyCons_PP[:,mS,mR]                      = np.einsum('tmPn->t',SysVar_EnergyDemand_PrimaryProd)
             EnergyCons_PP_m[:,:,mS,mR]                  = np.einsum('tmPn->tm',SysVar_EnergyDemand_PrimaryProd)
+            EnergyCons_UP_olv_prod[:, :, :, mS, mR]     = np.einsum('trDn->trD',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv).copy()  # 2026-08-05, hmli: energy consumption of different transport product
             EnergyCons_UP_serv_pav[:,:,Service_Drivg,mS,mR] = SysVar_EnergyDemand_UsePhase_ByService_pav[:,:,Service_Drivg].copy()
+            EnergyCons_UP_serv_olv[:,:,Service_Drivg,mS,mR] = SysVar_EnergyDemand_UsePhase_ByService_olv[:,:,Service_Drivg].copy()
             EnergyCons_UP_serv_reb[:,:,Heating_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,Heating_loc].copy()
             EnergyCons_UP_serv_reb[:,:,Cooling_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,Cooling_loc].copy()
             EnergyCons_UP_serv_reb[:,:,DomstHW_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_reb[:,:,DomstHW_loc].copy()
@@ -3751,6 +4121,9 @@ def main(): # to run model standalone and not as function, comment out first (de
             EnergyCons_UP_serv_nrb[:,:,Cooling_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_nrb[:,:,Cooling_loc].copy()
             EnergyCons_UP_serv_nrb[:,:,DomstHW_loc,mS,mR]   = SysVar_EnergyDemand_UsePhase_ByService_nrb[:,:,DomstHW_loc].copy()
             EnergyCons_UP_total[:,:,mS,mR]              = np.einsum('tnr->tn',SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_all)
+            if 'trlp' in SectorList or 'trlf' in SectorList:  #2026-10-28，hmli，circomod: only if other vehicles sector modelled
+                EnergyCons_UP_olv[:,:,mS,mR]                 = np.einsum('trDn->tn', SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_olv).copy() #2026-10-28,hmli: energy demand in use-phase in olv by fuel type
+                EnergyCons_UP_olv[:,-1,mS,mR] = EnergyCons_UP_olv[:,:-1,mS,mR].sum(axis=1)
             if 'pav' in SectorList:  #2026-01-22，hmli，circomod: only if passenger vehicles sector modelled
                 EnergyCons_UP_pav[:,:,mS,mR]                 = np.einsum('trpn->tn', SysVar_EnergyDemand_UsePhase_ByEnergyCarrier_pav).copy() #2026-01-22,hmli,circomod: energy demand in use-phase in pav by fuel type
             if 'reb' in SectorList:  #2026-01-22，hmli，circomod: only if residential buildings sector modelled
@@ -3790,17 +4163,13 @@ def main(): # to run model standalone and not as function, comment out first (de
                     # Manufacturing: 'Impacts_Manufact_5di_all' includes scope 1-3 emissions related to manufacturing, with scope 2 emissions based on electricity mix in region 'r' (in case RECC is run for a single region)
                     # Waste Management: includes so far only end-of-life scrap/material recovery for aluminium and steel
 
-            
-
             # Service flows
             if 'pav' in SectorList:
                 Passenger_km[:,mS,mR]                       = np.einsum('rt,tr->t',RECC_System.ParameterDict['1_F_Function_Future'].Values[Sector_pav_loc,:,:,mS],RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]).copy()
                 # Reporting additional results for CIRCOMOD scenario comparisons etc (2025-01-20, ch): building service per region
                 Passenger_km_pr[:,:,mS,mR]                  = np.einsum('rt,tr->tr',RECC_System.ParameterDict['1_F_Function_Future'].Values[Sector_pav_loc,:,:,mS],RECC_System.ParameterDict['2_P_Population_Reference'].Values[0,:,:,mS]).copy()
-
-            # Hop over to save memory:
-            # Vehicle_km[:,mS,mR]                         = np.einsum('tcpr->t',SysVar_StockServiceProvision_UsePhase_pav[:,:,:,:,Service_Driving])
-            if 'pav' in SectorList:
+                # Hop over to save memory:
+                # Vehicle_km[:,mS,mR]                         = np.einsum('tcpr->t',SysVar_StockServiceProvision_UsePhase_pav[:,:,:,:,Service_Driving])
                 Vehicle_km[:,mS,mR]                         = np.einsum('rt,tcpr->t', RECC_System.ParameterDict['3_IO_Vehicles_UsePhase_eff' ].Values[Service_Drivg,:,:,mS],   Stock_Detail_UsePhase_p)
             if 'reb' in SectorList:         
                 Service_IO_ResBuildings[:,:,mS,mR]          = SysVar_StockServiceProvision_UsePhase_reb_agg.copy()
@@ -3815,6 +4184,9 @@ def main(): # to run model standalone and not as function, comment out first (de
             # Parameters    
             if 'pav' in SectorList:
                 Vehicle_FuelEff[:,:,:,mS,mR]            = np.einsum('tpnr->tpr',RECC_System.ParameterDict['3_EI_Products_UsePhase_passvehicles'].Values[SwitchTime-1::,:,Service_Drivg,:,:,mS])
+            if 'trlp' in SectorList or 'trlf' in SectorList:
+                Vehicle_olv_FuelEff[:,:,:,mS,mR]        = np.einsum('tDnr->tDr', RECC_System.ParameterDict['3_EI_Products_UsePhase_OtherLandVehicles'].Values[SwitchTime - 1::, :, Service_Drivg, :, :, mS])
+
             if 'reb' in SectorList:
                 ResBuildng_EnergyCons[:,:,:,mS,mR]      = np.einsum('VtBnr->tBr',RECC_System.ParameterDict['3_EI_Products_UsePhase_resbuildings'].Values[SwitchTime-1::,:,Service_Reb,:,:,mS,mR])
             GWP_bio_Credit[:,mS,mR]                     = SysVar_GHGEms_GWP_bio[0,:].copy()
@@ -3877,6 +4249,8 @@ def main(): # to run model standalone and not as function, comment out first (de
                     np.einsum('trKm->Ktrm',tis_RECC_System_Flow_F_7_8_trKme[:,:,:,:,0]).copy()                
             else:
                 Outflow_Materials_Usephase_pr_pg[:,:,:,:,mS,mR]     = np.einsum('tcrgm->trgm',RECC_System.FlowDict['F_7_8'].Values[:,:,:,:,:,0]).copy() #ch, 2025-01-20: outflow of material per product and region for CIRCOMOD result export
+            #if 'trlp' in SectorList or 'trlf' in SectorList:  #2026-10-28，hmli: olv reporting；not necessary
+                #StockCurves_Mat_olv_pr[:,:,:,mS,mR]     = np.einsum('gtcrm->trm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_trlp_rge,:,0]) #2026-10-28, hmli:
             if 'pav' in SectorList:
                 StockCurves_Mat_pav_pr[:,:,:,mS,mR]     = np.einsum('gtcrm->trm',RECC_System.StockDict['S_7'].Values[:,:,:,Sector_pav_rge,:,0])
             if 'reb' in SectorList:
@@ -3997,14 +4371,15 @@ def main(): # to run model standalone and not as function, comment out first (de
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_UsePhase_7d[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, use phase _7d','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_OtherThanUsePhaseDirect[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, other than use phase direct: all industries and energy supply','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'F_9_12','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     # GHG emissions, detail
-    if 'pav' in SectorList:
+    if 'pav' in SectorList or 'trlp' in SectorList or 'trlf' in SectorList: #2026-01-22，hmli，circomod: only if any of the sectors modelled
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('trSR->tSR',Impacts_Vehicles_Direct[GWP100_loc,:,:,:,:]),newrowoffset,len(ColLabels),'GHG emissions, vehicles, use phase _7d','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_7_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_Vehicles_indir[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, vehicles, energy supply _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'reb' in SectorList: #2026-01-22，hmli，circomod: only if residential buildings sector modelled
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('trSR->tSR',Impacts_ReBuildgs_Direct[GWP100_loc,:,:,:,:]),newrowoffset,len(ColLabels),'GHG emissions, res. buildings, use phase _7d','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_7_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'nrb' in SectorList: #2026-01-22，hmli，circomod: only if non-residential buildings sector modelled
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,np.einsum('trSR->tSR',Impacts_NRBuildgs_Direct[GWP100_loc,:,:,:,:]),newrowoffset,len(ColLabels),'GHG emissions, non-res. buildings, use phase _7d','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_7_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    if 'pav' in SectorList:
-        newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_Vehicles_indir[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, vehicles, energy supply _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    #if 'pav' in SectorList: #2026-10-28,hmli:move to the top, next to Impacts_Vehicles_Direct.
+        #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_Vehicles_indir[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, vehicles, energy supply _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'reb' in SectorList or 'nrb' in SectorList: #2026-01-22，hmli，circomod: only if buildings sector modelled
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_AllBuildings_indir[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, res+non-res buildings, energy supply _7i','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_15_0 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,Impacts_Manufact_5di_all[GWP100_loc,:,:,:],newrowoffset,len(ColLabels),'GHG emissions, manufacturing _5i, all','Mt of CO2-eq / yr',ScriptConfig['RegionalScope'],'E_5_0','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -4020,13 +4395,15 @@ def main(): # to run model standalone and not as function, comment out first (de
 
     for nn in range(0,Nn):
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_total[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, use phase: ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'TJ / yr',ScriptConfig['RegionalScope'],'F_15_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+        if 'trlp' in SectorList or 'trlf' in SectorList: #2026-10-28，hmli: only if other vehicle sector modelled
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_olv[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, use phase, other land-based vehicles: ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'TJ / yr', ScriptConfig['RegionalScope'], 'F_15_7', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-10-28, hmli: add energy consumption in use phase by energy type for other land-based vehicles.
         if 'pav' in SectorList: #2026-01-22，hmli，circomod: only if vehicle sector modelled
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_pav[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, use phase, vehicles: ' +IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'TJ / yr', ScriptConfig['RegionalScope'], 'F_15_7', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-22, hmli, circomod: add energy consumption in use phase by energy type for vehicles.
         if 'reb' in SectorList: #2026-01-22，hmli，circomod: only if residential buildings sector modelled
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_reb[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, use phase, res. buildings: ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'TJ / yr',ScriptConfig['RegionalScope'],'F_15_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
         if 'nrb' in SectorList: #2026-01-22，hmli，circomod: only if non-residential buildings sector modelled
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_nrb[:,nn,:,:],newrowoffset,len(ColLabels),'energy consumption, use phase, nonres. buildings: ' + IndexTable.Classification[IndexTable.index.get_loc('Energy')].Items[nn],'TJ / yr',ScriptConfig['RegionalScope'],'F_15_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    if 'pav' in SectorList: #2026-01-22，hmli，circomod: only if vehicle sector modelled
+    if 'pav' in SectorList or 'trlp' in SectorList or 'trlf' in SectorList: #2026-01-22，hmli，circomod: only if vehicle sector modelled
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Vh,newrowoffset,len(ColLabels),'Energy cons., use phase, vehicles','TJ/yr',ScriptConfig['RegionalScope'],'E_16_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'reb' in SectorList or 'nrb' in SectorList: #2026-01-22，hmli，circomod: only if buildings sector modelled
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_Bd,newrowoffset,len(ColLabels),'Energy cons., use phase, res+non-res buildings','TJ/yr',ScriptConfig['RegionalScope'],'E_16_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -4055,8 +4432,8 @@ def main(): # to run model standalone and not as function, comment out first (de
     # stocks
     if 'pav' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Totl[:,Sector_pav_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, pass. vehicles','million units',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-        for mr in range(0,Nr):
-            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Stock_2020_pav[:,mr,:,:],newrowoffset,len(ColLabels),'Stock curve of all pre 2021 age-cohorts, pass. vehs.','Vehicles: million, Buildings: million m²',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)    
+        #for mr in range(0,Nr): #2026-10-28, hmli: dont report in olv paper
+            #newrowoffset = msf.xlsxExportAdd_tAB(ws2,Stock_2020_pav[:,mr,:,:],newrowoffset,len(ColLabels),'Stock curve of all pre 2021 age-cohorts, pass. vehs.','Vehicles: million, Buildings: million m²',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'reb' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Totl[:,Sector_reb_loc,:,:],newrowoffset,len(ColLabels),'In-use stock, res. buildings','million m2',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
         for mr in range(0,Nr):
@@ -4131,6 +4508,11 @@ def main(): # to run model standalone and not as function, comment out first (de
     if 'pav' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Passenger_km,newrowoffset,len(ColLabels),'passenger-km supplied by pass. vehicles','million km/yr',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Vehicle_km,newrowoffset,len(ColLabels),'vehicle-km driven by pass. vehicles','million km/yr',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'trlp' in SectorList or 'trlf' in SectorList: #2026-10-28, hmli: report pkm/tkm, vkm of other land-based vehicles
+        for mv in range(0,Nv):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Passenger_olv_km[:,mv,:,:],newrowoffset,len(ColLabels),'passenger-km supplied by ' + IndexTable.Classification[IndexTable.index.get_loc('TransportServices')].Items[mv],'PassTrans.: million pkm/yr, FreightTrans.: million tkm/yr',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Vehicle_olv_km[:,mv,:,:],newrowoffset,len(ColLabels),'vehicle-km driven by ' + IndexTable.Classification[IndexTable.index.get_loc('TransportServices')].Items[mv],'million vkm/yr',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
     """ # covered below by region specific reporting for Service_IO_ResBuildings_pr
     if 'reb' in SectorList:
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Service_IO_ResBuildings[:,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total heated floor space, res. buildings','million m2',ScriptConfig['RegionalScope'],'P7 (use phase)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -4152,6 +4534,7 @@ def main(): # to run model standalone and not as function, comment out first (de
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,3,:,:], newrowoffset,len(ColLabels),'Primary cast iron production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,4,:,:], newrowoffset,len(ColLabels),'Primary wrought Al production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,5,:,:], newrowoffset,len(ColLabels),'Primary cast Al production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,6,:,:], newrowoffset,len(ColLabels),'Primary copper production','Mt / yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-06-25，hmli：report copper
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,7,:,:], newrowoffset,len(ColLabels),'Primary plastics production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,9,:,:], newrowoffset,len(ColLabels),'Construction wood, structural, from industrial roundwood','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     newrowoffset = msf.xlsxExportAdd_tAB(ws2,PrimaryProduction[:,10,:,:],newrowoffset,len(ColLabels),'Primary zinc production','Mt/yr',ScriptConfig['RegionalScope'],'F_3_4 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -4223,6 +4606,7 @@ def main(): # to run model standalone and not as function, comment out first (de
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials[:,mm,:,:],newrowoffset,len(ColLabels),'ReUse of materials in products, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_EoL_Pot[:,mm,:,:],newrowoffset,len(ColLabels),'ReUse potential of materials from EoL products, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2025-07 added for CIRCOMOD reporting
         # add reuse potential per sector
+        newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_EoL_Pot_g[:,mm,Sector_trlp_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse potential of materials from EoL products, olv, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-10-28, hmli: reuse potential by sector
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_EoL_Pot_g[:,mm,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse potential of materials from EoL products, pav, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-16 reuse potential by sector
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_EoL_Pot_g[:,mm,Sector_reb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse potential of materials from EoL products, reb, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-16 reuse potential by sector
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_EoL_Pot_g[:,mm,Sector_nrb_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'ReUse potential of materials from EoL products, nrb, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-03-16 reuse potential by sector
@@ -4259,6 +4643,10 @@ def main(): # to run model standalone and not as function, comment out first (de
         for mr in range(0,Nr):
             for mp in range(0,len(Sector_pav_rge)):
                 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Vehicle_FuelEff[:,mp,mr,:,:],newrowoffset,len(ColLabels),'specific energy consumption, driving, ' + IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_pav_rge[mp]],'MJ/km',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'trlp' in SectorList or 'trlf' in SectorList: #2026-10-28, hmli: report olv
+        for mr in range(0, Nr):
+            for mD in range(0, len(Sector_trlp_rge)):
+                newrowoffset = msf.xlsxExportAdd_tAB(ws2,Vehicle_olv_FuelEff[:,mD,mr,:,:], newrowoffset, len(ColLabels),'specific energy consumption, driving, ' +IndexTable.Classification[IndexTable.index.get_loc('Good')].Items[Sector_trlp_rge[mD]], 'MJ/km', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr], 'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
     if 'reb' in SectorList:
         for mr in range(0,Nr):
             for mB in range(0,len(Sector_reb_rge)):
@@ -4266,9 +4654,18 @@ def main(): # to run model standalone and not as function, comment out first (de
     # specific energy consumption of vehicles and buildings
     for mr in range(0,Nr):
         # driving
+        if 'trlp' in SectorList or 'trlf' in SectorList:  # 2026-08-05,hmli: report energy consumption by transport mode
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2, EnergyCons_UP_olv_prod[:, mr, [0, 1], :, :].sum(axis=1),newrowoffset, len(ColLabels), 'Total use phase energy consumption, bicycles, driving','TJ/yr', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'E_16_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2, EnergyCons_UP_olv_prod[:, mr, [2, 3], :, :].sum(axis=1),newrowoffset, len(ColLabels), 'Total use phase energy consumption, motorcycles, driving','TJ/yr', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'E_16_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2, EnergyCons_UP_olv_prod[:, mr, [4, 5, 6,7], :, :].sum(axis=1),newrowoffset, len(ColLabels), 'Total use phase energy consumption, busses, driving','TJ/yr', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'E_16_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2, EnergyCons_UP_olv_prod[:, mr, [8], :, :].sum(axis=1),newrowoffset, len(ColLabels),'Total use phase energy consumption, light passenger trains or trams, driving', 'TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'E_16_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2, EnergyCons_UP_olv_prod[:, mr, [9], :, :].sum(axis=1),newrowoffset, len(ColLabels),'Total use phase energy consumption, high speed trains, driving', 'TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'E_16_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2, EnergyCons_UP_olv_prod[:, mr, [10,11,12,13,14,15,16,17,18], :,:].sum(axis=1), newrowoffset, len(ColLabels),'Total use phase energy consumption, conventional passenger trains, driving', 'TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'E_16_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2, EnergyCons_UP_olv_prod[:, mr, [22,23,24], :, :].sum(axis=1),newrowoffset, len(ColLabels), 'Total use phase energy consumption, light trucks, driving','TJ/yr', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'E_16_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2, EnergyCons_UP_olv_prod[:, mr, [25,26,27,28], :, :].sum(axis=1),newrowoffset, len(ColLabels), 'Total use phase energy consumption, heavy trucks, driving','TJ/yr', IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'E_16_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2, EnergyCons_UP_olv_prod[:, mr, [19,20,21], :, :].sum(axis=1),newrowoffset, len(ColLabels),'Total use phase energy consumption, freight trains, driving', 'TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'E_16_7 (part)', 'Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
         if 'pav' in SectorList:
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_pav[:,mr,Service_Drivg,:,:],newrowoffset,len(ColLabels),'Total use phase energy consumption, pass. vehs., driving','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-
         if 'reb' in SectorList or 'nrb' in SectorList:  # 2026-01-22，hmli，circomod: only if buildings sector modelled
             # heating
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,EnergyCons_UP_serv_reb[:,mr,Heating_loc,:,:],newrowoffset,len(ColLabels),'Total use phase energy consumption, res. bld. heating','TJ/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'use phase','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
@@ -4399,6 +4796,17 @@ def main(): # to run model standalone and not as function, comment out first (de
         Sector_ind_rge_Coal_agg = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Coal|w/ CCS', 'Coal|Other (Not Elsewhere Specified)']]
         Sector_ind_rge_Gas_agg = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Gas|Combined Cycle|w/ CCS', 'Gas|Combined Cycle|Other (Not Elsewhere Specified)']]
         Sector_ind_rge_Other_agg = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['Geothermal|Other (Not Elsewhere Specified)', 'Oil|Other (Not Elsewhere Specified)']]
+    if 'trlp' in SectorList or 'trlf' in SectorList: #2026-10-28, hmli: try to select all traffic models to report material inflows and outflows by traffic mode, but this proved meaningless because it was impossible to obtain carbon emissions for manufacturing, wastemgt etc., by traffic mode. Therefore, it was necessary to run the model according to the traffic mode, so that material inflows/outflows, and GHG only represent the selected model.
+        Sector_trlf_rge_LDT = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['light cargo trucks, diesel', 'light cargo trucks, battery electric', 'light cargo trucks, hydrogen']] #freight vehicles: light trucks
+        Sector_trlf_rge_HDT = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['freight trucks, diesel', 'freight trucks, pantograph', 'freight trucks, battery electric', 'freight trucks, hydrogen']] #freight vehicles: freight trucks
+        Sector_trlf_rge_FTR = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['diesel locomotives, freight', 'electric locomotives, freight', 'railway freight wagons']] #freight vehicles: freight trains
+        Sector_trlp_rge_BIC = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['bicycles, pedal', 'bicycles, electric']] #land-based passenger transport: bicycle
+        Sector_trlp_rge_MTC = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['motorcycles, gasoline', 'motorcycles, electric']] #land-based passenger transport: motorcycle
+        Sector_trlp_rge_BUS = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['busses, diesel', 'busses, pantograph', 'busses, battery electric','busses, hydrogen']]#land-based passenger transport: city bus
+        Sector_trlp_rge_TRM = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['light passenger trains or trams, electric']] #land-based passenger transport: tram
+        Sector_trlp_rge_HSR = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['high speed passenger trains, electric']] #land-based passenger transport: high-speed train
+        Sector_trlp_rge_PTR = [IndexTable.Classification[IndexTable.set_index('IndexLetter').index.get_loc('g')].Items.index(i) for i in ['diesel locomotives, passenger', 'electric locomotives, passenger', 'passenger railroad cars','diesel railcars','electric railcars','battery electric railcars','passenger trains (multiple units), diesel','passenger trains (multiple units), electric','passenger trains (multiple units), battery electric']] #land-based passenger transport: long-distance train
+
     # agg CIRCOMOD materials
     CM_mat_aggregates_locs  = [IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items.index(i) for i in ['concrete aggregates', 'aggregates (other than in concrete)']]
     CM_mat_aluminium_locs  = [IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items.index(i) for i in ['wrought Al', 'cast Al']]
@@ -4416,6 +4824,41 @@ def main(): # to run model standalone and not as function, comment out first (de
                 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,mr,Sector_pav_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Final consumption of materials, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
                 newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,mr,Sector_pav_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Outflow of materials from use phase, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
                 newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_pav_pr[:,mr,mm,:,:],newrowoffset,len(ColLabels),'In-use stock, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+    if 'trlp' in SectorList or 'trlf' in SectorList: #2026-10-28, hmli: add report of other land vehicles
+        for mm in range(0,Nm):
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_trlp_rge,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Final consumption of materials, other land vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_trlf_rge_LDT,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Final consumption of materials, light trucks, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_trlf_rge_HDT,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Final consumption of materials, freight trucks, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_trlf_rge_FTR,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Final consumption of materials, freight trains, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_trlp_rge_BIC,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Final consumption of materials, bicycles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_trlp_rge_MTC,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Final consumption of materials, motorcycles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_trlp_rge_BUS,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Final consumption of materials, busses, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_trlp_rge_TRM,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Final consumption of materials, light passenger trains or trams, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_trlp_rge_HSR,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Final consumption of materials, high speed trains, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Material_Inflow_pr_pg[:,:,Sector_trlp_rge_PTR,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Final consumption of materials, conventional passenger trains, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_trlp_rge,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Outflow of materials from use phase, other land vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_trlf_rge_LDT,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Outflow of materials from use phase, light trucks, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_trlf_rge_HDT,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Outflow of materials from use phase, freight trucks, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_trlf_rge_FTR,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Outflow of materials from use phase, freight trains, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_trlp_rge_BIC,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Outflow of materials from use phase, bicycles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_trlp_rge_MTC,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Outflow of materials from use phase, motorcycles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_trlp_rge_BUS,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Outflow of materials from use phase, busses, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_trlp_rge_TRM,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Outflow of materials from use phase, light passenger trains or trams, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_trlp_rge_HSR,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Outflow of materials from use phase, high speed trains, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,Outflow_Materials_Usephase_pr_pg[:,:,Sector_trlp_rge_PTR,mm,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Outflow of materials from use phase, conventional passenger trains, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_trlp_rge,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, other land vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_trlf_rge_LDT,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, light trucks, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_trlf_rge_HDT,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, freight trucks, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_trlf_rge_FTR,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, freight trains, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_trlp_rge_BIC,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, bicycles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_trlp_rge_MTC,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, motorcycles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_trlp_rge_BUS,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, busses, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_trlp_rge_TRM,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, light passenger trains or trams, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_trlp_rge_HSR,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, high speed trains, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+            newrowoffset = msf.xlsxExportAdd_tAB(ws2,StockCurves_Mat_rge[:,Sector_trlp_rge_PTR,mm,:,:].sum(axis=1),newrowoffset,len(ColLabels),'In-use stock, conventional passenger trains, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt',ScriptConfig['RegionalScope'],'S_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
+
     if 'reb' in SectorList:
         for mr in range(0,Nr):
             #Energy Service|Residential|Floor Space
@@ -4620,6 +5063,7 @@ def main(): # to run model standalone and not as function, comment out first (de
 
 
     # reporting per detailed goods (pav, reb classes, nrb classes) for: product stock, stock addition, stock retirement
+
     if 'pav' in SectorList:
         for mr in range(0,Nr):
             #Product stock per region and good
@@ -4795,7 +5239,7 @@ def main(): # to run model standalone and not as function, comment out first (de
         for mr in range(0,Nr):
             #demolition rate per r
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,DemolitionRate_nrb_r[:,mr,:,:],newrowoffset,len(ColLabels),'Demolition rate, non-res. buildings, all non-res. building types','m2 use-phase outflow/m2 in-use stock',IndexTable.Classification[IndexTable.index.get_loc('Region_Focus')].Items[mr],'F_7_8 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items)
-    
+
     #2026-01-15, ch: reporting "Share of recycled|reused (Engineered Material) in total (Engineered Material) consumption by (Demand Sector), F_6_7(part)/F_6_7*100" 
     # Report for res and non.res separately for CIRCOMOD Sankey diagrams (2026-03-25, ch)
     if 'reb' in SectorList:
@@ -4868,46 +5312,16 @@ def main(): # to run model standalone and not as function, comment out first (de
         den_pav_steel = Material_Inflow_pr_pg[:,:,Sector_pav_rge,:,:,:][:,:,:,[0,1,2,3],:,:].sum(axis=(1,2,3)) #2026-01-22, hmli, circomod: aggregrate material group
         den_pav_alu   = Material_Inflow_pr_pg[:,:,Sector_pav_rge,:,:,:][:,:,:,[4,5],:,:].sum(axis=(1,2,3)) #2026-01-22, hmli, circomod: aggregrate material group
 
-        quotient_recycle_pav = np.divide(
-            num_recycle_pav,
-            den_pav,
-            out=np.zeros_like(num_recycle_pav),   # pre‑allocate the output with zeros
-            where=den_pav != 0            # perform division only where denominator ≠ 0
-            )
-        quotient_reuse_pav = np.divide(
-            num_reuse_pav,
-            den_pav,
-            out=np.zeros_like(num_reuse_pav),   # pre‑allocate the output with zeros
-            where=den_pav != 0            # perform division only where denominator ≠ 0
-            )
+        quotient_recycle_pav = np.divide(num_recycle_pav, den_pav, out=np.zeros_like(num_recycle_pav), where=den_pav != 0)
+        quotient_reuse_pav = np.divide(num_reuse_pav, den_pav, out=np.zeros_like(num_reuse_pav), where=den_pav != 0)
 
         # 2026-01-22, hmli, circomod: aggregrate material group
-        quotient_recycle_pav_steel = np.divide(
-            num_recycle_pav_steel,
-            den_pav_steel,
-            out=np.zeros_like(num_recycle_pav_steel),  # pre‑allocate the output with zeros
-            where=den_pav_steel != 0  # perform division only where denominator ≠ 0
-            )
-        quotient_reuse_pav_steel = np.divide(
-            num_reuse_pav_steel,
-            den_pav_steel,
-            out=np.zeros_like(num_reuse_pav_steel),  # pre‑allocate the output with zeros
-            where=den_pav_steel != 0  # perform division only where denominator ≠ 0
-            )
+        quotient_recycle_pav_steel = np.divide(num_recycle_pav_steel, den_pav_steel, out=np.zeros_like(num_recycle_pav_steel), where=den_pav_steel != 0)
+        quotient_reuse_pav_steel   = np.divide(num_reuse_pav_steel, den_pav_steel, out=np.zeros_like(num_reuse_pav_steel), where=den_pav_steel != 0)
 
         #2026-01-22, hmli, circomod: aggregrate material group
-        quotient_recycle_pav_alu = np.divide(
-            num_recycle_pav_alu,
-            den_pav_alu,
-            out=np.zeros_like(num_recycle_pav_alu),  # pre‑allocate the output with zeros
-            where=den_pav_alu != 0  # perform division only where denominator ≠ 0
-            )
-        quotient_reuse_pav_alu = np.divide(
-            num_reuse_pav_alu,
-            den_pav_alu,
-            out=np.zeros_like(num_reuse_pav_alu),  # pre‑allocate the output with zeros
-            where=den_pav_alu != 0  # perform division only where denominator ≠ 0
-            )
+        quotient_recycle_pav_alu   = np.divide(num_recycle_pav_alu, den_pav_alu, out=np.zeros_like(num_recycle_pav_alu), where=den_pav_alu != 0)
+        quotient_reuse_pav_alu     = np.divide(num_reuse_pav_alu, den_pav_alu, out=np.zeros_like(num_reuse_pav_alu), where=den_pav_alu != 0)
 
         for mm in range(0,Nm):
             newrowoffset = msf.xlsxExportAdd_tAB(ws2,RecycledMat_final_cons_tmgSR[:,mm,Sector_pav_rge,:,:].sum(axis=1),newrowoffset,len(ColLabels),'Recycled material in final material consumption, pass. vehicles, ' + IndexTable.Classification[IndexTable.index.get_loc('Engineering materials')].Items[mm],'Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-01-15 adapted to changed aspects
@@ -4927,7 +5341,7 @@ def main(): # to run model standalone and not as function, comment out first (de
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,ReUse_Materials_tmg[:,CM_mat_steel_locs,:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'ReUse of materials in final material consumption, pass. vehicles, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_17_6','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-02-19
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,DivertedScrap_final_cons_tmgSR[:,CM_mat_steel_locs,:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Diverted fabrication scrap in final material consumption, pass. vehicles, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,Primary_final_cons_tmgSR[:,CM_mat_steel_locs,:,:,:][:,:,Sector_pav_rge,:,:].sum(axis=(1,2)),newrowoffset,len(ColLabels),'Virgin material in final material consumption, pass. vehicles, iron and steel (4 groups)','Mt/yr',ScriptConfig['RegionalScope'],'F_6_7 (part)','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) #2026-02-19
-    
+
         #2026-01-22, hmli, circomod: aggregrate material group
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_pav_steel * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, pass. vehicles, iron and steel (4 groups)' ,'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
         newrowoffset = msf.xlsxExportAdd_tAB(ws2,quotient_reuse_pav_alu * 100,newrowoffset,len(ColLabels),'Share of reused (Engineered Material) in total (Engineered Material) consumption, pass. vehicles, aluminium (2 groups)' ,'%',ScriptConfig['RegionalScope'],'F_17_6 over F_6_7','Cf. Cover sheet',IndexTable.Classification[IndexTable.index.get_loc('Scenario')].Items,IndexTable.Classification[IndexTable.index.get_loc('Scenario_RCP')].Items) # [same as "ReUse of materials in products,..."] #2026-01-15 adapted to changed aspects
@@ -5518,7 +5932,7 @@ def main(): # to run model standalone and not as function, comment out first (de
             #fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1
-    
+
         
     # Area plot for three ENVIRONMENTAL INDICATORS
     # for m in range(0,NS):
@@ -5590,7 +6004,7 @@ def main(): # to run model standalone and not as function, comment out first (de
             fig.savefig(os.path.join(ProjectSpecs_Path_Result, fig_name), dpi=DPI_RES, bbox_inches='tight')
             Mylog.info('![%s](%s){ width=850px }' % (fig_name, fig_name))
             Figurecounter += 1
-    
+
         
     # Area plot for MATERIAL FOOTPRINT of the entire system.
     Area3   = ['Biomass','Non-metallic minerals','Metal ores','Fossil fuels','All materials']
